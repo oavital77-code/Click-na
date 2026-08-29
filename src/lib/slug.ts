@@ -4,3 +4,22 @@ import { randomBytes } from "node:crypto";
 export function generateFallbackSlug() {
   return `t-${randomBytes(3).toString("hex")}`;
 }
+
+// Spec 5.5: lowercase latin letters, digits, hyphens only, 3-40 chars.
+export const SLUG_REGEX = /^[a-z0-9-]{3,40}$/;
+
+// Spec 5.5.
+export const RESERVED_SLUGS = new Set([
+  "admin",
+  "api",
+  "app",
+  "dashboard",
+  "login",
+  "signup",
+  "settings",
+  "billing",
+  "support",
+  "help",
+  "book",
+  "new",
+]);
