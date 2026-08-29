@@ -106,7 +106,8 @@ model Therapist {
   fullName            String          @map("full_name") @db.VarChar(255)
   phone               String?         @db.VarChar(50)
   slug                String          @unique @db.VarChar(40)
-  professionType      ProfessionType  @map("profession_type")
+  // Nullable: unknown until onboarding wizard step 1 (spec 7.1); required before onboarding_completed=true.
+  professionType      ProfessionType? @map("profession_type")
   clerkUserId         String?         @unique @map("clerk_user_id") @db.VarChar(255)
   stripeCustomerId    String?         @unique @map("stripe_customer_id") @db.VarChar(255)
   timezone            String          @default("Asia/Jerusalem") @db.VarChar(100)
@@ -131,7 +132,8 @@ model Subscription {
   id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   therapistId          String             @unique @map("therapist_id") @db.Uuid
   tier                 SubscriptionTier   @default(free)
-  status               SubscriptionStatus @default(trialing)
+  // A brand-new signup has no card and no trial — Free is just permanently active (spec 7.5).
+  status               SubscriptionStatus @default(active)
   stripeSubscriptionId String?            @unique @map("stripe_subscription_id") @db.VarChar(255)
   billingCycle         BillingCycle       @default(monthly) @map("billing_cycle")
   currentPeriodStart   DateTime?          @map("current_period_start") @db.Timestamptz
