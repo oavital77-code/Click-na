@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { auth } from "@clerk/nextjs/server";
-import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { onboardingSchema } from "@/lib/onboarding-schema";
-import { generateOpenSessions, toTimeValue } from "@/lib/availability";
+import { completeOnboarding } from "@/lib/onboarding";
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
@@ -18,63 +17,12 @@ export async function POST(request: NextRequest) {
 
   const parsed = onboardingSchema.safeParse(await request.json());
   if (!parsed.success) {
-    return NextResponse.json(
-      { error: "invalid", issues: parsed.error.issues },
-      { status: 422 }
-    );
+    return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
   }
-  const data = parsed.data;
 
-  try {
-    await prisma.$transaction(async (tx) => {
-      await tx.therapist.update({
-        where: { id: therapist.id },
-        data: {
-          fullName: data.fullName,
-          phone: data.phone,
-          professionType: data.professionType,
-          slug: data.slug,
-          onboardingCompleted: true,
-        },
-      });
-
-      await tx.therapistSettings.upsert({
-        where: { therapistId: therapist.id },
-        create: {
-          therapistId: therapist.id,
-          defaultDurationMinutes: data.defaultDurationMinutes,
-          locationType: data.locationType,
-          locationAddress: data.locationAddress || null,
-          onlineMeetingUrl: data.onlineMeetingUrl || null,
-        },
-        update: {
-          defaultDurationMinutes: data.defaultDurationMinutes,
-          locationType: data.locationType,
-          locationAddress: data.locationAddress || null,
-          onlineMeetingUrl: data.onlineMeetingUrl || null,
-        },
-      });
-
-      // Onboarding always writes the therapist's full current weekly availability,
-      // so replacing rather than diffing keeps this idempotent and simple.
-      await tx.availabilityRule.deleteMany({ where: { therapistId: therapist.id } });
-      await tx.availabilityRule.createMany({
-        data: data.availability.days.map((dayOfWeek) => ({
-          therapistId: therapist.id,
-          dayOfWeek,
-          startTime: toTimeValue(data.availability.startTime),
-          endTime: toTimeValue(data.availability.endTime),
-          slotDurationMinutes: data.defaultDurationMinutes,
-        })),
-      });
-
-      await generateOpenSessions(tx, therapist.id);
-    });
-  } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return NextResponse.json({ error: "slug_taken" }, { status: 409 });
-    }
-    throw error;
+  const result = await completeOnboarding(therapist.id, parsed.data);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: 409 });
   }
 
   return NextResponse.json({ ok: true });
