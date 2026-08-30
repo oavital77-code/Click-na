@@ -2,8 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { cancelBookingByTherapist } from "@/lib/bookings";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() });
+
+const STATUS_BY_ERROR: Record<string, number> = {
+  not_found: 404,
+  already_canceled: 409,
+};
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/bookings/[id]/cancel">) {
   const { userId } = await auth();
@@ -12,34 +18,16 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/booking
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const { id } = await ctx.params;
-  const booking = await prisma.booking.findUnique({ where: { id } });
-  if (!booking || booking.therapistId !== therapist.id) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
-  if (booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") {
-    return NextResponse.json({ error: "already_canceled" }, { status: 409 });
-  }
-
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid" }, { status: 422 });
   }
 
-  await prisma.$transaction([
-    prisma.booking.update({
-      where: { id },
-      data: {
-        status: "canceled_by_therapist",
-        canceledAt: new Date(),
-        cancellationReason: parsed.data.reason || null,
-      },
-    }),
-    prisma.session.update({
-      where: { id: booking.sessionId },
-      data: { status: "open" },
-    }),
-  ]);
+  const { id } = await ctx.params;
+  const result = await cancelBookingByTherapist(therapist.id, id, parsed.data.reason);
+  if (!result.ok) {
+    return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });
+  }
 
   return NextResponse.json({ ok: true });
 }

@@ -1,6 +1,11 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
-import { holdSession, createBooking } from "@/lib/bookings";
+import {
+  holdSession,
+  createBooking,
+  cancelBookingByTherapist,
+  cancelBookingByClient,
+} from "@/lib/bookings";
 
 describe("bookings (against a live database)", () => {
   let therapistId: string;
@@ -115,5 +120,85 @@ describe("bookings (against a live database)", () => {
       phone: "0500000005",
     });
     expect(result.ok).toBe(true);
+  });
+
+  async function makeBooking(hoursFromNow: number) {
+    const session = await makeSession(hoursFromNow);
+    const result = await createBooking(session.id, {
+      fullName: "לקוח",
+      email: `cancel-test-${session.id}@example.com`,
+      phone: "0500000009",
+    });
+    if (!result.ok) throw new Error("setup failed");
+    return { session, booking: result.booking };
+  }
+
+  describe("cancelBookingByTherapist", () => {
+    it("cancels and reopens the session", async () => {
+      const { session, booking } = await makeBooking(48);
+      const result = await cancelBookingByTherapist(therapistId, booking.id, "לא מתאים");
+      expect(result).toEqual({ ok: true });
+
+      const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(updatedBooking.status).toBe("canceled_by_therapist");
+      expect(updatedBooking.cancellationReason).toBe("לא מתאים");
+      expect(updatedBooking.canceledAt).not.toBeNull();
+
+      const updatedSession = await prisma.session.findUniqueOrThrow({ where: { id: session.id } });
+      expect(updatedSession.status).toBe("open");
+    });
+
+    it("rejects canceling twice", async () => {
+      const { booking } = await makeBooking(48);
+      await cancelBookingByTherapist(therapistId, booking.id);
+      const second = await cancelBookingByTherapist(therapistId, booking.id);
+      expect(second).toEqual({ ok: false, error: "already_canceled" });
+    });
+
+    it("rejects a booking belonging to a different therapist", async () => {
+      const { booking } = await makeBooking(48);
+      const result = await cancelBookingByTherapist("00000000-0000-0000-0000-000000000000", booking.id);
+      expect(result).toEqual({ ok: false, error: "not_found" });
+
+      // Confirm it genuinely wasn't touched.
+      const untouched = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(untouched.status).not.toBe("canceled_by_therapist");
+    });
+  });
+
+  describe("cancelBookingByClient", () => {
+    it("cancels and reopens the session when outside the cancellation policy window", async () => {
+      // therapist settings above: cancellationPolicyHours = 24; session is 48h away.
+      const { session, booking } = await makeBooking(48);
+      const result = await cancelBookingByClient(booking.manageToken);
+      expect(result).toEqual({ ok: true });
+
+      const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(updatedBooking.status).toBe("canceled_by_client");
+
+      const updatedSession = await prisma.session.findUniqueOrThrow({ where: { id: session.id } });
+      expect(updatedSession.status).toBe("open");
+    });
+
+    it("rejects canceling inside the cancellation policy window", async () => {
+      const { booking } = await makeBooking(2); // 2h away, policy is 24h
+      const result = await cancelBookingByClient(booking.manageToken);
+      expect(result).toEqual({ ok: false, error: "CANCELLATION_WINDOW_PASSED" });
+
+      const untouched = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(untouched.status).not.toBe("canceled_by_client");
+    });
+
+    it("rejects an unknown manage token", async () => {
+      const result = await cancelBookingByClient("no-such-token");
+      expect(result).toEqual({ ok: false, error: "not_found" });
+    });
+
+    it("rejects canceling twice", async () => {
+      const { booking } = await makeBooking(48);
+      await cancelBookingByClient(booking.manageToken);
+      const second = await cancelBookingByClient(booking.manageToken);
+      expect(second).toEqual({ ok: false, error: "already_canceled" });
+    });
   });
 });

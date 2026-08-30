@@ -120,3 +120,66 @@ export async function createBooking(
     throw error;
   }
 }
+
+export type CancelResult =
+  | { ok: true }
+  | { ok: false; error: "not_found" | "already_canceled" | "CANCELLATION_WINDOW_PASSED" };
+
+function isAlreadyCanceled(status: string) {
+  return status === "canceled_by_client" || status === "canceled_by_therapist";
+}
+
+/** Therapist-side cancellation (spec 9.3, 11.2) — always reopens the slot. */
+export async function cancelBookingByTherapist(
+  therapistId: string,
+  bookingId: string,
+  reason?: string
+): Promise<CancelResult> {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
+  if (!booking || booking.therapistId !== therapistId) {
+    return { ok: false, error: "not_found" };
+  }
+  if (isAlreadyCanceled(booking.status)) {
+    return { ok: false, error: "already_canceled" };
+  }
+
+  await prisma.$transaction([
+    prisma.booking.update({
+      where: { id: bookingId },
+      data: { status: "canceled_by_therapist", canceledAt: new Date(), cancellationReason: reason || null },
+    }),
+    prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
+  ]);
+
+  return { ok: true };
+}
+
+/** Client-side cancellation (spec 7.4) — gated by the therapist's cancellation_policy_hours. */
+export async function cancelBookingByClient(manageToken: string): Promise<CancelResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { manageToken },
+    include: { session: true, therapist: { include: { settings: true } } },
+  });
+  if (!booking) {
+    return { ok: false, error: "not_found" };
+  }
+  if (isAlreadyCanceled(booking.status)) {
+    return { ok: false, error: "already_canceled" };
+  }
+
+  const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
+  const hoursUntilSession = (booking.session.startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntilSession < cancellationPolicyHours) {
+    return { ok: false, error: "CANCELLATION_WINDOW_PASSED" };
+  }
+
+  await prisma.$transaction([
+    prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: "canceled_by_client", canceledAt: new Date() },
+    }),
+    prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
+  ]);
+
+  return { ok: true };
+}
