@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
+import { Button } from "@/components/ui/button";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
@@ -26,6 +28,9 @@ export default async function DashboardPage() {
         <UserButton />
       </div>
       <p>שלום {therapist.fullName} 👋</p>
+      <Button asChild className="w-fit">
+        <Link href="/dashboard/availability">ניהול זמינות</Link>
+      </Button>
     </main>
   );
 }

@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { onboardingSchema } from "@/lib/onboarding-schema";
+import { generateOpenSessions } from "@/lib/availability";
 
 function toTimeValue(hhmm: string) {
   const [hours, minutes] = hhmm.split(":").map(Number);
@@ -71,6 +72,8 @@ export async function POST(request: NextRequest) {
           slotDurationMinutes: data.defaultDurationMinutes,
         })),
       });
+
+      await generateOpenSessions(tx, therapist.id);
     });
   } catch (error) {
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
