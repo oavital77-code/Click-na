@@ -68,6 +68,15 @@ export function ManageBooking({
           {formatInTimeZone(new Date(endsAt), timezone, "HH:mm")}
         </p>
 
+        {!isCanceled && (
+          <a
+            href={`/api/public/bookings/manage/${token}/ics`}
+            className="text-primary w-fit text-sm underline underline-offset-4"
+          >
+            הוסף ליומן
+          </a>
+        )}
+
         {isCanceled ? (
           <p className="text-muted-foreground text-sm">התור בוטל.</p>
         ) : withinPolicyWindow ? (

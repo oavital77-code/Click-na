@@ -126,12 +126,20 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
             {formatInTimeZone(new Date(selectedSlot.endsAt), timezone, "HH:mm")}
           </p>
           {manageToken && (
-            <a
-              href={`/book/${slug}/manage/${manageToken}`}
-              className="text-primary text-sm underline underline-offset-4"
-            >
-              שנה / בטל תור
-            </a>
+            <div className="flex items-center gap-4">
+              <a
+                href={`/api/public/bookings/manage/${manageToken}/ics`}
+                className="text-primary text-sm underline underline-offset-4"
+              >
+                הוסף ליומן
+              </a>
+              <a
+                href={`/book/${slug}/manage/${manageToken}`}
+                className="text-primary text-sm underline underline-offset-4"
+              >
+                שנה / בטל תור
+              </a>
+            </div>
           )}
         </CardContent>
       </Card>
