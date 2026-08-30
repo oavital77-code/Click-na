@@ -13,8 +13,7 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { addDaysUtc } from "@/lib/availability";
-
-const DAY_LABELS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+import { DAY_LABELS } from "@/lib/labels";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "פנוי",
