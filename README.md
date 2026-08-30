@@ -50,3 +50,16 @@
 - `npm run lint` — ESLint
 - `npm test` — בדיקות (דורש `DATABASE_URL` פעיל, כמו בפיתוח)
 - `npm run test:watch` — בדיקות במצב watch
+
+## פרודקשן (Vercel)
+
+מול DB עם connection pooler (כמו Supabase) צריך **שני** משתני סביבה נפרדים, לא רק `DATABASE_URL`:
+
+- `DATABASE_URL` — מחרוזת ה-pooler (transaction mode, פורט 6543, `?pgbouncer=true`) — זה מה שהאפליקציה עצמה משתמשת בו ב-runtime (`src/lib/prisma.ts`), מתאים לסביבת serverless.
+- `DIRECT_URL` — חיבור ישיר (לא דרך pooler, פורט 5432) — נחוץ רק לפקודות `prisma migrate` (`prisma.config.ts` קורא אותו). ה-pooler במצב transaction לא תומך ב-DDL/advisory locks שמיגרציות צריכות.
+
+כדי שהסכימה תתעדכן אוטומטית בכל דיפלוי, מגדירים ב-Vercel Project Settings → **Build Command**:
+
+```
+npx prisma migrate deploy && npm run build
+```
