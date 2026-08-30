@@ -127,8 +127,23 @@ model Therapist {
   clients           Client[]
   bookings          Booking[]
   auditLogs         AuditLog[]
+  slugRedirects     SlugRedirect[]
 
   @@map("therapists")
+}
+
+// spec 11.3: an old slug keeps resolving (via redirect) for 90 days after a therapist changes it.
+model SlugRedirect {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  oldSlug     String   @unique @map("old_slug") @db.VarChar(40)
+  therapistId String   @map("therapist_id") @db.Uuid
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId])
+  @@map("slug_redirects")
 }
 
 model Subscription {

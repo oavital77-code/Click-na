@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PROFESSION_LABELS } from "@/lib/labels";
+import { resolveSlugRedirect } from "@/lib/profile";
 import { BookingFlow } from "./booking-flow";
 
 export default async function BookingPage({
@@ -18,6 +20,12 @@ export default async function BookingPage({
     !therapist.onboardingCompleted ||
     !therapist.settings
   ) {
+    // spec 11.3: an old slug keeps working via redirect for 90 days after a therapist changes it.
+    const currentSlug = await resolveSlugRedirect(slug);
+    if (currentSlug) {
+      redirect(`/book/${currentSlug}`);
+    }
+
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
         <p className="text-lg font-medium">הדף לא נמצא</p>

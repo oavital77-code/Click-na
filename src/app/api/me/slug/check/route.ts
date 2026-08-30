@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
+import { checkSlugAvailability } from "@/lib/profile";
 
 const bodySchema = z.object({ slug: z.string() });
 
@@ -18,19 +18,11 @@ export async function POST(request: NextRequest) {
   }
 
   const slug = parsed.data.slug.trim().toLowerCase();
-
-  if (!SLUG_REGEX.test(slug)) {
-    return NextResponse.json({ available: false, reason: "format" });
-  }
-  if (RESERVED_SLUGS.has(slug)) {
-    return NextResponse.json({ available: false, reason: "reserved" });
-  }
-
-  const existing = await prisma.therapist.findUnique({
-    where: { slug },
-    select: { clerkUserId: true },
+  const therapist = await prisma.therapist.findUnique({
+    where: { clerkUserId: userId },
+    select: { id: true },
   });
-  const available = !existing || existing.clerkUserId === userId;
 
-  return NextResponse.json({ available, reason: available ? undefined : "taken" });
+  const result = await checkSlugAvailability(slug, therapist?.id ?? null);
+  return NextResponse.json(result);
 }
