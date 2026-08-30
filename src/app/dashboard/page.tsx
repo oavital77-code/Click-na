@@ -110,6 +110,9 @@ export default async function DashboardPage() {
         <Button asChild variant="outline">
           <Link href="/dashboard/bookings">כל ההזמנות</Link>
         </Button>
+        <Button asChild variant="outline">
+          <Link href="/dashboard/settings">הגדרות</Link>
+        </Button>
       </div>
     </main>
   );

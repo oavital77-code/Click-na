@@ -106,6 +106,9 @@ model Therapist {
   fullName            String          @map("full_name") @db.VarChar(255)
   phone               String?         @db.VarChar(50)
   slug                String          @unique @db.VarChar(40)
+  // Null until the therapist changes their slug from the assigned fallback — enforces
+  // spec 5.5's "not more than once per 30 days" cooldown.
+  slugChangedAt       DateTime?       @map("slug_changed_at") @db.Timestamptz
   // Nullable: unknown until onboarding wizard step 1 (spec 7.1); required before onboarding_completed=true.
   professionType      ProfessionType? @map("profession_type")
   clerkUserId         String?         @unique @map("clerk_user_id") @db.VarChar(255)
