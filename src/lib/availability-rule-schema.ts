@@ -1,0 +1,38 @@
+import { z } from "zod";
+import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
+
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "שעה לא תקינה");
+const durationSchema = z
+  .number()
+  .int()
+  .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "משך לא תקין");
+
+export const ruleCreateSchema = z
+  .object({
+    days: z.array(z.number().int().min(0).max(6)).min(1, "בחר לפחות יום אחד"),
+    startTime: timeSchema,
+    endTime: timeSchema,
+    slotDurationMinutes: durationSchema,
+  })
+  .refine((d) => d.startTime < d.endTime, {
+    message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
+    path: ["endTime"],
+  });
+
+export type RuleCreateInput = z.infer<typeof ruleCreateSchema>;
+
+// dayOfWeek is intentionally not editable here — changing the day a rule
+// applies to is a delete + recreate, not an update.
+export const ruleUpdateSchema = z
+  .object({
+    startTime: timeSchema,
+    endTime: timeSchema,
+    slotDurationMinutes: durationSchema,
+    isActive: z.boolean(),
+  })
+  .refine((d) => d.startTime < d.endTime, {
+    message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
+    path: ["endTime"],
+  });
+
+export type RuleUpdateInput = z.infer<typeof ruleUpdateSchema>;

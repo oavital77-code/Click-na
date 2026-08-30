@@ -1,0 +1,313 @@
+// Cleana+ data model — see docs/product-spec.md section 6 for the full spec.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Enums ----------
+
+enum ProfessionType {
+  coach
+  massage
+  trainer
+  therapist
+  tutor
+  other
+}
+
+enum TherapistStatus {
+  active
+  suspended
+  deleted
+}
+
+enum SubscriptionTier {
+  free
+  basic
+  pro
+  business
+}
+
+enum SubscriptionStatus {
+  trialing
+  active
+  past_due
+  canceled
+  unpaid
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+enum LocationType {
+  clinic
+  online
+  client_home
+  hybrid
+}
+
+enum SessionStatus {
+  open
+  held
+  booked
+  blocked
+  completed
+  canceled
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  canceled_by_client
+  canceled_by_therapist
+  completed
+  no_show
+}
+
+enum NotificationType {
+  confirmation
+  reminder
+  cancellation
+  reschedule
+}
+
+enum NotificationChannel {
+  email
+  sms
+  whatsapp
+}
+
+enum NotificationStatus {
+  pending
+  sent
+  failed
+  canceled
+}
+
+enum AuditActorType {
+  therapist
+  client
+  system
+  admin
+}
+
+// ---------- Models ----------
+
+model Therapist {
+  id                  String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email               String          @unique @db.VarChar(255)
+  fullName            String          @map("full_name") @db.VarChar(255)
+  phone               String?         @db.VarChar(50)
+  slug                String          @unique @db.VarChar(40)
+  // Null until the therapist changes their slug from the assigned fallback — enforces
+  // spec 5.5's "not more than once per 30 days" cooldown.
+  slugChangedAt       DateTime?       @map("slug_changed_at") @db.Timestamptz
+  // Nullable: unknown until onboarding wizard step 1 (spec 7.1); required before onboarding_completed=true.
+  professionType      ProfessionType? @map("profession_type")
+  clerkUserId         String?         @unique @map("clerk_user_id") @db.VarChar(255)
+  stripeCustomerId    String?         @unique @map("stripe_customer_id") @db.VarChar(255)
+  timezone            String          @default("Asia/Jerusalem") @db.VarChar(100)
+  locale              String          @default("he") @db.VarChar(10)
+  status              TherapistStatus @default(active)
+  onboardingCompleted Boolean         @default(false) @map("onboarding_completed")
+  createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
+
+  subscription      Subscription?
+  settings          TherapistSettings?
+  availabilityRules AvailabilityRule[]
+  sessions          Session[]
+  clients           Client[]
+  bookings          Booking[]
+  auditLogs         AuditLog[]
+  slugRedirects     SlugRedirect[]
+
+  @@map("therapists")
+}
+
+// spec 11.3: an old slug keeps resolving (via redirect) for 90 days after a therapist changes it.
+model SlugRedirect {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  oldSlug     String   @unique @map("old_slug") @db.VarChar(40)
+  therapistId String   @map("therapist_id") @db.Uuid
+  expiresAt   DateTime @map("expires_at") @db.Timestamptz
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId])
+  @@map("slug_redirects")
+}
+
+model Subscription {
+  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId          String             @unique @map("therapist_id") @db.Uuid
+  tier                 SubscriptionTier   @default(free)
+  // A brand-new signup has no card and no trial — Free is just permanently active (spec 7.5).
+  status               SubscriptionStatus @default(active)
+  stripeSubscriptionId String?            @unique @map("stripe_subscription_id") @db.VarChar(255)
+  billingCycle         BillingCycle       @default(monthly) @map("billing_cycle")
+  currentPeriodStart   DateTime?          @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd     DateTime?          @map("current_period_end") @db.Timestamptz
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  trialEndsAt          DateTime?          @map("trial_ends_at") @db.Timestamptz
+  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@map("subscriptions")
+}
+
+model TherapistSettings {
+  therapistId             String       @id @map("therapist_id") @db.Uuid
+  defaultDurationMinutes  Int          @default(50) @map("default_duration_minutes")
+  bufferBeforeMinutes     Int          @default(0) @map("buffer_before_minutes")
+  bufferAfterMinutes      Int          @default(0) @map("buffer_after_minutes")
+  minNoticeHours          Int          @default(12) @map("min_notice_hours")
+  maxAdvanceDays          Int          @default(60) @map("max_advance_days")
+  locationType            LocationType @default(clinic) @map("location_type")
+  locationAddress         String?      @map("location_address")
+  locationNotes           String?      @map("location_notes")
+  onlineMeetingUrl        String?      @map("online_meeting_url")
+  cancellationPolicyHours Int          @default(24) @map("cancellation_policy_hours")
+  cancellationPolicyText  String?      @map("cancellation_policy_text")
+  requirePhone            Boolean      @default(true) @map("require_phone")
+  autoConfirm             Boolean      @default(true) @map("auto_confirm")
+  sendEmailConfirmation   Boolean      @default(true) @map("send_email_confirmation")
+  sendEmailReminder       Boolean      @default(false) @map("send_email_reminder")
+  sendSmsReminder         Boolean      @default(false) @map("send_sms_reminder")
+  reminderHoursBefore     Int          @default(24) @map("reminder_hours_before")
+  brandColor              String?      @map("brand_color") @db.VarChar(7)
+  brandLogoUrl            String?      @map("brand_logo_url")
+  bookingPageHeadline     String?      @map("booking_page_headline") @db.VarChar(255)
+  bookingPageDescription  String?      @map("booking_page_description")
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@map("therapist_settings")
+}
+
+model AvailabilityRule {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId         String    @map("therapist_id") @db.Uuid
+  dayOfWeek           Int       @map("day_of_week")
+  startTime           DateTime  @map("start_time") @db.Time
+  endTime             DateTime  @map("end_time") @db.Time
+  slotDurationMinutes Int       @map("slot_duration_minutes")
+  isActive            Boolean   @default(true) @map("is_active")
+  validFrom           DateTime? @map("valid_from") @db.Date
+  validUntil          DateTime? @map("valid_until") @db.Date
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+  sessions  Session[]
+
+  @@index([therapistId])
+  @@map("availability_rules")
+}
+
+model Session {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId         String        @map("therapist_id") @db.Uuid
+  startsAt            DateTime      @map("starts_at") @db.Timestamptz
+  endsAt              DateTime      @map("ends_at") @db.Timestamptz
+  status              SessionStatus @default(open)
+  generatedFromRuleId String?       @map("generated_from_rule_id") @db.Uuid
+  holdExpiresAt       DateTime?     @map("hold_expires_at") @db.Timestamptz
+  version             Int           @default(0)
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist         Therapist         @relation(fields: [therapistId], references: [id])
+  generatedFromRule AvailabilityRule? @relation(fields: [generatedFromRuleId], references: [id])
+  booking           Booking?
+
+  @@index([therapistId, startsAt])
+  @@index([therapistId, status, startsAt])
+  @@map("sessions")
+}
+
+model Client {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId   String   @map("therapist_id") @db.Uuid
+  fullName      String   @map("full_name") @db.VarChar(255)
+  email         String?  @db.VarChar(255)
+  phone         String?  @db.VarChar(50)
+  notes         String?  @db.VarChar(200)
+  totalBookings Int      @default(0) @map("total_bookings")
+  noShowCount   Int      @default(0) @map("no_show_count")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+  bookings  Booking[]
+
+  @@unique([therapistId, email])
+  @@map("clients")
+}
+
+model Booking {
+  id                  String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId         String        @map("therapist_id") @db.Uuid
+  sessionId           String        @unique @map("session_id") @db.Uuid
+  clientId            String        @map("client_id") @db.Uuid
+  clientNameSnapshot  String        @map("client_name_snapshot") @db.VarChar(255)
+  clientEmailSnapshot String?       @map("client_email_snapshot") @db.VarChar(255)
+  clientPhoneSnapshot String?       @map("client_phone_snapshot") @db.VarChar(50)
+  status              BookingStatus @default(pending)
+  clientNote          String?       @map("client_note") @db.VarChar(200)
+  manageToken         String        @unique @map("manage_token") @db.VarChar(64)
+  canceledAt          DateTime?     @map("canceled_at") @db.Timestamptz
+  cancellationReason  String?       @map("cancellation_reason")
+  createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist     Therapist      @relation(fields: [therapistId], references: [id])
+  session       Session        @relation(fields: [sessionId], references: [id])
+  client        Client         @relation(fields: [clientId], references: [id])
+  notifications Notification[]
+
+  @@index([therapistId, status])
+  @@map("bookings")
+}
+
+model Notification {
+  id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookingId    String              @map("booking_id") @db.Uuid
+  type         NotificationType
+  channel      NotificationChannel
+  recipient    String              @db.VarChar(255)
+  scheduledFor DateTime?           @map("scheduled_for") @db.Timestamptz
+  sentAt       DateTime?           @map("sent_at") @db.Timestamptz
+  status       NotificationStatus  @default(pending)
+  attempts     Int                 @default(0)
+  errorMessage String?
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@index([bookingId])
+  @@index([status, scheduledFor])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId String         @map("therapist_id") @db.Uuid
+  actorType   AuditActorType @map("actor_type")
+  action      String         @db.VarChar(255)
+  entityType  String?        @map("entity_type") @db.VarChar(100)
+  entityId    String?        @map("entity_id") @db.Uuid
+  metadata    Json?          @db.JsonB
+  ipAddress   String?        @map("ip_address") @db.Inet
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId, createdAt])
+  @@map("audit_logs")
+}
