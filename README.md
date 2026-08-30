@@ -6,12 +6,13 @@
 
 ## Stack
 
-- **Next.js 16** (App Router) + TypeScript, RTL/עברית
+- **Next.js 16** (App Router) + TypeScript, RTL/עברית, shadcn/ui-style components (`src/components/ui`)
 - **Tailwind CSS**
 - **PostgreSQL + Prisma** (`prisma/schema.prisma`) — מודל הנתונים המלא לפי סעיף 6 במסמך, כולל הגנת race-condition ברמת ה-DB מפני תורים חופפים (GiST exclusion constraint)
 - **Clerk** — הרשמה/התחברות (`/login`, `/signup`), הגנת `/dashboard/*`
+- **Vitest** — בדיקות יחידה + בדיקות אינטגרציה מול Postgres אמיתי (`src/lib/**/*.test.ts`)
 
-הפרויקט נבנה בשלבים בטוחים ומדורגים לפי ה-Roadmap במסמך האפיון (סעיף 12). תשלומים (Stripe) ומסך ה-Onboarding wizard ייכנסו בשלבים הבאים.
+הפרויקט נבנה בשלבים בטוחים ומדורגים לפי ה-Roadmap במסמך האפיון (סעיף 12). בנוי כרגע: Auth, Onboarding wizard, ניהול זמינות, דף הזמנה ציבורי מלא (Hold + Transaction), דשבורד הזמנות, הגדרות, ודף נחיתה. תשלומים (Stripe) והודעות בפועל (Resend/Twilio) ייכנסו כשיהיו מפתחות אמיתיים.
 
 ## פיתוח מקומי
 
@@ -45,3 +46,5 @@
 
 - `npm run db:studio` — ממשק לעיון בנתונים (Prisma Studio)
 - `npm run lint` — ESLint
+- `npm test` — בדיקות (דורש `DATABASE_URL` פעיל, כמו בפיתוח)
+- `npm run test:watch` — בדיקות במצב watch
