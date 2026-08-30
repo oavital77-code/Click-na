@@ -18,6 +18,12 @@ export function addDaysUtc(dateStr: string, days: number) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+/** Encodes "HH:MM" as the @db.Time value Prisma expects: a Date anchored at 1970-01-01 UTC. */
+export function toTimeValue(hhmm: string) {
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0));
+}
+
 /**
  * Turns a therapist's recurring AvailabilityRule rows into concrete open Session
  * slots for the window allowed by their settings (min_notice_hours..max_advance_days).

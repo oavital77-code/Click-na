@@ -3,7 +3,9 @@ import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
+import { listRulesWithCounts } from "@/lib/availability-rules";
 import { AvailabilityView } from "./availability-view";
+import { RecurringRules } from "./recurring-rules";
 
 const RANGE_DAYS = 7;
 
@@ -33,9 +35,22 @@ export default async function AvailabilityPage() {
     orderBy: { startsAt: "asc" },
   });
 
+  const rules = await listRulesWithCounts(therapist.id);
+  const rulesWithCounts = rules.map((rule) => ({
+    id: rule.id,
+    dayOfWeek: rule.dayOfWeek,
+    startTime: formatInTimeZone(rule.startTime, "UTC", "HH:mm"),
+    endTime: formatInTimeZone(rule.endTime, "UTC", "HH:mm"),
+    slotDurationMinutes: rule.slotDurationMinutes,
+    isActive: rule.isActive,
+    futureOpenCount: rule.futureOpenCount,
+    futureBookedCount: rule.futureBookedCount,
+  }));
+
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-8">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
       <h1 className="text-2xl font-bold">ניהול זמינות</h1>
+      <RecurringRules initialRules={rulesWithCounts} />
       <AvailabilityView
         timezone={therapist.timezone}
         initialSessions={sessions.map((s) => ({

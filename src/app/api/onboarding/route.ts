@@ -3,12 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { onboardingSchema } from "@/lib/onboarding-schema";
-import { generateOpenSessions } from "@/lib/availability";
-
-function toTimeValue(hhmm: string) {
-  const [hours, minutes] = hhmm.split(":").map(Number);
-  return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0));
-}
+import { generateOpenSessions, toTimeValue } from "@/lib/availability";
 
 export async function POST(request: NextRequest) {
   const { userId } = await auth();
