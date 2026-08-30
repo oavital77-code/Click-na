@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, after } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { cancelBookingByTherapist } from "@/lib/bookings";
+import { sendBookingCanceledNotifications } from "@/lib/notifications";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() });
 
@@ -28,6 +29,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/booking
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });
   }
+
+  after(() => sendBookingCanceledNotifications(result.bookingId, "therapist"));
 
   return NextResponse.json({ ok: true });
 }

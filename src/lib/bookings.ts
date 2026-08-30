@@ -122,7 +122,7 @@ export async function createBooking(
 }
 
 export type CancelResult =
-  | { ok: true }
+  | { ok: true; bookingId: string }
   | { ok: false; error: "not_found" | "already_canceled" | "CANCELLATION_WINDOW_PASSED" };
 
 function isAlreadyCanceled(status: string) {
@@ -151,7 +151,7 @@ export async function cancelBookingByTherapist(
     prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
   ]);
 
-  return { ok: true };
+  return { ok: true, bookingId: booking.id };
 }
 
 /** Client-side cancellation (spec 7.4) — gated by the therapist's cancellation_policy_hours. */
@@ -181,5 +181,5 @@ export async function cancelBookingByClient(manageToken: string): Promise<Cancel
     prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
   ]);
 
-  return { ok: true };
+  return { ok: true, bookingId: booking.id };
 }

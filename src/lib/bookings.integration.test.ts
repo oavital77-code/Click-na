@@ -137,7 +137,7 @@ describe("bookings (against a live database)", () => {
     it("cancels and reopens the session", async () => {
       const { session, booking } = await makeBooking(48);
       const result = await cancelBookingByTherapist(therapistId, booking.id, "לא מתאים");
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, bookingId: booking.id });
 
       const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
       expect(updatedBooking.status).toBe("canceled_by_therapist");
@@ -171,7 +171,7 @@ describe("bookings (against a live database)", () => {
       // therapist settings above: cancellationPolicyHours = 24; session is 48h away.
       const { session, booking } = await makeBooking(48);
       const result = await cancelBookingByClient(booking.manageToken);
-      expect(result).toEqual({ ok: true });
+      expect(result).toEqual({ ok: true, bookingId: booking.id });
 
       const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
       expect(updatedBooking.status).toBe("canceled_by_client");

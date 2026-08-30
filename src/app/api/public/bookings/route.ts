@@ -1,6 +1,7 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { NextResponse, type NextRequest, after } from "next/server";
 import { z } from "zod";
 import { createBooking } from "@/lib/bookings";
+import { sendBookingCreatedNotifications } from "@/lib/notifications";
 
 const bookingSchema = z.object({
   sessionId: z.string().uuid(),
@@ -26,6 +27,8 @@ export async function POST(request: NextRequest) {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });
   }
+
+  after(() => sendBookingCreatedNotifications(result.booking.id));
 
   return NextResponse.json(
     {
