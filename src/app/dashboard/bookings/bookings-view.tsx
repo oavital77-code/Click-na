@@ -6,7 +6,7 @@ import { he } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
+import { bookingStatusTone, statusBadgeClass } from "@/lib/status-badge";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "ממתין לאישור",
@@ -120,14 +120,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                       · {formatInTimeZone(new Date(booking.startsAt), timezone, "HH:mm")}–
                       {formatInTimeZone(new Date(booking.endsAt), timezone, "HH:mm")}
                     </span>
-                    <span
-                      className={cn(
-                        "rounded-full px-2 py-0.5 text-xs",
-                        (booking.status === "confirmed" || booking.status === "pending") &&
-                          "bg-blue-100 text-blue-800",
-                        booking.status.startsWith("canceled") && "bg-neutral-200 text-neutral-700"
-                      )}
-                    >
+                    <span className={statusBadgeClass(bookingStatusTone(booking.status))}>
                       {STATUS_LABELS[booking.status] ?? booking.status}
                     </span>
                   </div>

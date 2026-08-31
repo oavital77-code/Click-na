@@ -7,7 +7,7 @@
 ## Stack
 
 - **Next.js 16** (App Router) + TypeScript, RTL/עברית, shadcn/ui-style components (`src/components/ui`)
-- **Tailwind CSS**
+- **Tailwind CSS v4** — שפה עיצובית "Nocturne" ([`docs/design/nocturne-design-language.pdf`](docs/design/nocturne-design-language.pdf)): dark-first, גופן Heebo, סולם מרווחים צפוף (×0.7), טוקנים ב-`src/app/globals.css`
 - **PostgreSQL + Prisma** (`prisma/schema.prisma`) — מודל הנתונים המלא לפי סעיף 6 במסמך, כולל הגנת race-condition ברמת ה-DB מפני תורים חופפים (GiST exclusion constraint)
 - **Clerk** — הרשמה/התחברות (`/login`, `/signup`), הגנת `/dashboard/*`
 - **Vitest** — בדיקות יחידה + בדיקות אינטגרציה מול Postgres אמיתי (`src/lib/**/*.test.ts`)

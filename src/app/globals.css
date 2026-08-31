@@ -3,52 +3,79 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Nocturne — Cleana+ design language v1.0 (Aug 2026)
+ * Dark-first, Hebrew/RTL-native. See docs/design/ for the source spec.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-}
+  /* Base palette */
+  --color-bg: #161826;
+  --color-surface: #232532;
+  --color-text: #e9e9ed;
+  --color-accent: #9184d9;
 
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  /* Neutral scale (100 = lightest, 900 = darkest) */
+  --neutral-100: #f3f5fe;
+  --neutral-200: #e4e7f5;
+  --neutral-300: #cfd3e5;
+  --neutral-400: #b2b6ca;
+  --neutral-500: #9397ab;
+  --neutral-600: #75798c;
+  --neutral-700: #595d6c;
+  --neutral-800: #3f424d;
+  --neutral-900: #292b31;
+
+  /* Accent (purple) scale */
+  --accent-100: #f5f4ff;
+  --accent-200: #e7e5fe;
+  --accent-300: #d2cefd;
+  --accent-400: #b5abfc;
+  --accent-500: #968ae0;
+  --accent-600: #796cbf;
+  --accent-700: #5d5294;
+  --accent-800: #423a6a;
+  --accent-900: #2b2741;
+
+  /* Session/booking status — L≈.70 C≈.11, hue only */
+  --st-open: oklch(0.70 0.105 168);
+  --st-booked: #9184d9;
+  --st-held: oklch(0.74 0.105 78);
+  --st-blocked: var(--neutral-700);
+  --st-danger: oklch(0.66 0.115 26);
+
+  /* Calendar geometry */
+  --slot-30: 26px;
+  --slot-60: 52px;
+  --gutter-day: 1px;
+  --tap-min: 44px;
+
+  /* shadcn/ui semantic tokens, remapped onto Nocturne */
+  --radius: 8px;
+  --background: var(--color-bg);
+  --foreground: var(--color-text);
+  --card: var(--color-surface);
+  --card-foreground: var(--color-text);
+  --popover: var(--color-surface);
+  --popover-foreground: var(--color-text);
+  --primary: var(--color-accent);
+  --primary-foreground: #161826;
+  --secondary: var(--neutral-800);
+  --secondary-foreground: var(--color-text);
+  --muted: var(--neutral-800);
+  --muted-foreground: var(--neutral-500);
+  --accent: var(--neutral-800);
+  --accent-foreground: var(--color-text);
+  --destructive: var(--st-danger);
+  --destructive-foreground: var(--color-text);
+  --border: color-mix(in oklch, var(--color-text) 12%, transparent);
+  --input: color-mix(in oklch, var(--color-text) 15%, transparent);
+  --ring: var(--color-accent);
 }
 
 @theme inline {
+  /* Denser spacing scale: space-N = N × 2.8px (Nocturne §04), vs. Tailwind's default 4px */
+  --spacing: 0.175rem;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -68,11 +95,33 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist-sans);
+
+  --color-bg: var(--color-bg);
+  --color-surface: var(--color-surface);
+  --color-brand: var(--color-accent);
+  --color-st-open: var(--st-open);
+  --color-st-booked: var(--st-booked);
+  --color-st-held: var(--st-held);
+  --color-st-blocked: var(--st-blocked);
+  --color-st-danger: var(--st-danger);
+
+  --color-neutral-100: var(--neutral-100);
+  --color-neutral-200: var(--neutral-200);
+  --color-neutral-300: var(--neutral-300);
+  --color-neutral-400: var(--neutral-400);
+  --color-neutral-500: var(--neutral-500);
+  --color-neutral-600: var(--neutral-600);
+  --color-neutral-700: var(--neutral-700);
+  --color-neutral-800: var(--neutral-800);
+  --color-neutral-900: var(--neutral-900);
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+
+  --font-sans: var(--font-heebo);
+  --font-num: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
 
@@ -82,5 +131,29 @@
   }
   body {
     @apply bg-background text-foreground font-sans;
+    font-weight: 400;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 500;
+  }
+}
+
+@layer utilities {
+  /* Numbers, phone numbers, URLs: tabular figures, always LTR regardless of surrounding RTL context. */
+  .num {
+    font-family: var(--font-num);
+    font-variant-numeric: tabular-nums;
+    direction: ltr;
+    unicode-bidi: isolate;
+  }
+
+  .kicker {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.09em;
+    color: var(--color-accent);
   }
 }
