@@ -11,9 +11,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { cn } from "@/lib/utils";
 import { addDaysUtc } from "@/lib/availability";
 import { DAY_LABELS } from "@/lib/labels";
+import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "פנוי",
@@ -186,14 +186,7 @@ export function AvailabilityView({ timezone, initialSessions }: Props) {
                           {session.clientName && ` · ${session.clientName}`}
                         </span>
                         <span className="flex items-center gap-2">
-                          <span
-                            className={cn(
-                              "rounded-full px-2 py-0.5 text-xs",
-                              session.status === "open" && "bg-green-100 text-green-800",
-                              session.status === "blocked" && "bg-neutral-200 text-neutral-700",
-                              session.status === "booked" && "bg-blue-100 text-blue-800"
-                            )}
-                          >
+                          <span className={statusBadgeClass(sessionStatusTone(session.status))}>
                             {STATUS_LABELS[session.status] ?? session.status}
                           </span>
                           {(session.status === "open" || session.status === "blocked") && (
