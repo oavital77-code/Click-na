@@ -17,3 +17,4 @@ export const LOCATION_LABELS: Record<(typeof LOCATION_TYPES)[number], string> = 
 };
 
 export const DAY_LABELS = ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"];
+export const DAY_LABELS_SHORT = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳", "ו׳", "ש׳"];

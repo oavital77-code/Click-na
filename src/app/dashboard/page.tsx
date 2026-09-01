@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { BookingLinkCard } from "@/components/booking-link-card";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
@@ -66,19 +67,22 @@ export default async function DashboardPage() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          ["היום", todayBookedCount],
-          ["השבוע", weekBookingsCount],
-          ["פנויים", openSlotsCount],
-          ["חדשים", newClientsCount],
-        ].map(([label, value]) => (
+          ["היום", todayBookedCount, "תורים"],
+          ["השבוע", weekBookingsCount, "תורים"],
+          ["פנויים", openSlotsCount, "חלונות"],
+          ["חדשים", newClientsCount, "לקוחות"],
+        ].map(([label, value, unit]) => (
           <Card key={label}>
             <CardContent className="flex flex-col items-center gap-1 py-4">
-              <span className="text-2xl font-bold">{value}</span>
-              <span className="text-muted-foreground text-xs">{label}</span>
+              <span className="num text-2xl font-bold">{value}</span>
+              <span className="text-muted-foreground text-xs">{unit}</span>
+              <span className="text-xs font-medium">{label}</span>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <BookingLinkCard slug={therapist.slug} />
 
       <div className="flex flex-col gap-2">
         <h2 className="font-semibold">התורים של היום</h2>

@@ -2,12 +2,10 @@ import { redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { zonedDateTimeToUtc } from "@/lib/availability";
+import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { listRulesWithCounts } from "@/lib/availability-rules";
 import { AvailabilityView } from "./availability-view";
 import { RecurringRules } from "./recurring-rules";
-
-const RANGE_DAYS = 7;
 
 export default async function AvailabilityPage() {
   const therapist = await getCurrentTherapist();
@@ -26,8 +24,11 @@ export default async function AvailabilityPage() {
   }
 
   const todayStr = formatInTimeZone(new Date(), therapist.timezone, "yyyy-MM-dd");
-  const from = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
-  const to = new Date(from.getTime() + RANGE_DAYS * 24 * 60 * 60 * 1000);
+  // Calendar week (Sunday–Saturday) containing today — matches the day_of_week convention (0=Sunday) used everywhere else.
+  const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
+  const weekStart = addDaysUtc(todayStr, -dayOfWeek);
+  const from = zonedDateTimeToUtc(weekStart, "00:00", therapist.timezone);
+  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const sessions = await prisma.session.findMany({
     where: { therapistId: therapist.id, startsAt: { gte: from, lt: to } },
@@ -53,6 +54,7 @@ export default async function AvailabilityPage() {
       <RecurringRules initialRules={rulesWithCounts} />
       <AvailabilityView
         timezone={therapist.timezone}
+        initialWeekStart={weekStart}
         initialSessions={sessions.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),
