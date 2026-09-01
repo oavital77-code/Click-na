@@ -4,10 +4,11 @@ import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { zonedDateTimeToUtc } from "@/lib/availability";
+import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { BookingLinkCard } from "@/components/booking-link-card";
+import { DashboardSchedule } from "./dashboard-schedule";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
@@ -29,83 +30,82 @@ export default async function DashboardPage() {
   const todayStr = formatInTimeZone(new Date(), therapist.timezone, "yyyy-MM-dd");
   const todayStart = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-  const weekEnd = new Date(todayStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  // Calendar week (Sunday–Saturday) containing today, for the schedule widget.
+  const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
+  const weekStartStr = addDaysUtc(todayStr, -dayOfWeek);
+  const weekDates = Array.from({ length: 7 }, (_, i) => addDaysUtc(weekStartStr, i));
+  const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", therapist.timezone);
+  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
-  const [todaySessions, weekBookingsCount, openSlotsCount, newClientsCount] = await Promise.all([
-    prisma.session.findMany({
-      where: { therapistId: therapist.id, startsAt: { gte: todayStart, lt: todayEnd } },
-      include: { booking: true },
-      orderBy: { startsAt: "asc" },
-    }),
-    prisma.booking.count({
-      where: {
-        therapistId: therapist.id,
-        status: { in: ["pending", "confirmed"] },
-        session: { startsAt: { gte: todayStart, lt: weekEnd } },
-      },
-    }),
-    prisma.session.count({
-      where: { therapistId: therapist.id, status: "open", startsAt: { gte: todayStart, lt: weekEnd } },
-    }),
-    prisma.client.count({
-      where: {
-        therapistId: therapist.id,
-        createdAt: { gte: new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000) },
-      },
-    }),
-  ]);
+  const [weekSessions, todayBookedCount, weekBookingsCount, openSlotsCount, newClientsCount] =
+    await Promise.all([
+      prisma.session.findMany({
+        where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd } },
+        include: { booking: true },
+        orderBy: { startsAt: "asc" },
+      }),
+      prisma.session.count({
+        where: { therapistId: therapist.id, status: "booked", startsAt: { gte: todayStart, lt: todayEnd } },
+      }),
+      prisma.booking.count({
+        where: {
+          therapistId: therapist.id,
+          status: { in: ["pending", "confirmed"] },
+          session: { startsAt: { gte: todayStart, lt: weekEnd } },
+        },
+      }),
+      prisma.session.count({
+        where: { therapistId: therapist.id, status: "open", startsAt: { gte: todayStart, lt: weekEnd } },
+      }),
+      prisma.client.count({
+        where: {
+          therapistId: therapist.id,
+          createdAt: { gte: new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000) },
+        },
+      }),
+    ]);
 
-  const todayBookedCount = todaySessions.filter((s) => s.status === "booked").length;
+  const stats = [
+    { value: todayBookedCount, text: "תורים היום" },
+    { value: weekBookingsCount, text: "תורים השבוע" },
+    { value: openSlotsCount, text: "חלונות פנויים" },
+    { value: newClientsCount, text: "לקוחות חדשים" },
+  ];
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">שלום {therapist.fullName} 👋</h1>
+        <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName} 👋</h1>
         <UserButton />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          ["היום", todayBookedCount, "תורים"],
-          ["השבוע", weekBookingsCount, "תורים"],
-          ["פנויים", openSlotsCount, "חלונות"],
-          ["חדשים", newClientsCount, "לקוחות"],
-        ].map(([label, value, unit]) => (
-          <Card key={label}>
-            <CardContent className="flex flex-col items-center gap-1 py-4">
-              <span className="num text-2xl font-bold">{value}</span>
-              <span className="text-muted-foreground text-xs">{unit}</span>
-              <span className="text-xs font-medium">{label}</span>
+      <BookingLinkCard slug={therapist.slug} prominent />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        {stats.map((stat) => (
+          <Card key={stat.text}>
+            <CardContent className="flex flex-col items-center gap-1 py-5 md:py-6">
+              <span className="num text-3xl font-bold">{stat.value}</span>
+              <span className="text-muted-foreground text-center text-xs font-medium">{stat.text}</span>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <BookingLinkCard slug={therapist.slug} />
-
-      <div className="flex flex-col gap-2">
-        <h2 className="font-semibold">התורים של היום</h2>
-        {todaySessions.length === 0 ? (
-          <p className="text-muted-foreground text-sm">אין תורים היום</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {todaySessions
-              .filter((s) => s.status === "booked" || s.status === "open")
-              .map((session) => (
-                <li
-                  key={session.id}
-                  className="flex items-center justify-between rounded-md border px-3 py-2 text-sm"
-                >
-                  <span>{formatInTimeZone(session.startsAt, therapist.timezone, "HH:mm")}</span>
-                  <span>
-                    {session.booking ? session.booking.clientNameSnapshot : "— פנוי —"}
-                  </span>
-                </li>
-              ))}
-          </ul>
-        )}
-      </div>
+      <DashboardSchedule
+        timezone={therapist.timezone}
+        weekDates={weekDates}
+        today={todayStr}
+        sessions={weekSessions.map((s) => ({
+          id: s.id,
+          startsAt: s.startsAt.toISOString(),
+          endsAt: s.endsAt.toISOString(),
+          status: s.status,
+          clientName: s.booking?.clientNameSnapshot ?? null,
+        }))}
+      />
 
       <div className="flex flex-wrap gap-2">
         <Button asChild>
