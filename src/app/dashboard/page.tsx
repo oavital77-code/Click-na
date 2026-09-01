@@ -75,7 +75,7 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8">
+    <main className="flex w-full flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName} 👋</h1>
         <UserButton />
