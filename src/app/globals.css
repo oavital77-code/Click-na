@@ -4,40 +4,42 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * "Ocean & Coral" — Cleana+ design language, light-mode-first.
- * Bright, soft, welcoming; sea-blue primary + warm-coral accent.
+ * "Atelier" — Cleana+ design language v3, boutique/editorial light theme.
+ * Warm cream + deep clay + gilded gold; Frank Ruhl Libre display serif
+ * for headings over Heebo body text. Inspired by Cal.com's precision,
+ * dialed toward a warmer, human, boutique-brand register.
  */
 :root {
-  --radius: 1rem;
+  --radius: 0.75rem;
 
   /* Raw HSL triples (no hsl() wrapper) — consumed as hsl(var(--x)) below,
      the classic shadcn/ui convention. */
-  --background: 210 40% 98%;
-  --foreground: 222 47% 15%;
-  --card: 0 0% 100%;
-  --card-foreground: 222 47% 15%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 222 47% 15%;
-  --primary: 199 89% 36%; /* Sea Blue */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 40% 95%;
-  --secondary-foreground: 222 47% 20%;
-  --muted: 210 40% 95%;
-  --muted-foreground: 215 16% 42%;
-  --accent: 15 90% 65%; /* Warm Coral */
-  --accent-foreground: 0 0% 100%;
-  --destructive: 0 72% 51%;
-  --destructive-foreground: 0 0% 100%;
-  --border: 214 32% 89%;
-  --input: 214 32% 89%;
-  --ring: 199 89% 36%;
+  --background: 40 33% 97%; /* warm cream */
+  --foreground: 20 16% 15%; /* warm charcoal, not cold black */
+  --card: 40 40% 99%;
+  --card-foreground: 20 16% 15%;
+  --popover: 40 40% 99%;
+  --popover-foreground: 20 16% 15%;
+  --primary: 14 45% 34%; /* deep clay/terracotta */
+  --primary-foreground: 40 40% 98%;
+  --secondary: 35 25% 93%;
+  --secondary-foreground: 20 16% 20%;
+  --muted: 35 25% 93%;
+  --muted-foreground: 25 12% 40%;
+  --accent: 38 68% 48%; /* warm gold — the single striking CTA color */
+  --accent-foreground: 20 30% 12%;
+  --destructive: 6 65% 42%;
+  --destructive-foreground: 40 40% 98%;
+  --border: 30 20% 88%;
+  --input: 30 20% 88%;
+  --ring: 14 45% 34%;
 
   /* Session/booking status */
-  --st-open: 160 70% 36%;
-  --st-booked: 199 89% 36%;
-  --st-held: 38 92% 46%;
-  --st-blocked: 215 16% 55%;
-  --st-danger: 0 72% 51%;
+  --st-open: 152 40% 32%;
+  --st-booked: 14 45% 34%;
+  --st-held: 38 68% 45%;
+  --st-blocked: 25 10% 55%;
+  --st-danger: 6 65% 42%;
 
   --tap-min: 44px;
 }
@@ -69,10 +71,10 @@
   --color-st-blocked: hsl(var(--st-blocked));
   --color-st-danger: hsl(var(--st-danger));
 
-  --radius-sm: calc(var(--radius) - 6px);
-  --radius-md: calc(var(--radius) - 4px);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --radius-xl: calc(var(--radius) + 6px);
 
   /* Bumped ~1px+ over Tailwind's defaults for legibility. */
   --text-xs: 0.8125rem; /* 13px */
@@ -87,8 +89,15 @@
   --text-xl--line-height: calc(1.75 / 1.375);
   --text-2xl: 1.625rem; /* 26px */
   --text-2xl--line-height: calc(2 / 1.625);
+  --text-3xl: 2.125rem; /* 34px */
+  --text-3xl--line-height: 1.15;
+  --text-4xl: 2.75rem; /* 44px */
+  --text-4xl--line-height: 1.1;
+  --text-5xl: 3.5rem; /* 56px */
+  --text-5xl--line-height: 1.05;
 
   --font-sans: var(--font-heebo);
+  --font-heading: var(--font-serif-display);
   --font-num: var(--font-inter);
   --font-mono: var(--font-geist-mono);
 }
@@ -103,7 +112,11 @@
   }
   h1,
   h2,
-  h3,
+  h3 {
+    @apply font-heading;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
   h4 {
     font-weight: 500;
   }
