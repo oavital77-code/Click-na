@@ -86,9 +86,14 @@ export default function Home() {
           <Link href="/">
             <BrandMark className="text-foreground text-lg" />
           </Link>
-          <Link href="/login" className="text-muted-foreground hover:text-foreground text-sm">
-            התחברות
-          </Link>
+          <div className="flex items-center gap-4 text-sm">
+            <Link href="/signup" className="text-muted-foreground hover:text-foreground">
+              הרשמה
+            </Link>
+            <Link href="/login" className="text-muted-foreground hover:text-foreground">
+              התחברות
+            </Link>
+          </div>
         </div>
       </header>
 
