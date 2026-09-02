@@ -1,7 +1,9 @@
+import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { PROFESSION_LABELS } from "@/lib/labels";
 import { resolveSlugRedirect } from "@/lib/profile";
+import { hexToHslTriple } from "@/lib/color";
 import { BookingFlow } from "./booking-flow";
 
 export default async function BookingPage({
@@ -35,10 +37,26 @@ export default async function BookingPage({
   }
 
   const { settings } = therapist;
+  const brandHsl = settings.brandColor ? hexToHslTriple(settings.brandColor) : null;
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-4 py-8">
-      <div className="flex flex-col gap-1 text-center">
+    <main
+      className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-4 py-8"
+      style={
+        brandHsl
+          ? ({ "--primary": brandHsl, "--ring": brandHsl } as CSSProperties)
+          : undefined
+      }
+    >
+      <div className="flex flex-col items-center gap-1 text-center">
+        {settings.brandLogoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- arbitrary therapist-provided external URL
+          <img
+            src={settings.brandLogoUrl}
+            alt=""
+            className="border-border mb-2 h-16 w-16 rounded-full border object-cover"
+          />
+        )}
         <h1 className="text-2xl font-bold">
           {settings.bookingPageHeadline || therapist.fullName}
         </h1>

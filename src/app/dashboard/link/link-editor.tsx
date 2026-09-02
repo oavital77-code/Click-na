@@ -218,6 +218,38 @@ export function LinkEditor({
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">מיתוג</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="brandColor">צבע מותג</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="brandColor"
+                  type="color"
+                  className="h-10 w-16 p-1"
+                  value={settings.brandColor || "#000000"}
+                  onChange={(e) => setSettings((s) => ({ ...s, brandColor: e.target.value }))}
+                />
+                <span className="text-muted-foreground num text-sm">{settings.brandColor || "ברירת מחדל"}</span>
+              </div>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="brandLogoUrl">קישור ללוגו</Label>
+              <Input
+                id="brandLogoUrl"
+                dir="ltr"
+                className="text-start"
+                placeholder="https://..."
+                value={settings.brandLogoUrl}
+                onChange={(e) => setSettings((s) => ({ ...s, brandLogoUrl: e.target.value }))}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
         {error && <p className="text-destructive text-sm">{error}</p>}
         <div className="flex items-center gap-2">
           <Button type="button" disabled={saving} onClick={handleSave} className="w-full">
