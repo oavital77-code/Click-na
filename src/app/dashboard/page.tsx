@@ -7,7 +7,6 @@ import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BookingLinkCard } from "@/components/booking-link-card";
 import { DashboardSchedule } from "./dashboard-schedule";
 
 export default async function DashboardPage() {
@@ -81,8 +80,6 @@ export default async function DashboardPage() {
         <UserButton />
       </div>
 
-      <BookingLinkCard slug={therapist.slug} prominent />
-
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {stats.map((stat) => (
           <Card key={stat.text}>
@@ -98,12 +95,14 @@ export default async function DashboardPage() {
         timezone={therapist.timezone}
         weekDates={weekDates}
         today={todayStr}
+        defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
         sessions={weekSessions.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           status: s.status,
           clientName: s.booking?.clientNameSnapshot ?? null,
+          clientPhone: s.booking?.clientPhoneSnapshot ?? null,
         }))}
       />
 
