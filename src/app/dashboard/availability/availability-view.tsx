@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { addDaysUtc } from "@/lib/availability";
+import { addDaysUtc, startOfWeekUtc } from "@/lib/availability";
 import { DAY_LABELS_SHORT } from "@/lib/labels";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 
@@ -37,11 +37,6 @@ type Props = {
   initialWeekStart: string;
   initialSessions: SessionRow[];
 };
-
-function startOfWeek(dateStr: string) {
-  const dayOfWeek = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
-  return addDaysUtc(dateStr, -dayOfWeek);
-}
 
 export function AvailabilityView({ timezone, initialWeekStart, initialSessions }: Props) {
   const [weekStart, setWeekStart] = useState(initialWeekStart);
@@ -116,7 +111,7 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
         );
         return;
       }
-      const addedWeekStart = startOfWeek(date);
+      const addedWeekStart = startOfWeekUtc(date);
       if (addedWeekStart === weekStart) {
         setSessions((prev) => [
           ...prev,
@@ -217,8 +212,8 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
               type="button"
               variant="outline"
               size="sm"
-              disabled={loadingWeek || weekStart === startOfWeek(today)}
-              onClick={() => loadWeek(startOfWeek(today))}
+              disabled={loadingWeek || weekStart === startOfWeekUtc(today)}
+              onClick={() => loadWeek(startOfWeekUtc(today))}
             >
               היום
             </Button>

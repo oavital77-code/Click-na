@@ -36,7 +36,7 @@
 
   /* Session/booking status */
   --st-open: 152 40% 32%;
-  --st-booked: 14 45% 34%;
+  --st-booked: 0 72% 45%; /* vivid red — a booked slot must pop against everything else */
   --st-held: 38 68% 45%;
   --st-blocked: 25 10% 55%;
   --st-danger: 6 65% 42%;

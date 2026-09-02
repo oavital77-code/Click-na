@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
 
 describe("addDaysUtc", () => {
   it("adds days within a month", () => {
@@ -28,6 +28,48 @@ describe("addDaysUtc", () => {
     } finally {
       process.env.TZ = originalTz;
     }
+  });
+});
+
+describe("startOfWeekUtc", () => {
+  it("returns the same date when it's already a Sunday", () => {
+    expect(startOfWeekUtc("2026-08-30")).toBe("2026-08-30");
+  });
+
+  it("rolls back to the Sunday of the containing week", () => {
+    expect(startOfWeekUtc("2026-09-02")).toBe("2026-08-30");
+  });
+
+  it("rolls back across a month boundary", () => {
+    expect(startOfWeekUtc("2026-09-01")).toBe("2026-08-30");
+  });
+});
+
+describe("startOfMonthUtc", () => {
+  it("returns the 1st of the given month", () => {
+    expect(startOfMonthUtc("2026-09-17")).toBe("2026-09-01");
+  });
+
+  it("is a no-op on the 1st already", () => {
+    expect(startOfMonthUtc("2026-09-01")).toBe("2026-09-01");
+  });
+});
+
+describe("addMonthsUtc", () => {
+  it("returns the 1st of the next month", () => {
+    expect(addMonthsUtc("2026-09-15", 1)).toBe("2026-10-01");
+  });
+
+  it("returns the 1st of the previous month", () => {
+    expect(addMonthsUtc("2026-09-15", -1)).toBe("2026-08-01");
+  });
+
+  it("rolls over a year boundary going forward", () => {
+    expect(addMonthsUtc("2026-12-10", 1)).toBe("2027-01-01");
+  });
+
+  it("rolls over a year boundary going backward", () => {
+    expect(addMonthsUtc("2026-01-10", -1)).toBe("2025-12-01");
   });
 });
 

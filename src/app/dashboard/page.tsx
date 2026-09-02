@@ -30,10 +30,9 @@ export default async function DashboardPage() {
   const todayStart = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
-  // Calendar week (Sunday–Saturday) containing today, for the schedule widget.
+  // Calendar week (Sunday–Saturday) containing today, for the schedule widget's initial load.
   const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
   const weekStartStr = addDaysUtc(todayStr, -dayOfWeek);
-  const weekDates = Array.from({ length: 7 }, (_, i) => addDaysUtc(weekStartStr, i));
   const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", therapist.timezone);
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
@@ -80,20 +79,8 @@ export default async function DashboardPage() {
         <UserButton />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.text}>
-            <CardContent className="flex flex-col items-center gap-1 py-5 md:py-6">
-              <span className="num text-3xl font-bold">{stat.value}</span>
-              <span className="text-muted-foreground text-center text-xs font-medium">{stat.text}</span>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
       <DashboardSchedule
         timezone={therapist.timezone}
-        weekDates={weekDates}
         today={todayStr}
         defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
         sessions={weekSessions.map((s) => ({
@@ -106,6 +93,17 @@ export default async function DashboardPage() {
           blockedNote: s.blockedNote,
         }))}
       />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
+        {stats.map((stat) => (
+          <Card key={stat.text}>
+            <CardContent className="flex flex-col items-center gap-1 py-5 md:py-6">
+              <span className="num text-3xl font-bold">{stat.value}</span>
+              <span className="text-muted-foreground text-center text-xs font-medium">{stat.text}</span>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         <Button asChild>
