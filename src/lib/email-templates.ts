@@ -132,3 +132,25 @@ export function cancellationEmailForClient(input: TherapistCanceledEmailInput) {
     `),
   };
 }
+
+export type RescheduledEmailInput = {
+  therapistFullName: string;
+  clientFullName: string;
+  oldStartsAt: Date;
+  newStartsAt: Date;
+  timezone: string;
+};
+
+export function rescheduledEmailForTherapist(input: RescheduledEmailInput) {
+  const oldWhen = formatInTimeZone(input.oldStartsAt, input.timezone, "d.M.yyyy, HH:mm", { locale: he });
+  const newWhen = formatInTimeZone(input.newStartsAt, input.timezone, "d.M.yyyy, HH:mm", { locale: he });
+  return {
+    subject: `שינוי מועד: ${input.clientFullName}`,
+    html: wrap(`
+      <h1 style="font-size:20px;margin:0 0 16px;">מועד תור שונה</h1>
+      <p style="font-size:15px;line-height:1.6;">${input.clientFullName} העביר/ה את התור:</p>
+      <p style="font-size:14px;color:#8a8a8a;text-decoration:line-through;margin:12px 0 4px;">${oldWhen}</p>
+      <p style="font-size:16px;font-weight:bold;margin:0;">${newWhen}</p>
+    `),
+  };
+}

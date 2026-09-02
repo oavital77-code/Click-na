@@ -183,3 +183,75 @@ export async function cancelBookingByClient(manageToken: string): Promise<Cancel
 
   return { ok: true, bookingId: booking.id };
 }
+
+export type RescheduleResult =
+  | { ok: true; bookingId: string; startsAt: Date; endsAt: Date }
+  | {
+      ok: false;
+      error:
+        | "not_found"
+        | "already_canceled"
+        | "CANCELLATION_WINDOW_PASSED"
+        | "SLOT_ALREADY_BOOKED"
+        | "BOOKING_TOO_SOON";
+    };
+
+/**
+ * Client-side reschedule (spec 7.4/9.2) — moves the same booking to a different
+ * open session for the same therapist. Gated by the same cancellation-policy
+ * window as cancel (spec doesn't separate the two), plus the new slot's own
+ * min-notice check.
+ */
+export async function rescheduleBookingByClient(
+  manageToken: string,
+  newSessionId: string
+): Promise<RescheduleResult> {
+  const booking = await prisma.booking.findUnique({
+    where: { manageToken },
+    include: { session: true, therapist: { include: { settings: true } } },
+  });
+  if (!booking) {
+    return { ok: false, error: "not_found" };
+  }
+  if (isAlreadyCanceled(booking.status)) {
+    return { ok: false, error: "already_canceled" };
+  }
+
+  const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
+  const hoursUntilSession = (booking.session.startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
+  if (hoursUntilSession < cancellationPolicyHours) {
+    return { ok: false, error: "CANCELLATION_WINDOW_PASSED" };
+  }
+
+  const newSession = await prisma.session.findUnique({ where: { id: newSessionId } });
+  if (!newSession || newSession.therapistId !== booking.therapistId) {
+    return { ok: false, error: "not_found" };
+  }
+
+  const minNoticeMs = (booking.therapist.settings?.minNoticeHours ?? 12) * 60 * 60 * 1000;
+  if (newSession.startsAt.getTime() - Date.now() < minNoticeMs) {
+    return { ok: false, error: "BOOKING_TOO_SOON" };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.session.updateMany({
+        where: { id: newSessionId, status: { in: ["open", "held"] } },
+        data: { status: "booked" },
+      });
+      if (claimed.count === 0) {
+        throw new SlotUnavailableError();
+      }
+
+      await tx.session.update({ where: { id: booking.sessionId }, data: { status: "open" } });
+      await tx.booking.update({ where: { id: booking.id }, data: { sessionId: newSessionId } });
+    });
+  } catch (error) {
+    if (error instanceof SlotUnavailableError || isExclusionViolation(error)) {
+      return { ok: false, error: "SLOT_ALREADY_BOOKED" };
+    }
+    throw error;
+  }
+
+  return { ok: true, bookingId: booking.id, startsAt: newSession.startsAt, endsAt: newSession.endsAt };
+}

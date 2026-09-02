@@ -5,6 +5,7 @@ import {
   createBooking,
   cancelBookingByTherapist,
   cancelBookingByClient,
+  rescheduleBookingByClient,
 } from "@/lib/bookings";
 
 describe("bookings (against a live database)", () => {
@@ -199,6 +200,90 @@ describe("bookings (against a live database)", () => {
       await cancelBookingByClient(booking.manageToken);
       const second = await cancelBookingByClient(booking.manageToken);
       expect(second).toEqual({ ok: false, error: "already_canceled" });
+    });
+  });
+
+  describe("rescheduleBookingByClient", () => {
+    it("moves the booking to the new session and reopens the old one", async () => {
+      const { session: oldSession, booking } = await makeBooking(48);
+      const newSession = await makeSession(72);
+
+      const result = await rescheduleBookingByClient(booking.manageToken, newSession.id);
+      expect(result).toEqual({
+        ok: true,
+        bookingId: booking.id,
+        startsAt: newSession.startsAt,
+        endsAt: newSession.endsAt,
+      });
+
+      const updatedBooking = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(updatedBooking.sessionId).toBe(newSession.id);
+
+      const updatedOldSession = await prisma.session.findUniqueOrThrow({ where: { id: oldSession.id } });
+      expect(updatedOldSession.status).toBe("open");
+
+      const updatedNewSession = await prisma.session.findUniqueOrThrow({ where: { id: newSession.id } });
+      expect(updatedNewSession.status).toBe("booked");
+    });
+
+    it("rejects moving to a slot that's already booked", async () => {
+      const { booking } = await makeBooking(48);
+      const takenSession = await makeSession(72);
+      await createBooking(takenSession.id, { fullName: "Other", email: "other@example.com", phone: "0500000006" });
+
+      const result = await rescheduleBookingByClient(booking.manageToken, takenSession.id);
+      expect(result).toEqual({ ok: false, error: "SLOT_ALREADY_BOOKED" });
+
+      const untouched = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(untouched.sessionId).toBe(booking.sessionId);
+    });
+
+    it("rejects rescheduling inside the cancellation policy window", async () => {
+      const { booking } = await makeBooking(2); // 2h away, policy is 24h
+      const newSession = await makeSession(72);
+      const result = await rescheduleBookingByClient(booking.manageToken, newSession.id);
+      expect(result).toEqual({ ok: false, error: "CANCELLATION_WINDOW_PASSED" });
+    });
+
+    it("rejects moving to a slot inside the min-notice window", async () => {
+      const { booking } = await makeBooking(48);
+      const tooSoonSession = await makeSession(0.5); // min notice is 1 hour
+      const result = await rescheduleBookingByClient(booking.manageToken, tooSoonSession.id);
+      expect(result).toEqual({ ok: false, error: "BOOKING_TOO_SOON" });
+    });
+
+    it("rejects a session belonging to a different therapist", async () => {
+      const other = await prisma.therapist.create({
+        data: {
+          email: "reschedule-other@example.com",
+          fullName: "Other Therapist",
+          slug: "reschedule-other-therapist",
+          subscription: { create: {} },
+          settings: { create: {} },
+        },
+      });
+      const otherSession = await prisma.session.create({
+        data: {
+          therapistId: other.id,
+          startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
+          endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
+        },
+      });
+
+      const { booking } = await makeBooking(48);
+      const result = await rescheduleBookingByClient(booking.manageToken, otherSession.id);
+      expect(result).toEqual({ ok: false, error: "not_found" });
+
+      await prisma.session.deleteMany({ where: { therapistId: other.id } });
+      await prisma.therapistSettings.deleteMany({ where: { therapistId: other.id } });
+      await prisma.subscription.deleteMany({ where: { therapistId: other.id } });
+      await prisma.therapist.deleteMany({ where: { id: other.id } });
+    });
+
+    it("rejects an unknown manage token", async () => {
+      const newSession = await makeSession(72);
+      const result = await rescheduleBookingByClient("no-such-token", newSession.id);
+      expect(result).toEqual({ ok: false, error: "not_found" });
     });
   });
 });

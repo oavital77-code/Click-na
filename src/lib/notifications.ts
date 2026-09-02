@@ -7,6 +7,7 @@ import {
   reminderEmailForClient,
   cancellationEmailForTherapist,
   cancellationEmailForClient,
+  rescheduledEmailForTherapist,
 } from "@/lib/email-templates";
 import type { NotificationType } from "@/generated/prisma/client";
 
@@ -169,6 +170,53 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
       send: () => sendEmail({ to: booking.clientEmailSnapshot!, subject, html }),
     });
   }
+}
+
+/** Fires when a client moves their own booking to a different slot (spec 7.4/9.2):
+ *  notifies the therapist and re-schedules any pending reminder to the new time. */
+export async function sendBookingRescheduledNotifications(bookingId: string, oldStartsAt: Date) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { session: true, therapist: { include: { settings: true } } },
+  });
+  if (!booking) return;
+
+  const { session, therapist } = booking;
+  const settings = therapist.settings;
+
+  await prisma.notification.updateMany({
+    where: { bookingId, type: "reminder", status: "pending" },
+    data: { status: "canceled" },
+  });
+  if (settings?.sendEmailReminder && booking.clientEmailSnapshot) {
+    const scheduledFor = new Date(session.startsAt.getTime() - settings.reminderHoursBefore * 60 * 60 * 1000);
+    if (scheduledFor.getTime() > Date.now()) {
+      await prisma.notification.create({
+        data: {
+          bookingId,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot,
+          scheduledFor,
+          status: "pending",
+        },
+      });
+    }
+  }
+
+  const { subject, html } = rescheduledEmailForTherapist({
+    therapistFullName: therapist.fullName,
+    clientFullName: booking.clientNameSnapshot,
+    oldStartsAt,
+    newStartsAt: session.startsAt,
+    timezone: therapist.timezone,
+  });
+  await recordNotification({
+    bookingId,
+    type: "reschedule",
+    recipient: therapist.email,
+    send: () => sendEmail({ to: therapist.email, subject, html }),
+  });
 }
 
 export type SendDueRemindersSummary = { sent: number; failed: number };
