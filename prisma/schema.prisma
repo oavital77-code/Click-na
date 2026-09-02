@@ -219,6 +219,7 @@ model Session {
   startsAt            DateTime      @map("starts_at") @db.Timestamptz
   endsAt              DateTime      @map("ends_at") @db.Timestamptz
   status              SessionStatus @default(open)
+  blockedNote         String?       @map("blocked_note") @db.VarChar(80)
   generatedFromRuleId String?       @map("generated_from_rule_id") @db.Uuid
   holdExpiresAt       DateTime?     @map("hold_expires_at") @db.Timestamptz
   version             Int           @default(0)

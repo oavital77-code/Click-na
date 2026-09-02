@@ -3,7 +3,10 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 
-const patchSchema = z.object({ status: z.enum(["open", "blocked"]) });
+const patchSchema = z.object({
+  status: z.enum(["open", "blocked"]),
+  note: z.string().trim().max(80).optional(),
+});
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessions/[id]">) {
   const { userId } = await auth();
@@ -25,14 +28,19 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
   }
 
   // Closing a booked slot needs the client-cancellation flow (spec 11.2) — not built yet.
+  // A blocked slot can also stay blocked while its note is edited, not just transition.
   const allowedTransitions: Record<string, string> = { open: "blocked", blocked: "open" };
-  if (allowedTransitions[session.status] !== parsed.data.status) {
+  const isNoteEdit = session.status === "blocked" && parsed.data.status === "blocked";
+  if (!isNoteEdit && allowedTransitions[session.status] !== parsed.data.status) {
     return NextResponse.json({ error: "invalid_transition" }, { status: 409 });
   }
 
   const updated = await prisma.session.update({
     where: { id },
-    data: { status: parsed.data.status },
+    data: {
+      status: parsed.data.status,
+      blockedNote: parsed.data.status === "blocked" ? (parsed.data.note ?? null) : null,
+    },
   });
 
   return NextResponse.json({ session: updated });

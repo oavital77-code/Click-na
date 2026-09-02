@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
 import { he } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { DAY_LABELS_SHORT } from "@/lib/labels";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
@@ -18,7 +19,10 @@ type SessionRow = {
   status: string;
   clientName: string | null;
   clientPhone: string | null;
+  blockedNote: string | null;
 };
+
+type ActionResult = { ok: true } | { ok: false; error: string };
 
 type Props = {
   timezone: string;
@@ -57,7 +61,7 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
     [sessions]
   );
 
-  async function handleOpenSlot(dateKey: string, time: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  async function handleOpenSlot(dateKey: string, time: string): Promise<ActionResult> {
     const endTime = addMinutesToTime(time, defaultDurationMinutes);
     try {
       const res = await fetch("/api/sessions", {
@@ -86,6 +90,7 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
           status: data.session.status,
           clientName: null,
           clientPhone: null,
+          blockedNote: null,
         },
       ]);
       return { ok: true };
@@ -94,15 +99,37 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
     }
   }
 
-  async function handleCancelSlot(sessionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  // Blocks a slot (from open, or edits the note on an already-blocked one) with an
+  // optional label — e.g. the name of someone booked outside the system.
+  async function handleBlockSlot(sessionId: string, note: string): Promise<ActionResult> {
     try {
       const res = await fetch(`/api/sessions/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "blocked" }),
+        body: JSON.stringify({ status: "blocked", note: note.trim() || undefined }),
       });
-      if (!res.ok) return { ok: false, error: "שגיאה בביטול החלון" };
-      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, status: "blocked" } : s)));
+      if (!res.ok) return { ok: false, error: "שגיאה בשמירה" };
+      const trimmed = note.trim() || null;
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, status: "blocked", blockedNote: trimmed } : s))
+      );
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+    }
+  }
+
+  async function handleReopenSlot(sessionId: string): Promise<ActionResult> {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "open" }),
+      });
+      if (!res.ok) return { ok: false, error: "שגיאה בפתיחה מחדש" };
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, status: "open", blockedNote: null } : s))
+      );
       return { ok: true };
     } catch {
       return { ok: false, error: "שגיאת רשת, נסה שוב" };
@@ -174,7 +201,8 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
                             dateKey={dateKey}
                             time={time}
                             onOpenSlot={handleOpenSlot}
-                            onCancelSlot={handleCancelSlot}
+                            onBlockSlot={handleBlockSlot}
+                            onReopenSlot={handleReopenSlot}
                           />
                         </td>
                       ))}
@@ -224,13 +252,15 @@ function SlotCell({
   dateKey,
   time,
   onOpenSlot,
-  onCancelSlot,
+  onBlockSlot,
+  onReopenSlot,
 }: {
   session: SessionRow | undefined;
   dateKey: string;
   time: string;
-  onOpenSlot: (dateKey: string, time: string) => Promise<{ ok: true } | { ok: false; error: string }>;
-  onCancelSlot: (sessionId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onOpenSlot: (dateKey: string, time: string) => Promise<ActionResult>;
+  onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
+  onReopenSlot: (sessionId: string) => Promise<ActionResult>;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -286,61 +316,105 @@ function SlotCell({
   }
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
-  const chipLabel = session.clientName ?? STATUS_LABELS[session.status] ?? session.status;
+  const chipLabel =
+    session.clientName ?? session.blockedNote ?? STATUS_LABELS[session.status] ?? session.status;
   const hoverDetails = isBookedOrHeld
     ? [session.clientName, session.clientPhone, time].filter(Boolean).join(" · ")
     : undefined;
 
-  // Open (unbooked) slot: click offers to cancel it.
+  // Open (unbooked) slot: click offers to block it, optionally with a label.
   if (session.status === "open") {
     return (
-      <Popover.Root
+      <SlotPopover
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
           if (!next) setError(null);
         }}
-      >
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            className={statusBadgeClass("open") + " w-full min-h-9 justify-center"}
-          >
+        trigger={
+          <button type="button" className={statusBadgeClass("open") + " w-full min-h-9 justify-center"}>
             {chipLabel}
           </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            sideOffset={6}
-            className="bg-card border-border z-50 w-52 rounded-md border p-3 text-start shadow-lg"
-          >
-            <p className="num text-sm font-medium">{time} · פנוי</p>
-            <p className="text-muted-foreground mb-2 text-xs">חלון טיפול פתוח, עדיין לא הוזמן</p>
-            {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                const result = await onCancelSlot(session.id);
-                setBusy(false);
-                if (result.ok) setOpen(false);
-                else setError(result.error);
-              }}
-            >
-              {busy ? "מבטל..." : "בטל חלון"}
-            </Button>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
+        }
+      >
+        <p className="num text-sm font-medium">{time} · פנוי</p>
+        <p className="text-muted-foreground mb-2 text-xs">חלון טיפול פתוח, עדיין לא הוזמן</p>
+        <NoteBlockForm
+          initialNote=""
+          busy={busy}
+          error={error}
+          submitLabel="חסום חלון"
+          busyLabel="חוסם..."
+          onSubmit={async (note) => {
+            setBusy(true);
+            setError(null);
+            const result = await onBlockSlot(session.id, note);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        />
+      </SlotPopover>
     );
   }
 
-  // Booked/held/blocked: read-only chip; hover reveals a bit more detail.
+  // Blocked slot: click lets you edit its label or reopen it as available.
+  if (session.status === "blocked") {
+    return (
+      <SlotPopover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setError(null);
+        }}
+        trigger={
+          <button
+            type="button"
+            className={statusBadgeClass("blocked") + " w-full min-h-9 justify-center"}
+          >
+            {chipLabel}
+          </button>
+        }
+      >
+        <p className="num text-sm font-medium">{time} · חסום</p>
+        <p className="text-muted-foreground mb-2 text-xs">אפשר להוסיף תווית, או לפתוח מחדש</p>
+        <NoteBlockForm
+          initialNote={session.blockedNote ?? ""}
+          busy={busy}
+          error={error}
+          submitLabel="שמור"
+          busyLabel="שומר..."
+          onSubmit={async (note) => {
+            setBusy(true);
+            setError(null);
+            const result = await onBlockSlot(session.id, note);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="mt-2 w-full"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError(null);
+            const result = await onReopenSlot(session.id);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        >
+          פתח מחדש
+        </Button>
+      </SlotPopover>
+    );
+  }
+
+  // Booked/held: read-only chip; hover reveals a bit more detail.
   return (
     <span
       title={hoverDetails}
@@ -348,6 +422,66 @@ function SlotCell({
     >
       {chipLabel}
     </span>
+  );
+}
+
+function SlotPopover({
+  open,
+  onOpenChange,
+  trigger,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (next: boolean) => void;
+  trigger: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Popover.Root open={open} onOpenChange={onOpenChange}>
+      <Popover.Trigger asChild>{trigger}</Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content
+          sideOffset={6}
+          className="bg-card border-border z-50 w-56 rounded-md border p-3 text-start shadow-lg"
+        >
+          {children}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+function NoteBlockForm({
+  initialNote,
+  busy,
+  error,
+  submitLabel,
+  busyLabel,
+  onSubmit,
+}: {
+  initialNote: string;
+  busy: boolean;
+  error: string | null;
+  submitLabel: string;
+  busyLabel: string;
+  onSubmit: (note: string) => void;
+}) {
+  const [note, setNote] = useState(initialNote);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Input
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        placeholder="הערה (למשל שם המטופל)"
+        maxLength={80}
+        className="h-9 text-sm"
+      />
+      {error && <p className="text-destructive text-xs">{error}</p>}
+      <Button type="button" size="sm" className="w-full" disabled={busy} onClick={() => onSubmit(note)}>
+        {busy ? busyLabel : submitLabel}
+      </Button>
+    </div>
   );
 }
 

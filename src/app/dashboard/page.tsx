@@ -103,6 +103,7 @@ export default async function DashboardPage() {
           status: s.status,
           clientName: s.booking?.clientNameSnapshot ?? null,
           clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+          blockedNote: s.blockedNote,
         }))}
       />
 
