@@ -30,6 +30,7 @@ export default async function ManageBookingPage({
     <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-4 py-8">
       <ManageBooking
         token={token}
+        slug={booking.therapist.slug}
         timezone={booking.therapist.timezone}
         startsAt={booking.session.startsAt.toISOString()}
         endsAt={booking.session.endsAt.toISOString()}

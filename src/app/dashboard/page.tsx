@@ -114,6 +114,9 @@ export default async function DashboardPage() {
         <Button asChild variant="outline">
           <Link href="/dashboard/bookings">כל ההזמנות</Link>
         </Button>
+        <Button asChild variant="outline" className="md:hidden">
+          <Link href="/dashboard/clients">לקוחות</Link>
+        </Button>
         <Button asChild variant="outline">
           <Link href="/dashboard/settings">הגדרות</Link>
         </Button>

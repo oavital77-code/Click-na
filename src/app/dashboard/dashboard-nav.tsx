@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/dashboard", label: "דשבורד" },
   { href: "/dashboard/availability", label: "זמינות" },
   { href: "/dashboard/bookings", label: "הזמנות" },
+  { href: "/dashboard/clients", label: "לקוחות" },
   { href: "/dashboard/settings", label: "הגדרות" },
 ];
 
