@@ -3,7 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu, X } from "lucide-react";
+import { SignOutButton } from "@clerk/nextjs";
+import { LogOut, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/brand-mark";
 
@@ -39,6 +40,20 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
         </Link>
       ))}
     </>
+  );
+}
+
+function SignOutLink() {
+  return (
+    <SignOutButton redirectUrl="/">
+      <button
+        type="button"
+        className="text-muted-foreground hover:bg-muted hover:text-foreground flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors"
+      >
+        <LogOut className="size-4" strokeWidth={1.75} />
+        התנתקות
+      </button>
+    </SignOutButton>
   );
 }
 
@@ -84,6 +99,9 @@ export function DashboardNav() {
               </button>
             </div>
             <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <div className="mt-auto pt-2">
+              <SignOutLink />
+            </div>
           </nav>
         </div>
       )}
@@ -94,6 +112,9 @@ export function DashboardNav() {
           <BrandMark className="text-primary text-lg" />
         </Link>
         <NavLinks pathname={pathname} />
+        <div className="mt-auto pt-2">
+          <SignOutLink />
+        </div>
       </nav>
     </>
   );

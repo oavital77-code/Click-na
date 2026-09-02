@@ -169,18 +169,15 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
             <EmptyCalendarHint />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[420px] border-collapse text-sm">
+              <table className="w-full min-w-[620px] border-collapse text-sm">
                 <thead>
                   <tr>
                     <th className="w-12" />
-                    {weekDates.map((dateKey, i) => {
+                    {weekDates.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th
-                          key={dateKey}
-                          className={cn("pb-2 text-center font-medium", i >= 3 && "hidden md:table-cell")}
-                        >
+                        <th key={dateKey} className="min-w-16 pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>{DAY_LABELS_SHORT[dow]}</div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
@@ -194,8 +191,8 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
                   {byDayAndTime.times.map((time) => (
                     <tr key={time} className="border-border border-t">
                       <td className="num text-muted-foreground py-2 pe-2 text-xs">{time}</td>
-                      {weekDates.map((dateKey, i) => (
-                        <td key={dateKey} className={cn("p-1 text-center align-middle", i >= 3 && "hidden md:table-cell")}>
+                      {weekDates.map((dateKey) => (
+                        <td key={dateKey} className="min-w-16 p-1 text-center align-middle">
                           <SlotCell
                             session={byDayAndTime.map.get(`${dateKey}T${time}`)}
                             dateKey={dateKey}
@@ -211,7 +208,7 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
                 </tbody>
               </table>
               <p className="text-muted-foreground mt-3 text-xs md:hidden">
-                מציג 3 ימים. לתצוגה מלאה — <Link href="/dashboard/availability" className="text-primary underline underline-offset-2">ניהול זמינות</Link>
+                גלול לצדדים לצפייה בכל ימות השבוע
               </p>
             </div>
           )
