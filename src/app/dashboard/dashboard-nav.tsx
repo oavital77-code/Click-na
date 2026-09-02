@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/brand-mark";
 
 const LINKS = [
   { href: "/dashboard", label: "דשבורד" },
@@ -49,8 +50,8 @@ export function DashboardNav() {
     <>
       {/* Mobile top bar — the nav itself lives in a drawer, kept off-screen to maximize content space. */}
       <div className="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden">
-        <Link href="/dashboard" className="font-heading text-primary text-lg font-medium">
-          Cleana+
+        <Link href="/dashboard">
+          <BrandMark className="text-primary text-lg" />
         </Link>
         <button
           type="button"
@@ -72,7 +73,7 @@ export function DashboardNav() {
           />
           <nav className="bg-card absolute inset-y-0 start-0 flex w-64 flex-col gap-1 p-4 shadow-xl">
             <div className="mb-4 flex items-center justify-between px-1">
-              <span className="font-heading text-lg font-medium">Cleana+</span>
+              <BrandMark className="text-lg" />
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
@@ -89,8 +90,8 @@ export function DashboardNav() {
 
       {/* Desktop rail — pinned in place while the content area scrolls. */}
       <nav className="border-border bg-card sticky top-0 hidden h-dvh w-56 shrink-0 flex-col gap-1 overflow-y-auto border-e p-4 md:flex">
-        <Link href="/dashboard" className="font-heading text-primary mb-4 px-3 text-lg font-medium">
-          Cleana+
+        <Link href="/dashboard" className="mb-4 px-3">
+          <BrandMark className="text-primary text-lg" />
         </Link>
         <NavLinks pathname={pathname} />
       </nav>
