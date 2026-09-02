@@ -18,6 +18,22 @@ export function addDaysUtc(dateStr: string, days: number) {
   return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
 }
 
+export function startOfWeekUtc(dateStr: string) {
+  const dayOfWeek = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
+  return addDaysUtc(dateStr, -dayOfWeek);
+}
+
+export function startOfMonthUtc(dateStr: string) {
+  return `${dateStr.slice(0, 7)}-01`;
+}
+
+/** Returns the 1st of the month `months` away from the month containing `dateStr`. */
+export function addMonthsUtc(dateStr: string, months: number) {
+  const d = new Date(`${startOfMonthUtc(dateStr)}T00:00:00Z`);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-01`;
+}
+
 /** Encodes "HH:MM" as the @db.Time value Prisma expects: a Date anchored at 1970-01-01 UTC. */
 export function toTimeValue(hhmm: string) {
   const [hours, minutes] = hhmm.split(":").map(Number);

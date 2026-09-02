@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS_SHORT } from "@/lib/labels";
+import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 
 type SessionRow = {
@@ -22,11 +23,27 @@ type SessionRow = {
   blockedNote: string | null;
 };
 
+type RawSession = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+  blockedNote?: string | null;
+  booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null;
+};
+
 type ActionResult = { ok: true } | { ok: false; error: string };
+
+type Granularity = "day" | "week" | "month";
+
+const GRANULARITY_LABELS: Record<Granularity, string> = {
+  day: "יום",
+  week: "שבוע",
+  month: "חודש",
+};
 
 type Props = {
   timezone: string;
-  weekDates: string[]; // 7 dates, Sunday..Saturday, yyyy-MM-dd
   today: string;
   defaultDurationMinutes: number;
   sessions: SessionRow[];
@@ -40,9 +57,82 @@ function addMinutesToTime(time: string, minutes: number) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-export function DashboardSchedule({ timezone, weekDates, today, defaultDurationMinutes, sessions: initialSessions }: Props) {
+function formatRangeLabel(granularity: Granularity, anchorDate: string) {
+  if (granularity === "day") {
+    const dow = new Date(`${anchorDate}T00:00:00Z`).getUTCDay();
+    return `יום ${DAY_LABELS_SHORT[dow]} · ${anchorDate.slice(8, 10)}.${anchorDate.slice(5, 7)}`;
+  }
+  if (granularity === "month") {
+    const [year, month] = anchorDate.split("-");
+    return `${MONTH_LABELS[Number(month) - 1]} ${year}`;
+  }
+  const start = startOfWeekUtc(anchorDate);
+  const end = addDaysUtc(start, 6);
+  return `${start.slice(8, 10)}.${start.slice(5, 7)}–${end.slice(8, 10)}.${end.slice(5, 7)}`;
+}
+
+export function DashboardSchedule({
+  timezone,
+  today,
+  defaultDurationMinutes,
+  sessions: initialSessions,
+}: Props) {
   const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [granularity, setGranularity] = useState<Granularity>("week");
+  const [anchorDate, setAnchorDate] = useState(today);
   const [sessions, setSessions] = useState(initialSessions);
+  const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const isFirstRender = useRef(true);
+
+  const range = useMemo(() => {
+    if (granularity === "day") return { from: anchorDate, to: addDaysUtc(anchorDate, 1) };
+    if (granularity === "month") {
+      const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
+      return { from: gridStart, to: addDaysUtc(gridStart, 42) };
+    }
+    const weekStart = startOfWeekUtc(anchorDate);
+    return { from: weekStart, to: addDaysUtc(weekStart, 7) };
+  }, [granularity, anchorDate]);
+
+  // The server already loaded the current week (matching the initial range) —
+  // skip the redundant first fetch and only hit the API on actual navigation.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
+    const fromIso = zonedDateTimeToUtc(range.from, "00:00", timezone).toISOString();
+    const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
+    fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data: { sessions: RawSession[] }) => {
+        if (cancelled) return;
+        setSessions(
+          data.sessions.map((s) => ({
+            id: s.id,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+            status: s.status,
+            clientName: s.booking?.clientNameSnapshot ?? null,
+            clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+            blockedNote: s.blockedNote ?? null,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError("שגיאה בטעינת הלו״ז, נסה שוב");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range.from, range.to, timezone]);
 
   const byDayAndTime = useMemo(() => {
     const map = new Map<string, SessionRow>();
@@ -60,6 +150,36 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
     () => [...sessions].filter((s) => s.status === "booked" || s.status === "open").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
     [sessions]
   );
+
+  const columns = useMemo(
+    () => (granularity === "day" ? [anchorDate] : Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i))),
+    [granularity, anchorDate]
+  );
+
+  const isCurrentPeriod =
+    granularity === "day"
+      ? anchorDate === today
+      : granularity === "month"
+        ? startOfMonthUtc(anchorDate) === startOfMonthUtc(today)
+        : startOfWeekUtc(anchorDate) === startOfWeekUtc(today);
+
+  function goPrev() {
+    setAnchorDate((d) =>
+      granularity === "day" ? addDaysUtc(d, -1) : granularity === "month" ? addMonthsUtc(d, -1) : addDaysUtc(d, -7)
+    );
+  }
+  function goNext() {
+    setAnchorDate((d) =>
+      granularity === "day" ? addDaysUtc(d, 1) : granularity === "month" ? addMonthsUtc(d, 1) : addDaysUtc(d, 7)
+    );
+  }
+  function goToday() {
+    setAnchorDate(granularity === "month" ? startOfMonthUtc(today) : today);
+  }
+  function switchGranularity(g: Granularity) {
+    setGranularity(g);
+    setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
+  }
 
   async function handleOpenSlot(dateKey: string, time: string): Promise<ActionResult> {
     const endTime = addMinutesToTime(time, defaultDurationMinutes);
@@ -138,42 +258,90 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-lg">הלו״ז שלי</CardTitle>
-        <div className="bg-muted inline-flex gap-1 rounded-md p-1">
-          <button
-            type="button"
-            onClick={() => setView("calendar")}
-            className={cn(
-              "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
-              view === "calendar" ? "bg-card shadow-xs" : "text-muted-foreground"
-            )}
-          >
-            תצוגת יומן
-          </button>
-          <button
-            type="button"
-            onClick={() => setView("list")}
-            className={cn(
-              "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
-              view === "list" ? "bg-card shadow-xs" : "text-muted-foreground"
-            )}
-          >
-            תצוגת רשימה
-          </button>
+      <CardHeader className="flex flex-col gap-3">
+        <div className="flex flex-row items-center justify-between gap-2">
+          <CardTitle className="text-lg">הלו״ז שלי</CardTitle>
+          {granularity !== "month" && (
+            <div className="bg-muted inline-flex gap-1 rounded-md p-1">
+              <button
+                type="button"
+                onClick={() => setView("calendar")}
+                className={cn(
+                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  view === "calendar" ? "bg-card shadow-xs" : "text-muted-foreground"
+                )}
+              >
+                תצוגת יומן
+              </button>
+              <button
+                type="button"
+                onClick={() => setView("list")}
+                className={cn(
+                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  view === "list" ? "bg-card shadow-xs" : "text-muted-foreground"
+                )}
+              >
+                תצוגת רשימה
+              </button>
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="bg-muted inline-flex gap-1 rounded-md p-1">
+            {(["day", "week", "month"] as const).map((g) => (
+              <button
+                key={g}
+                type="button"
+                onClick={() => switchGranularity(g)}
+                className={cn(
+                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  granularity === g ? "bg-card shadow-xs" : "text-muted-foreground"
+                )}
+              >
+                {GRANULARITY_LABELS[g]}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
+            <div className="flex gap-1">
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
+                ‹
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={loading || isCurrentPeriod} onClick={goToday}>
+                היום
+              </Button>
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goNext} aria-label="התקופה הבאה">
+                ›
+              </Button>
+            </div>
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        {view === "calendar" ? (
+        {loadError && <p className="text-destructive mb-3 text-sm">{loadError}</p>}
+        {granularity === "month" ? (
+          <MonthGrid
+            anchorDate={anchorDate}
+            today={today}
+            sessions={sessions}
+            timezone={timezone}
+            onSelectDay={(date) => {
+              setAnchorDate(date);
+              setGranularity("day");
+            }}
+          />
+        ) : view === "calendar" ? (
           byDayAndTime.times.length === 0 && sessions.length === 0 ? (
-            <EmptyCalendarHint />
+            <EmptyCalendarHint granularity={granularity} />
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[620px] border-collapse text-sm">
+              <table className={cn("w-full border-collapse text-sm", granularity === "week" && "min-w-[620px]")}>
                 <thead>
                   <tr>
                     <th className="w-12" />
-                    {weekDates.map((dateKey) => {
+                    {columns.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
@@ -191,7 +359,7 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
                   {byDayAndTime.times.map((time) => (
                     <tr key={time} className="border-border border-t">
                       <td className="num text-muted-foreground py-2 pe-2 text-xs">{time}</td>
-                      {weekDates.map((dateKey) => (
+                      {columns.map((dateKey) => (
                         <td key={dateKey} className="min-w-16 p-1 text-center align-middle">
                           <SlotCell
                             session={byDayAndTime.map.get(`${dateKey}T${time}`)}
@@ -207,13 +375,13 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
                   ))}
                 </tbody>
               </table>
-              <p className="text-muted-foreground mt-3 text-xs md:hidden">
-                גלול לצדדים לצפייה בכל ימות השבוע
-              </p>
+              {granularity === "week" && (
+                <p className="text-muted-foreground mt-3 text-xs md:hidden">גלול לצדדים לצפייה בכל ימות השבוע</p>
+              )}
             </div>
           )
         ) : bookedOrOpen.length === 0 ? (
-          <EmptyCalendarHint />
+          <EmptyCalendarHint granularity={granularity} />
         ) : (
           <ul className="flex flex-col gap-2">
             {bookedOrOpen.map((session) => (
@@ -243,6 +411,77 @@ const STATUS_LABELS: Record<string, string> = {
   booked: "מוזמן",
   held: "מוחזק זמנית",
 };
+
+function MonthGrid({
+  anchorDate,
+  today,
+  sessions,
+  timezone,
+  onSelectDay,
+}: {
+  anchorDate: string;
+  today: string;
+  sessions: SessionRow[];
+  timezone: string;
+  onSelectDay: (date: string) => void;
+}) {
+  const currentMonth = anchorDate.slice(0, 7);
+  const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
+  const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)), [gridStart]);
+
+  const countsByDay = useMemo(() => {
+    const map = new Map<string, { open: number; booked: number }>();
+    for (const s of sessions) {
+      if (s.status !== "open" && s.status !== "booked") continue;
+      const dayKey = formatInTimeZone(new Date(s.startsAt), timezone, "yyyy-MM-dd");
+      const entry = map.get(dayKey) ?? { open: 0, booked: 0 };
+      entry[s.status]++;
+      map.set(dayKey, entry);
+    }
+    return map;
+  }, [sessions, timezone]);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="grid grid-cols-7 gap-1 text-center">
+        {DAY_LABELS_SHORT.map((label) => (
+          <div key={label} className="text-muted-foreground py-1 text-xs font-medium">
+            {label}
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-7 gap-1">
+        {days.map((date) => {
+          const counts = countsByDay.get(date);
+          const isCurrentMonth = date.slice(0, 7) === currentMonth;
+          const isToday = date === today;
+          return (
+            <button
+              key={date}
+              type="button"
+              onClick={() => onSelectDay(date)}
+              className={cn(
+                "border-border hover:bg-muted flex min-h-16 flex-col items-start gap-1 rounded-md border p-1.5 text-start transition-colors sm:min-h-20",
+                !isCurrentMonth && "text-muted-foreground/40",
+                isToday && "border-primary"
+              )}
+            >
+              <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
+              {counts && (
+                <div className="flex flex-col gap-0.5">
+                  {counts.booked > 0 && (
+                    <span className="text-st-booked text-[10px] font-bold">{counts.booked} מוזמן</span>
+                  )}
+                  {counts.open > 0 && <span className="text-st-open text-[10px]">{counts.open} פנוי</span>}
+                </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function SlotCell({
   session,
@@ -482,10 +721,16 @@ function NoteBlockForm({
   );
 }
 
-function EmptyCalendarHint() {
+const EMPTY_HINT_LABEL: Record<Granularity, string> = {
+  day: "היום",
+  week: "השבוע",
+  month: "החודש",
+};
+
+function EmptyCalendarHint({ granularity }: { granularity: Granularity }) {
   return (
     <p className="text-muted-foreground py-6 text-center text-sm">
-      אין תורים או חלונות פתוחים השבוע —{" "}
+      אין תורים או חלונות פתוחים {EMPTY_HINT_LABEL[granularity]} —{" "}
       <Link href="/dashboard/availability" className="text-primary underline underline-offset-2">
         פתחו חלון טיפול
       </Link>

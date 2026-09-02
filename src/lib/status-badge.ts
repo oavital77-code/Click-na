@@ -7,7 +7,7 @@ export type StatusTone = "open" | "booked" | "held" | "blocked" | "danger" | "ne
 
 const TONE_CLASSES: Record<StatusTone, string> = {
   open: "bg-st-open/15 text-st-open border-st-open/30",
-  booked: "bg-st-booked/15 text-st-booked border-st-booked/30",
+  booked: "bg-st-booked/12 text-st-booked border-st-booked/40 font-bold",
   held: "bg-st-held/15 text-st-held border-st-held/30",
   blocked: "bg-st-blocked/20 text-neutral-300 border-st-blocked/40",
   danger: "bg-st-danger/15 text-st-danger border-st-danger/30",
