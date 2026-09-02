@@ -57,38 +57,56 @@ export function DashboardSchedule({ timezone, weekDates, today, defaultDurationM
     [sessions]
   );
 
-  async function handleOpenSlot(dateKey: string, time: string) {
+  async function handleOpenSlot(dateKey: string, time: string): Promise<{ ok: true } | { ok: false; error: string }> {
     const endTime = addMinutesToTime(time, defaultDurationMinutes);
-    const res = await fetch("/api/sessions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ date: dateKey, startTime: time, endTime }),
-    });
-    if (!res.ok) return false;
-    const data = await res.json();
-    setSessions((prev) => [
-      ...prev,
-      {
-        id: data.session.id,
-        startsAt: data.session.startsAt,
-        endsAt: data.session.endsAt,
-        status: data.session.status,
-        clientName: null,
-        clientPhone: null,
-      },
-    ]);
-    return true;
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateKey, startTime: time, endTime }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return {
+          ok: false,
+          error:
+            data.error === "overlaps_existing"
+              ? "יש כבר חלון בזמן הזה"
+              : data.error === "in_past"
+                ? "לא ניתן לפתוח חלון בעבר"
+                : "שגיאה בפתיחת החלון",
+        };
+      }
+      setSessions((prev) => [
+        ...prev,
+        {
+          id: data.session.id,
+          startsAt: data.session.startsAt,
+          endsAt: data.session.endsAt,
+          status: data.session.status,
+          clientName: null,
+          clientPhone: null,
+        },
+      ]);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+    }
   }
 
-  async function handleCancelSlot(sessionId: string) {
-    const res = await fetch(`/api/sessions/${sessionId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status: "blocked" }),
-    });
-    if (!res.ok) return false;
-    setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, status: "blocked" } : s)));
-    return true;
+  async function handleCancelSlot(sessionId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "blocked" }),
+      });
+      if (!res.ok) return { ok: false, error: "שגיאה בביטול החלון" };
+      setSessions((prev) => prev.map((s) => (s.id === sessionId ? { ...s, status: "blocked" } : s)));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+    }
   }
 
   return (
@@ -211,16 +229,23 @@ function SlotCell({
   session: SessionRow | undefined;
   dateKey: string;
   time: string;
-  onOpenSlot: (dateKey: string, time: string) => Promise<boolean>;
-  onCancelSlot: (sessionId: string) => Promise<boolean>;
+  onOpenSlot: (dateKey: string, time: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  onCancelSlot: (sessionId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Empty cell: click opens a small popover to open a new window right here.
   if (!session) {
     return (
-      <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Root
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setError(null);
+        }}
+      >
         <Popover.Trigger asChild>
           <button
             type="button"
@@ -237,6 +262,7 @@ function SlotCell({
           >
             <p className="num text-sm font-medium">{time}</p>
             <p className="text-muted-foreground mb-2 text-xs">אין כאן חלון פתוח</p>
+            {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
             <Button
               type="button"
               size="sm"
@@ -244,9 +270,11 @@ function SlotCell({
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
-                const ok = await onOpenSlot(dateKey, time);
+                setError(null);
+                const result = await onOpenSlot(dateKey, time);
                 setBusy(false);
-                if (ok) setOpen(false);
+                if (result.ok) setOpen(false);
+                else setError(result.error);
               }}
             >
               {busy ? "פותח..." : "פתח חלון טיפול"}
@@ -266,7 +294,13 @@ function SlotCell({
   // Open (unbooked) slot: click offers to cancel it.
   if (session.status === "open") {
     return (
-      <Popover.Root open={open} onOpenChange={setOpen}>
+      <Popover.Root
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setError(null);
+        }}
+      >
         <Popover.Trigger asChild>
           <button
             type="button"
@@ -282,6 +316,7 @@ function SlotCell({
           >
             <p className="num text-sm font-medium">{time} · פנוי</p>
             <p className="text-muted-foreground mb-2 text-xs">חלון טיפול פתוח, עדיין לא הוזמן</p>
+            {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
             <Button
               type="button"
               variant="outline"
@@ -290,9 +325,11 @@ function SlotCell({
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
-                const ok = await onCancelSlot(session.id);
+                setError(null);
+                const result = await onCancelSlot(session.id);
                 setBusy(false);
-                if (ok) setOpen(false);
+                if (result.ok) setOpen(false);
+                else setError(result.error);
               }}
             >
               {busy ? "מבטל..." : "בטל חלון"}

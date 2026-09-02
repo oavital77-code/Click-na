@@ -246,29 +246,36 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
   }
 
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2">
-      {days.map((d) => {
-        const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
-        const available = d.slots.length > 0;
-        return (
-          <button
-            key={d.date}
-            type="button"
-            disabled={!available}
-            onClick={() => {
-              setSelectedDate(d.date);
-              setStep("time");
-            }}
-            className={cn(
-              "flex min-w-16 flex-col items-center gap-1 rounded-md border px-3 py-2 text-sm",
-              available ? "hover:bg-accent" : "text-muted-foreground opacity-40"
-            )}
-          >
-            <span>{DAY_LABELS[dow]}</span>
-            <span className="font-semibold">{d.date.slice(8, 10)}</span>
-          </button>
-        );
-      })}
+    <div className="flex flex-col gap-2">
+      <Label>בחר תאריך</Label>
+      <div className="border-border bg-card overflow-hidden rounded-lg border">
+        <div className="divide-border grid auto-cols-[minmax(4rem,1fr)] grid-flow-col divide-x divide-x-reverse overflow-x-auto">
+          {days.map((d) => {
+            const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
+            const available = d.slots.length > 0;
+            return (
+              <button
+                key={d.date}
+                type="button"
+                disabled={!available}
+                onClick={() => {
+                  setSelectedDate(d.date);
+                  setStep("time");
+                }}
+                className={cn(
+                  "flex flex-col items-center gap-1 px-3 py-3 text-sm transition-colors",
+                  available
+                    ? "hover:bg-accent hover:text-accent-foreground"
+                    : "text-muted-foreground opacity-40"
+                )}
+              >
+                <span>{DAY_LABELS[dow]}</span>
+                <span className="num font-semibold">{d.date.slice(8, 10)}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
