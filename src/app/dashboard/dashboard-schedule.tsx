@@ -11,6 +11,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { buildTimeAxis } from "@/lib/schedule-grid";
+import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 
 type SessionRow = {
@@ -136,15 +138,15 @@ export function DashboardSchedule({
 
   const byDayAndTime = useMemo(() => {
     const map = new Map<string, SessionRow>();
-    const times = new Set<string>();
+    const sessionTimes = new Set<string>();
     for (const session of sessions) {
       const dayKey = formatInTimeZone(new Date(session.startsAt), timezone, "yyyy-MM-dd");
       const timeKey = formatInTimeZone(new Date(session.startsAt), timezone, "HH:mm");
       map.set(`${dayKey}T${timeKey}`, session);
-      times.add(timeKey);
+      sessionTimes.add(timeKey);
     }
-    return { map, times: [...times].sort() };
-  }, [sessions, timezone]);
+    return { map, times: buildTimeAxis(defaultDurationMinutes, sessionTimes) };
+  }, [sessions, timezone, defaultDurationMinutes]);
 
   const bookedOrOpen = useMemo(
     () => [...sessions].filter((s) => s.status === "booked" || s.status === "open").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
@@ -338,9 +340,6 @@ export function DashboardSchedule({
             }}
           />
         ) : view === "calendar" ? (
-          byDayAndTime.times.length === 0 && sessions.length === 0 ? (
-            <EmptyCalendarHint granularity={granularity} />
-          ) : (
             // Scrolling snaps to whole day columns (scroll-ps-12 clears the pinned
             // hour column) so a swipe never leaves a cell cut in half. Sticky cells
             // need border-separate — with border-collapse the row line is owned by
@@ -398,7 +397,6 @@ export function DashboardSchedule({
                 <p className="text-muted-foreground mt-3 text-xs md:hidden">גלול לצדדים לצפייה בכל ימות השבוע</p>
               )}
             </div>
-          )
         ) : bookedOrOpen.length === 0 ? (
           <EmptyCalendarHint granularity={granularity} />
         ) : (
@@ -430,98 +428,6 @@ const STATUS_LABELS: Record<string, string> = {
   booked: "מוזמן",
   held: "מוחזק זמנית",
 };
-
-function MonthGrid({
-  anchorDate,
-  today,
-  sessions,
-  timezone,
-  onSelectDay,
-}: {
-  anchorDate: string;
-  today: string;
-  sessions: SessionRow[];
-  timezone: string;
-  onSelectDay: (date: string) => void;
-}) {
-  const currentMonth = anchorDate.slice(0, 7);
-  const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
-  const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)), [gridStart]);
-
-  const summaryByDay = useMemo(() => {
-    const map = new Map<string, { open: number; bookedNames: string[] }>();
-    for (const s of sessions) {
-      if (s.status !== "open" && s.status !== "booked") continue;
-      const dayKey = formatInTimeZone(new Date(s.startsAt), timezone, "yyyy-MM-dd");
-      const entry = map.get(dayKey) ?? { open: 0, bookedNames: [] };
-      if (s.status === "open") entry.open++;
-      else entry.bookedNames.push(s.clientName ?? "מוזמן");
-      map.set(dayKey, entry);
-    }
-    return map;
-  }, [sessions, timezone]);
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="grid grid-cols-7 gap-1 text-center">
-        {DAY_LABELS_SHORT.map((label) => (
-          <div key={label} className="text-muted-foreground py-1 text-xs font-medium">
-            {label}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7 gap-1">
-        {days.map((date) => {
-          const summary = summaryByDay.get(date);
-          const isCurrentMonth = date.slice(0, 7) === currentMonth;
-          const isToday = date === today;
-          return (
-            <button
-              key={date}
-              type="button"
-              onClick={() => onSelectDay(date)}
-              className={cn(
-                "border-border hover:bg-muted flex min-h-20 w-full flex-col items-start gap-1 overflow-hidden rounded-md border p-1.5 text-start transition-colors sm:min-h-24",
-                !isCurrentMonth && "text-muted-foreground/40",
-                isToday && "border-primary"
-              )}
-            >
-              <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
-              {summary && (
-                <div className="flex w-full flex-col gap-0.5">
-                  <div className="flex flex-wrap gap-0.5">
-                    {summary.bookedNames.length > 0 && (
-                      <span className="bg-st-booked/15 text-st-booked num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px] font-bold">
-                        {summary.bookedNames.length}
-                      </span>
-                    )}
-                    {summary.open > 0 && (
-                      <span className="bg-st-open/15 text-st-open num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px]">
-                        {summary.open}
-                      </span>
-                    )}
-                  </div>
-                  {summary.bookedNames.length > 0 &&
-                    (summary.bookedNames.length <= 2 ? (
-                      summary.bookedNames.map((name, i) => (
-                        <span key={i} className="text-st-booked block w-full truncate text-[9px] leading-tight font-bold">
-                          {name}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-st-booked block w-full truncate text-[9px] leading-tight font-bold">
-                        {summary.bookedNames[0]} +{summary.bookedNames.length - 1}
-                      </span>
-                    ))}
-                </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function SlotCell({
   session,
