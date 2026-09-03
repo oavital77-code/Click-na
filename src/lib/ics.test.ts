@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateBookingIcs } from "@/lib/ics";
+import { generateBookingIcs, generateCalendarFeed } from "@/lib/ics";
 
 describe("generateBookingIcs", () => {
   const base = {
@@ -49,5 +49,62 @@ describe("generateBookingIcs", () => {
     });
     expect(ics).toContain("DTSTART:20260901T233000Z");
     expect(ics).toContain("DTEND:20260902T002000Z");
+  });
+});
+
+describe("generateCalendarFeed", () => {
+  const events = [
+    {
+      uid: "session-1",
+      startsAt: new Date("2026-09-01T09:00:00Z"),
+      endsAt: new Date("2026-09-01T09:50:00Z"),
+      title: "דנה לוי",
+      location: "רוטשילד 12, תל אביב",
+    },
+    {
+      uid: "session-2",
+      startsAt: new Date("2026-09-02T11:00:00Z"),
+      endsAt: new Date("2026-09-02T11:50:00Z"),
+      title: "יוסי מזרחי",
+      location: null,
+    },
+  ];
+
+  it("wraps every booking in a single VCALENDAR", () => {
+    const feed = generateCalendarFeed({ calendarName: "Cleana+", events });
+    expect(feed.match(/BEGIN:VCALENDAR/g)).toHaveLength(1);
+    expect(feed.match(/BEGIN:VEVENT/g)).toHaveLength(2);
+  });
+
+  it("names the calendar so it is identifiable in the client's sidebar", () => {
+    expect(generateCalendarFeed({ calendarName: "היומן שלי", events })).toContain(
+      "X-WR-CALNAME:היומן שלי"
+    );
+  });
+
+  it("emits times as UTC, matching the input exactly", () => {
+    const feed = generateCalendarFeed({ calendarName: "Cleana+", events });
+    expect(feed).toContain("DTSTART:20260901T090000Z");
+    expect(feed).toContain("DTEND:20260901T095000Z");
+    expect(feed).toContain("DTSTART:20260902T110000Z");
+  });
+
+  it("keeps each UID distinct so a client updates events instead of duplicating them", () => {
+    const feed = generateCalendarFeed({ calendarName: "Cleana+", events });
+    expect(feed).toContain("UID:session-1");
+    expect(feed).toContain("UID:session-2");
+  });
+
+  // A therapist with nothing booked still has a subscribed calendar; returning an
+  // error there would make the client mark the whole subscription as broken.
+  it("returns a valid, empty calendar rather than failing when there is nothing booked", () => {
+    const feed = generateCalendarFeed({ calendarName: "Cleana+", events: [] });
+    expect(feed).toContain("BEGIN:VCALENDAR");
+    expect(feed).toContain("END:VCALENDAR");
+    expect(feed).not.toContain("BEGIN:VEVENT");
+  });
+
+  it("uses RFC 5545 CRLF line endings, empty feed included", () => {
+    expect(generateCalendarFeed({ calendarName: "Cleana+", events: [] })).toContain("\r\n");
   });
 });

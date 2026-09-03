@@ -91,6 +91,22 @@ enum NotificationStatus {
   canceled
 }
 
+enum IntegrationProvider {
+  whatsapp
+  payments
+  zoom
+  calendar
+}
+
+// Only what a therapist actually did. "Unavailable" (the server has no API
+// credentials for this provider yet) is derived from the environment at read
+// time in src/lib/integrations.ts — persisting it would go stale the moment a
+// key is added or removed.
+enum IntegrationStatus {
+  disconnected
+  connected
+}
+
 enum AuditActorType {
   therapist
   client
@@ -128,6 +144,7 @@ model Therapist {
   bookings          Booking[]
   auditLogs         AuditLog[]
   slugRedirects     SlugRedirect[]
+  integrations      Integration[]
 
   @@map("therapists")
 }
@@ -294,6 +311,33 @@ model Notification {
   @@index([bookingId])
   @@index([status, scheduledFor])
   @@map("notifications")
+}
+
+// One row per add-on a therapist has switched on. Absent row == never touched,
+// which reads as "disconnected" — the catalogue in src/lib/integrations.ts is the
+// source of truth for which providers exist, not this table.
+model Integration {
+  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId       String              @map("therapist_id") @db.Uuid
+  provider          IntegrationProvider
+  status            IntegrationStatus   @default(disconnected)
+  // Non-secret identifier of the linked account (a Zoom user id, a Stripe account
+  // id). API keys and OAuth refresh tokens deliberately have no column here: they
+  // are server-wide credentials that belong in the environment, not in a table
+  // that every therapist row can be dumped from.
+  externalAccountId String?             @map("external_account_id") @db.VarChar(255)
+  // Capability token embedded in the calendar subscription URL. Unique so the feed
+  // route can look a therapist up by it, and nullable because only the calendar
+  // add-on issues one.
+  feedToken         String?             @unique @map("feed_token") @db.VarChar(64)
+  connectedAt       DateTime?           @map("connected_at") @db.Timestamptz
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@unique([therapistId, provider])
+  @@map("integrations")
 }
 
 model AuditLog {

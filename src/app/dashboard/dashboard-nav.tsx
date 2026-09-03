@@ -14,6 +14,7 @@ const LINKS = [
   { href: "/dashboard/bookings", label: "הזמנות" },
   { href: "/dashboard/clients", label: "לקוחות" },
   { href: "/dashboard/link", label: "הקישור שלי" },
+  { href: "/dashboard/addons", label: "תוספים" },
   { href: "/dashboard/settings", label: "הגדרות" },
 ];
 
