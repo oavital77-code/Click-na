@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { bookingLinkPrefix } from "@/lib/public-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OnboardingInput } from "@/lib/onboarding-schema";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
@@ -164,7 +165,7 @@ export function LinkEditor({
           <CardContent className="flex flex-col gap-2">
             <Label htmlFor="slug">הכתובת שלך</Label>
             <div className="text-muted-foreground flex items-center justify-center gap-1 text-sm md:justify-start">
-              <span className="num">cleana.co.il/book/</span>
+              <span className="num">{bookingLinkPrefix()}</span>
               <Input
                 id="slug"
                 dir="ltr"
