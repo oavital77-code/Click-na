@@ -429,13 +429,14 @@ function MonthGrid({
   const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
   const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)), [gridStart]);
 
-  const countsByDay = useMemo(() => {
-    const map = new Map<string, { open: number; booked: number }>();
+  const summaryByDay = useMemo(() => {
+    const map = new Map<string, { open: number; bookedNames: string[] }>();
     for (const s of sessions) {
       if (s.status !== "open" && s.status !== "booked") continue;
       const dayKey = formatInTimeZone(new Date(s.startsAt), timezone, "yyyy-MM-dd");
-      const entry = map.get(dayKey) ?? { open: 0, booked: 0 };
-      entry[s.status]++;
+      const entry = map.get(dayKey) ?? { open: 0, bookedNames: [] };
+      if (s.status === "open") entry.open++;
+      else entry.bookedNames.push(s.clientName ?? "מוזמן");
       map.set(dayKey, entry);
     }
     return map;
@@ -452,7 +453,7 @@ function MonthGrid({
       </div>
       <div className="grid grid-cols-7 gap-1">
         {days.map((date) => {
-          const counts = countsByDay.get(date);
+          const summary = summaryByDay.get(date);
           const isCurrentMonth = date.slice(0, 7) === currentMonth;
           const isToday = date === today;
           return (
@@ -461,24 +462,38 @@ function MonthGrid({
               type="button"
               onClick={() => onSelectDay(date)}
               className={cn(
-                "border-border hover:bg-muted flex min-h-16 flex-col items-start gap-1 rounded-md border p-1.5 text-start transition-colors sm:min-h-20",
+                "border-border hover:bg-muted flex min-h-20 w-full flex-col items-start gap-1 overflow-hidden rounded-md border p-1.5 text-start transition-colors sm:min-h-24",
                 !isCurrentMonth && "text-muted-foreground/40",
                 isToday && "border-primary"
               )}
             >
               <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
-              {counts && (
-                <div className="flex flex-wrap gap-0.5">
-                  {counts.booked > 0 && (
-                    <span className="bg-st-booked/15 text-st-booked num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px] font-bold">
-                      {counts.booked}
-                    </span>
-                  )}
-                  {counts.open > 0 && (
-                    <span className="bg-st-open/15 text-st-open num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px]">
-                      {counts.open}
-                    </span>
-                  )}
+              {summary && (
+                <div className="flex w-full flex-col gap-0.5">
+                  <div className="flex flex-wrap gap-0.5">
+                    {summary.bookedNames.length > 0 && (
+                      <span className="bg-st-booked/15 text-st-booked num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px] font-bold">
+                        {summary.bookedNames.length}
+                      </span>
+                    )}
+                    {summary.open > 0 && (
+                      <span className="bg-st-open/15 text-st-open num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px]">
+                        {summary.open}
+                      </span>
+                    )}
+                  </div>
+                  {summary.bookedNames.length > 0 &&
+                    (summary.bookedNames.length <= 2 ? (
+                      summary.bookedNames.map((name, i) => (
+                        <span key={i} className="text-st-booked block w-full truncate text-[9px] leading-tight font-bold">
+                          {name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-st-booked block w-full truncate text-[9px] leading-tight font-bold">
+                        {summary.bookedNames[0]} +{summary.bookedNames.length - 1}
+                      </span>
+                    ))}
                 </div>
               )}
             </button>
