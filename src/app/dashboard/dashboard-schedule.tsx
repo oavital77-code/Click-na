@@ -287,8 +287,8 @@ export function DashboardSchedule({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="bg-muted inline-flex gap-1 rounded-md p-1">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="bg-muted inline-flex gap-1 rounded-md p-1 self-start">
             {(["day", "week", "month"] as const).map((g) => (
               <button
                 key={g}
@@ -303,7 +303,7 @@ export function DashboardSchedule({
               </button>
             ))}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
             <div className="flex gap-1">
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
@@ -468,11 +468,17 @@ function MonthGrid({
             >
               <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
               {counts && (
-                <div className="flex flex-col gap-0.5">
+                <div className="flex flex-wrap gap-0.5">
                   {counts.booked > 0 && (
-                    <span className="text-st-booked text-[10px] font-bold">{counts.booked} מוזמן</span>
+                    <span className="bg-st-booked/15 text-st-booked num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px] font-bold">
+                      {counts.booked}
+                    </span>
                   )}
-                  {counts.open > 0 && <span className="text-st-open text-[10px]">{counts.open} פנוי</span>}
+                  {counts.open > 0 && (
+                    <span className="bg-st-open/15 text-st-open num inline-flex min-w-4 items-center justify-center rounded-sm px-1 text-[10px]">
+                      {counts.open}
+                    </span>
+                  )}
                 </div>
               )}
             </button>

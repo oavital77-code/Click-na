@@ -74,6 +74,11 @@ export default async function DashboardPage() {
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName}</h1>
+        <UserButton />
+      </div>
+
       <DashboardSchedule
         timezone={therapist.timezone}
         today={todayStr}
@@ -88,11 +93,6 @@ export default async function DashboardPage() {
           blockedNote: s.blockedNote,
         }))}
       />
-
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName}</h1>
-        <UserButton />
-      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         {stats.map((stat) => (
