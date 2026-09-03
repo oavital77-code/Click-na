@@ -200,6 +200,9 @@ model TherapistSettings {
   autoConfirm             Boolean      @default(true) @map("auto_confirm")
   sendEmailConfirmation   Boolean      @default(true) @map("send_email_confirmation")
   sendEmailReminder       Boolean      @default(false) @map("send_email_reminder")
+  // Named for SMS, which was never implemented. It is the "message the client a
+  // reminder" switch, and WhatsApp is what it now drives — see scheduleReminders
+  // in src/lib/notifications.ts. Renaming the column would break every existing row.
   sendSmsReminder         Boolean      @default(false) @map("send_sms_reminder")
   reminderHoursBefore     Int          @default(24) @map("reminder_hours_before")
   brandColor              String?      @map("brand_color") @db.VarChar(7)
@@ -280,6 +283,10 @@ model Booking {
   clientPhoneSnapshot String?       @map("client_phone_snapshot") @db.VarChar(50)
   status              BookingStatus @default(pending)
   clientNote          String?       @map("client_note") @db.VarChar(200)
+  // Join URL of the video meeting opened for this booking, when the therapist has
+  // the Zoom add-on connected. Per booking rather than per therapist: a single
+  // reusable room lets one client walk into another's session.
+  meetingUrl          String?       @map("meeting_url")
   manageToken         String        @unique @map("manage_token") @db.VarChar(64)
   canceledAt          DateTime?     @map("canceled_at") @db.Timestamptz
   cancellationReason  String?       @map("cancellation_reason")
@@ -317,22 +324,30 @@ model Notification {
 // which reads as "disconnected" — the catalogue in src/lib/integrations.ts is the
 // source of truth for which providers exist, not this table.
 model Integration {
-  id                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  therapistId       String              @map("therapist_id") @db.Uuid
-  provider          IntegrationProvider
-  status            IntegrationStatus   @default(disconnected)
-  // Non-secret identifier of the linked account (a Zoom user id, a Stripe account
-  // id). API keys and OAuth refresh tokens deliberately have no column here: they
-  // are server-wide credentials that belong in the environment, not in a table
-  // that every therapist row can be dumped from.
-  externalAccountId String?             @map("external_account_id") @db.VarChar(255)
+  id             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId    String              @map("therapist_id") @db.Uuid
+  provider       IntegrationProvider
+  status         IntegrationStatus   @default(disconnected)
+  // The therapist's own credentials for this provider, AES-256-GCM encrypted as a
+  // single JSON blob (src/lib/secret-box.ts). Never returned to the browser and
+  // never logged — the UI only ever learns which fields are already filled in.
+  credentials    String?             @db.Text
+  // Non-secret label the provider echoed back when we verified those credentials
+  // (the Zoom account email, the Stripe business name), so the therapist can see
+  // which account is linked without us showing the secret.
+  accountLabel   String?             @map("account_label") @db.VarChar(255)
+  // When the credentials last actually worked against the provider's API, and why
+  // they stopped if they did. A key the therapist revoked surfaces here instead of
+  // as a silent failure at the moment a client books.
+  lastVerifiedAt DateTime?           @map("last_verified_at") @db.Timestamptz
+  lastError      String?             @map("last_error")
   // Capability token embedded in the calendar subscription URL. Unique so the feed
   // route can look a therapist up by it, and nullable because only the calendar
   // add-on issues one.
-  feedToken         String?             @unique @map("feed_token") @db.VarChar(64)
-  connectedAt       DateTime?           @map("connected_at") @db.Timestamptz
-  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  feedToken      String?             @unique @map("feed_token") @db.VarChar(64)
+  connectedAt    DateTime?           @map("connected_at") @db.Timestamptz
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime            @updatedAt @map("updated_at") @db.Timestamptz
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
 

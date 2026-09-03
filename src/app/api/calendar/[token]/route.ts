@@ -53,7 +53,9 @@ export async function GET(
     startsAt: session.startsAt,
     endsAt: session.endsAt,
     title: session.booking?.clientNameSnapshot ?? session.blockedNote ?? "תור",
-    location,
+    // The meeting opened for this specific booking beats the therapist's default
+    // location — it's the thing they need to click at the top of the hour.
+    location: session.booking?.meetingUrl ?? location,
   }));
 
   return icsResponse(generateCalendarFeed({ calendarName, events }));
