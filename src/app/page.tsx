@@ -82,15 +82,15 @@ export default function Home() {
   return (
     <>
       <header className="border-border/60 sticky top-0 z-40 border-b bg-background/80 backdrop-blur-sm">
-        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-4 py-4 sm:px-6">
-          <Link href="/">
+        <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-4 md:px-8 lg:px-12">
+          <Link href="/" className="inline-flex min-h-11 items-center">
             <BrandMark className="text-foreground text-lg" />
           </Link>
           <div className="flex items-center gap-4 text-sm">
-            <Link href="/signup" className="text-muted-foreground hover:text-foreground">
+            <Link href="/signup" className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center">
               הרשמה
             </Link>
-            <Link href="/login" className="text-muted-foreground hover:text-foreground">
+            <Link href="/login" className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center">
               התחברות
             </Link>
           </div>
@@ -101,14 +101,14 @@ export default function Home() {
         <section className="relative overflow-hidden">
           <div
             aria-hidden
-            className="bg-accent/15 pointer-events-none absolute -top-32 start-1/2 h-96 w-[36rem] -translate-x-1/2 rounded-full blur-3xl"
+            className="bg-accent/15 pointer-events-none absolute -top-32 start-1/2 hidden h-96 w-[36rem] -translate-x-1/2 rounded-full blur-3xl md:block"
           />
-          <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-6 px-4 py-16 text-center sm:px-6 sm:py-24 md:py-32">
+          <div className="relative mx-auto flex max-w-2xl flex-col items-center gap-6 px-5 py-16 text-center md:px-8 md:py-24 lg:py-32">
             <span className="kicker">ניהול יומן לקליניקות בוטיק</span>
-            <h1 className="text-4xl font-normal text-balance sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl font-light text-balance md:text-5xl lg:text-6xl">
               סטנדרט חדש של תיאום פגישות.
             </h1>
-            <p className="text-muted-foreground max-w-md text-base sm:text-lg">
+            <p className="text-muted-foreground max-w-md text-base leading-relaxed md:text-lg">
               חוויית שירות שמתחילה עוד לפני הפגישה. קישור הרשמה אלגנטי אחד שמאפשר ללקוחות שלך
               לתאם בעצמם, בזמן שהיומן שלך מתנהל בשקט וביעילות.
             </p>
@@ -121,7 +121,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto grid w-full max-w-5xl gap-6 px-4 py-14 sm:px-6 sm:py-20 md:grid-cols-3 md:gap-8">
+        <section className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-6 px-5 py-16 md:grid-cols-2 md:gap-8 md:px-8 md:py-24 lg:grid-cols-3 lg:gap-12 lg:py-32">
           {STEPS.map((step, i) => (
             <div key={step.title} className="flex flex-col gap-3">
               <span className="font-heading text-accent text-2xl font-normal">
@@ -134,8 +134,8 @@ export default function Home() {
         </section>
 
         <section className="border-border/60 border-t">
-          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-4 py-14 text-center sm:px-6 sm:py-20">
-            <h2 className="text-2xl font-normal sm:text-3xl">מעטפת מושלמת למקצועות הטיפול</h2>
+          <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-5 py-16 text-center md:px-8 md:py-24 lg:py-32">
+            <h2 className="text-3xl font-normal md:text-4xl lg:text-5xl">מעטפת מושלמת למקצועות הטיפול</h2>
             <div className="flex flex-wrap justify-center gap-x-10 gap-y-8">
               {AUDIENCE.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex flex-col items-center gap-3">
@@ -150,9 +150,9 @@ export default function Home() {
         </section>
 
         <section className="border-border/60 border-t">
-          <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-4 py-14 sm:px-6 sm:py-20">
-            <h2 className="text-center text-2xl font-normal sm:text-3xl">מסלולים שגדלים יחד איתך</h2>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-5 py-16 md:px-8 md:py-24 lg:py-32">
+            <h2 className="text-center text-3xl font-normal md:text-4xl lg:text-5xl">מסלולים שגדלים יחד איתך</h2>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-4 lg:gap-8">
               {TIERS.map((tier) => (
                 <Card
                   key={tier.name}
@@ -190,8 +190,8 @@ export default function Home() {
         </section>
 
         <section className="border-border/60 border-t">
-          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-4 py-14 sm:px-6 sm:py-20">
-            <h2 className="text-center text-2xl font-normal sm:text-3xl">שאלות נפוצות</h2>
+          <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-16 md:px-8 md:py-24 lg:py-32">
+            <h2 className="text-center text-3xl font-normal md:text-4xl lg:text-5xl">שאלות נפוצות</h2>
             <div className="flex flex-col gap-6">
               {FAQ.map((item) => (
                 <div key={item.q} className="border-border/60 border-t pt-6 first:border-t-0 first:pt-0">
@@ -204,9 +204,9 @@ export default function Home() {
         </section>
 
         <section className="border-border/60 border-t">
-          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-5 px-4 py-20 text-center sm:px-6 sm:py-28">
-            <h2 className="text-3xl font-normal sm:text-4xl">מוכנים להתחיל?</h2>
-            <p className="text-muted-foreground max-w-md text-sm sm:text-base">
+          <div className="mx-auto flex w-full max-w-2xl flex-col items-center gap-5 px-5 py-16 text-center md:px-8 md:py-24 lg:py-32">
+            <h2 className="text-3xl font-normal md:text-4xl lg:text-5xl">מוכנים להתחיל?</h2>
+            <p className="text-muted-foreground max-w-md text-base leading-relaxed md:text-lg">
               הקמת הקישור האישי שלך לוקחת פחות מ-3 דקות.
             </p>
             <Button asChild size="lg" variant="accent" className="font-medium">
