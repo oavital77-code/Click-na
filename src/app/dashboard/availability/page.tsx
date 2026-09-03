@@ -51,7 +51,6 @@ export default async function AvailabilityPage() {
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 md:p-8">
       <h1 className="text-2xl font-bold">ניהול זמינות</h1>
-      <RecurringRules initialRules={rulesWithCounts} />
       <AvailabilityView
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
@@ -63,6 +62,7 @@ export default async function AvailabilityPage() {
           clientName: s.booking?.clientNameSnapshot ?? null,
         }))}
       />
+      <RecurringRules initialRules={rulesWithCounts} />
     </main>
   );
 }
