@@ -157,42 +157,6 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardHeader>
-          <CardTitle>הוסף חלון טיפול</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="date">תאריך</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="startTime">משעה</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="endTime">עד שעה</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
-            <Button type="button" disabled={submitting} onClick={handleAdd}>
-              {submitting ? "מוסיף..." : "+ הוסף חלון"}
-            </Button>
-          </div>
-          {formError && <p className="text-destructive text-sm">{formError}</p>}
-        </CardContent>
-      </Card>
-
-      <Card>
         <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
           <CardTitle className="text-base">
             לוח שבועי · {weekDates[0].slice(8, 10)}.{weekDates[0].slice(5, 7)}–
@@ -286,6 +250,42 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
               </table>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>הוסף חלון טיפול</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="date">תאריך</Label>
+              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="startTime">משעה</Label>
+              <Input
+                id="startTime"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="endTime">עד שעה</Label>
+              <Input
+                id="endTime"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+            <Button type="button" disabled={submitting} onClick={handleAdd}>
+              {submitting ? "מוסיף..." : "+ הוסף חלון"}
+            </Button>
+          </div>
+          {formError && <p className="text-destructive text-sm">{formError}</p>}
         </CardContent>
       </Card>
     </div>
