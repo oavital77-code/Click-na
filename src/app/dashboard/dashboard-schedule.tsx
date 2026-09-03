@@ -314,13 +314,13 @@ export function DashboardSchedule({
             <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
             <div className="flex gap-1">
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
-                ‹
+                ›
               </Button>
               <Button type="button" variant="outline" size="sm" disabled={loading || isCurrentPeriod} onClick={goToday}>
                 היום
               </Button>
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goNext} aria-label="התקופה הבאה">
-                ›
+                ‹
               </Button>
             </div>
           </div>

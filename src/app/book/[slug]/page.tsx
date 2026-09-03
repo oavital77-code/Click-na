@@ -77,6 +77,7 @@ export default async function BookingPage({
         timezone={therapist.timezone}
         durationMinutes={settings.defaultDurationMinutes}
         requirePhone={settings.requirePhone}
+        maxAdvanceDays={settings.maxAdvanceDays}
         cancellationPolicyHours={settings.cancellationPolicyHours}
         location={{
           address: settings.locationAddress,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { he } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS } from "@/lib/labels";
+import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
 
 type Slot = { id: string; startsAt: string; endsAt: string };
 type DayAvailability = { date: string; slots: Slot[] };
@@ -18,6 +19,7 @@ type Props = {
   timezone: string;
   durationMinutes: number;
   requirePhone: boolean;
+  maxAdvanceDays: number;
   cancellationPolicyHours: number;
   location: { address: string | null; onlineMeetingUrl: string | null };
 };
@@ -28,12 +30,18 @@ const ERROR_MESSAGES: Record<string, string> = {
   BOOKING_TOO_SOON: "המועד קרוב מדי לזמן הנוכחי.",
 };
 
-export function BookingFlow({ slug, timezone, requirePhone }: Props) {
+export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Props) {
   const [step, setStep] = useState<"date" | "time" | "form" | "confirmed">("date");
-  const [days, setDays] = useState<DayAvailability[] | null>(null);
+  // Kept with the range it was fetched for, so switching months derives "still
+  // loading" instead of clearing state inside the effect.
+  const [fetched, setFetched] = useState<{ rangeKey: string; days: DayAvailability[] } | null>(null);
   const [loadError, setLoadError] = useState(false);
 
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [today] = useState(() => formatInTimeZone(new Date(), timezone, "yyyy-MM-dd"));
+  const [monthAnchor, setMonthAnchor] = useState(() =>
+    startOfMonthUtc(formatInTimeZone(new Date(), timezone, "yyyy-MM-dd"))
+  );
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<Date | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
@@ -46,16 +54,35 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [manageToken, setManageToken] = useState<string | null>(null);
 
-  useEffect(() => {
-    const from = new Date();
-    const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const fmt = (d: Date) => formatInTimeZone(d, timezone, "yyyy-MM-dd");
+  const gridStart = startOfWeekUtc(monthAnchor);
+  const gridDays = useMemo(
+    () => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)),
+    [gridStart]
+  );
 
-    fetch(`/api/public/therapists/${slug}/availability?from=${fmt(from)}&to=${fmt(to)}`)
+  const rangeKey = `${gridDays[0]}_${gridDays[gridDays.length - 1]}`;
+  const days = fetched?.rangeKey === rangeKey ? fetched.days : null;
+
+  // Fetch exactly the six-week window the calendar shows. The API clamps `to`
+  // to the therapist's maxAdvanceDays on its own, so an over-long range is safe.
+  useEffect(() => {
+    let cancelled = false;
+    const [from, to] = rangeKey.split("_");
+
+    fetch(`/api/public/therapists/${slug}/availability?from=${from}&to=${to}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
-      .then((data) => setDays(data.days))
-      .catch(() => setLoadError(true));
-  }, [slug, timezone]);
+      .then((data) => {
+        if (cancelled) return;
+        setLoadError(false);
+        setFetched({ rangeKey, days: data.days });
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug, rangeKey]);
 
   useEffect(() => {
     if (!holdExpiresAt) return;
@@ -215,14 +242,9 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
     );
   }
 
-  if (!days) {
-    return <p className="text-muted-foreground text-center text-sm">טוען זמנים פנויים...</p>;
-  }
-
-  const availableDates = days.filter((d) => d.slots.length > 0);
 
   if (step === "time" && selectedDate) {
-    const day = days.find((d) => d.date === selectedDate);
+    const day = days?.find((d) => d.date === selectedDate);
     return (
       <div className="flex flex-col gap-4">
         <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setStep("date")}>
@@ -241,41 +263,85 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
     );
   }
 
-  if (availableDates.length === 0) {
-    return <p className="text-muted-foreground text-center text-sm">אין זמנים פנויים בקרוב</p>;
-  }
+  const slotsByDate = new Map((days ?? []).map((d) => [d.date, d.slots]));
+  const currentMonth = monthAnchor.slice(0, 7);
+  const thisMonth = startOfMonthUtc(today);
+  const lastBookableMonth = startOfMonthUtc(addDaysUtc(today, maxAdvanceDays));
 
   return (
-    <div className="flex flex-col gap-2">
-      <Label>בחר תאריך</Label>
-      <div className="border-border bg-card overflow-hidden rounded-lg border">
-        <div className="divide-border grid snap-x snap-mandatory auto-cols-[minmax(4rem,1fr)] grid-flow-col divide-x divide-x-reverse overflow-x-auto">
-          {days.map((d) => {
-            const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
-            const available = d.slots.length > 0;
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={currentMonth <= thisMonth.slice(0, 7)}
+          onClick={() => setMonthAnchor((m) => addMonthsUtc(m, -1))}
+          aria-label="החודש הקודם"
+        >
+          ›
+        </Button>
+        <span className="text-sm font-medium">
+          {MONTH_LABELS[Number(monthAnchor.slice(5, 7)) - 1]} {monthAnchor.slice(0, 4)}
+        </span>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={currentMonth >= lastBookableMonth.slice(0, 7)}
+          onClick={() => setMonthAnchor((m) => addMonthsUtc(m, 1))}
+          aria-label="החודש הבא"
+        >
+          ‹
+        </Button>
+      </div>
+
+      <div className="border-border bg-card rounded-lg border p-2">
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {DAY_LABELS_SHORT.map((label) => (
+            <div key={label} className="text-muted-foreground py-1 text-xs font-medium">
+              {label}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {gridDays.map((date) => {
+            const slots = slotsByDate.get(date) ?? [];
+            const inMonth = date.slice(0, 7) === currentMonth;
+            const selectable = inMonth && slots.length > 0;
             return (
               <button
-                key={d.date}
+                key={date}
                 type="button"
-                disabled={!available}
+                disabled={!selectable}
                 onClick={() => {
-                  setSelectedDate(d.date);
+                  setSelectedDate(date);
                   setStep("time");
                 }}
                 className={cn(
-                  "flex snap-start flex-col items-center gap-1 px-3 py-3 text-sm transition-colors",
-                  available
-                    ? "hover:bg-accent hover:text-accent-foreground"
-                    : "text-muted-foreground opacity-40"
+                  "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-md border text-sm transition-colors",
+                  selectable
+                    ? "border-primary/30 hover:bg-accent hover:text-accent-foreground font-medium"
+                    : "border-transparent text-muted-foreground/40",
+                  !inMonth && "invisible",
+                  date === today && selectable && "border-primary"
                 )}
               >
-                <span>{DAY_LABELS[dow]}</span>
-                <span className="num font-semibold">{d.date.slice(8, 10)}</span>
+                <span className="num">{date.slice(8, 10)}</span>
+                {selectable && <span className="bg-primary size-1 rounded-full" aria-hidden />}
               </button>
             );
           })}
         </div>
       </div>
+
+      {!days ? (
+        <p className="text-muted-foreground text-center text-xs">טוען זמנים פנויים...</p>
+      ) : slotsByDate.size === 0 ? (
+        <p className="text-muted-foreground text-center text-xs">אין זמנים פנויים בחודש זה</p>
+      ) : (
+        <p className="text-muted-foreground text-center text-xs">בחרו יום מסומן כדי לראות שעות פנויות</p>
+      )}
     </div>
   );
 }
