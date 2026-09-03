@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { generateBookingIcs } from "@/lib/ics";
+import { appUrl as getAppUrl } from "@/lib/public-url";
 import {
   confirmationEmailForClient,
   newBookingEmailForTherapist,
@@ -11,9 +12,7 @@ import {
 } from "@/lib/email-templates";
 import type { NotificationType } from "@/generated/prisma/client";
 
-function getAppUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-}
+
 
 function resolveLocation(settings: { locationAddress: string | null; onlineMeetingUrl: string | null } | null) {
   return settings?.locationAddress ?? settings?.onlineMeetingUrl ?? null;
