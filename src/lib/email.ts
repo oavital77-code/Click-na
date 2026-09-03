@@ -31,7 +31,15 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
     return { ok: false, error: "RESEND_API_KEY not configured" };
   }
 
-  const from = process.env.EMAIL_FROM ?? "Cleana+ <notifications@cleana.co.il>";
+  // No default sender: a hardcoded fallback pointed at a domain owned by an
+  // unrelated project on the same Resend account, so an unset EMAIL_FROM would
+  // have silently sent this app's mail from — and against the reputation of —
+  // that domain. Fail loudly instead.
+  const from = process.env.EMAIL_FROM;
+  if (!from) {
+    return { ok: false, error: "EMAIL_FROM not configured" };
+  }
+
   let lastError = "unknown error";
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { bookingLinkPrefix } from "@/lib/public-url";
 import {
   Select,
   SelectContent,
@@ -230,7 +231,7 @@ export function SettingsView({
           <div className="flex flex-col gap-2">
             <Label htmlFor="slug">הכתובת שלך</Label>
             <div className="text-muted-foreground flex items-center gap-1 text-sm">
-              <span>cleana.co.il/book/</span>
+              <span>{bookingLinkPrefix()}</span>
               <Input
                 id="slug"
                 dir="ltr"
