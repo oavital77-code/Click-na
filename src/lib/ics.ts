@@ -52,6 +52,13 @@ export type FeedEvent = {
  * list: a therapist with no upcoming bookings must still get a valid, parsable
  * calendar, or their client drops the subscription as broken.
  */
+/**
+ * How often a subscribing client should come back. Apple honours
+ * REFRESH-INTERVAL, older clients read X-PUBLISHED-TTL, and Google ignores both
+ * and polls on its own schedule — which is why a subscription is never instant.
+ */
+const REFRESH_LINES = ["REFRESH-INTERVAL;VALUE=DURATION:PT1H", "X-PUBLISHED-TTL:PT1H"];
+
 export function generateCalendarFeed(input: { calendarName: string; events: FeedEvent[] }) {
   if (input.events.length === 0) {
     return [
@@ -61,6 +68,7 @@ export function generateCalendarFeed(input: { calendarName: string; events: Feed
       "CALSCALE:GREGORIAN",
       "METHOD:PUBLISH",
       `X-WR-CALNAME:${input.calendarName}`,
+      ...REFRESH_LINES,
       "END:VCALENDAR",
     ].join("\r\n");
   }
@@ -84,5 +92,12 @@ export function generateCalendarFeed(input: { calendarName: string; events: Feed
   if (error || !value) {
     throw error ?? new Error("Failed to generate calendar feed");
   }
-  return value;
+
+  // The ics package emits X-PUBLISHED-TTL but has no option for REFRESH-INTERVAL,
+  // so it is spliced in after the calendar name — anywhere inside VCALENDAR and
+  // before the first VEVENT is valid per RFC 7986.
+  return value.replace(
+    /^(X-PUBLISHED-TTL:.*)$/m,
+    `REFRESH-INTERVAL;VALUE=DURATION:PT1H\r\n$1`
+  );
 }
