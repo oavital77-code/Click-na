@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,9 +11,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { addDaysUtc, startOfWeekUtc } from "@/lib/availability";
-import { DAY_LABELS_SHORT } from "@/lib/labels";
+import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { buildTimeAxis } from "@/lib/schedule-grid";
+import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
+import { cn } from "@/lib/utils";
 
 const STATUS_LABELS: Record<string, string> = {
   open: "פנוי",
@@ -35,13 +38,23 @@ type SessionRow = {
 type Props = {
   timezone: string;
   initialWeekStart: string;
+  defaultDurationMinutes: number;
   initialSessions: SessionRow[];
 };
 
-export function AvailabilityView({ timezone, initialWeekStart, initialSessions }: Props) {
-  const [weekStart, setWeekStart] = useState(initialWeekStart);
+type Granularity = "week" | "month";
+
+export function AvailabilityView({
+  timezone,
+  initialWeekStart,
+  defaultDurationMinutes,
+  initialSessions,
+}: Props) {
+  const [granularity, setGranularity] = useState<Granularity>("week");
+  const [anchorDate, setAnchorDate] = useState(initialWeekStart);
   const [sessions, setSessions] = useState(initialSessions);
   const [loadingWeek, setLoadingWeek] = useState(false);
+  const isFirstRender = useRef(true);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -51,33 +64,57 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
 
-  const weekDates = useMemo(() => Array.from({ length: 7 }, (_, i) => addDaysUtc(weekStart, i)), [weekStart]);
+  const weekStart = startOfWeekUtc(anchorDate);
+  const weekDates = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i)),
+    [anchorDate]
+  );
 
-  async function loadWeek(newWeekStart: string) {
+  const range = useMemo(() => {
+    if (granularity === "month") {
+      const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
+      return { from: gridStart, to: addDaysUtc(gridStart, 42) };
+    }
+    const start = startOfWeekUtc(anchorDate);
+    return { from: start, to: addDaysUtc(start, 7) };
+  }, [granularity, anchorDate]);
+
+  // The server already delivered the initial week, so skip the first fetch and
+  // only hit the API once the user actually navigates or switches granularity.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    let cancelled = false;
     setLoadingWeek(true);
     setFormError(null);
-    try {
-      const from = new Date(`${newWeekStart}T00:00:00Z`);
-      const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
-      const res = await fetch(`/api/sessions?from=${from.toISOString()}&to=${to.toISOString()}`);
-      if (!res.ok) throw new Error("failed");
-      const data = await res.json();
-      setSessions(
-        data.sessions.map((s: { id: string; startsAt: string; endsAt: string; status: string; booking: { clientNameSnapshot: string } | null }) => ({
-          id: s.id,
-          startsAt: s.startsAt,
-          endsAt: s.endsAt,
-          status: s.status,
-          clientName: s.booking?.clientNameSnapshot ?? null,
-        }))
-      );
-      setWeekStart(newWeekStart);
-    } catch {
-      setFormError("שגיאה בטעינת השבוע, נסה שוב");
-    } finally {
-      setLoadingWeek(false);
-    }
-  }
+    const fromIso = zonedDateTimeToUtc(range.from, "00:00", timezone).toISOString();
+    const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
+    fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
+      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; booking: { clientNameSnapshot: string } | null }[] }) => {
+        if (cancelled) return;
+        setSessions(
+          data.sessions.map((s) => ({
+            id: s.id,
+            startsAt: s.startsAt,
+            endsAt: s.endsAt,
+            status: s.status,
+            clientName: s.booking?.clientNameSnapshot ?? null,
+          }))
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setFormError("שגיאה בטעינת הטווח, נסה שוב");
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingWeek(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range.from, range.to, timezone]);
 
   const byDayAndTime = useMemo(() => {
     const map = new Map<string, SessionRow>();
@@ -88,8 +125,8 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
       map.set(`${dayKey}T${timeKey}`, session);
       times.add(timeKey);
     }
-    return { map, times: [...times].sort() };
-  }, [sessions, timezone]);
+    return { map, times: buildTimeAxis(defaultDurationMinutes, times) };
+  }, [sessions, timezone, defaultDurationMinutes]);
 
   async function handleAdd() {
     setFormError(null);
@@ -157,27 +194,55 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardHeader className="flex flex-col items-center gap-2 md:flex-row md:flex-wrap md:justify-between">
-          <CardTitle className="text-base">
-            לוח שבועי · {weekDates[0].slice(8, 10)}.{weekDates[0].slice(5, 7)}–
-            {weekDates[6].slice(8, 10)}.{weekDates[6].slice(5, 7)}
-          </CardTitle>
-          <div className="flex flex-wrap justify-center gap-2">
+        <CardHeader className="flex flex-col items-stretch gap-3">
+          <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
+            <CardTitle className="text-base">
+              {granularity === "month"
+                ? `${MONTH_LABELS[Number(anchorDate.slice(5, 7)) - 1]} ${anchorDate.slice(0, 4)}`
+                : `לוח שבועי · ${weekDates[0].slice(8, 10)}.${weekDates[0].slice(5, 7)}–${weekDates[6].slice(8, 10)}.${weekDates[6].slice(5, 7)}`}
+            </CardTitle>
+            <div className="bg-muted inline-flex gap-1 rounded-md p-1">
+              {(["week", "month"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => {
+                    setGranularity(g);
+                    setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
+                  }}
+                  className={cn(
+                    "min-h-11 rounded-sm px-3 text-sm font-medium transition-colors md:min-h-9",
+                    granularity === g ? "bg-card shadow-xs" : "text-muted-foreground"
+                  )}
+                >
+                  {g === "week" ? "שבוע" : "חודש"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2 md:justify-end">
             <Button
               type="button"
               variant="outline"
               size="sm"
               disabled={loadingWeek}
-              onClick={() => loadWeek(addDaysUtc(weekStart, -7))}
+              onClick={() =>
+                setAnchorDate((d) => (granularity === "month" ? addMonthsUtc(d, -1) : addDaysUtc(startOfWeekUtc(d), -7)))
+              }
             >
-              שבוע קודם
+              {granularity === "month" ? "חודש קודם" : "שבוע קודם"}
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              disabled={loadingWeek || weekStart === startOfWeekUtc(today)}
-              onClick={() => loadWeek(startOfWeekUtc(today))}
+              disabled={
+                loadingWeek ||
+                (granularity === "month"
+                  ? startOfMonthUtc(anchorDate) === startOfMonthUtc(today)
+                  : weekStart === startOfWeekUtc(today))
+              }
+              onClick={() => setAnchorDate(granularity === "month" ? startOfMonthUtc(today) : today)}
             >
               היום
             </Button>
@@ -186,15 +251,26 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
               variant="outline"
               size="sm"
               disabled={loadingWeek}
-              onClick={() => loadWeek(addDaysUtc(weekStart, 7))}
+              onClick={() =>
+                setAnchorDate((d) => (granularity === "month" ? addMonthsUtc(d, 1) : addDaysUtc(startOfWeekUtc(d), 7)))
+              }
             >
-              שבוע הבא
+              {granularity === "month" ? "חודש הבא" : "שבוע הבא"}
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {byDayAndTime.times.length === 0 ? (
-            <p className="text-muted-foreground text-sm">אין חלונות טיפול בשבוע זה</p>
+          {granularity === "month" ? (
+            <MonthGrid
+              anchorDate={anchorDate}
+              today={today}
+              sessions={sessions}
+              timezone={timezone}
+              onSelectDay={(date) => {
+                setAnchorDate(date);
+                setGranularity("week");
+              }}
+            />
           ) : (
             // Same pinned-hours + column snapping as the dashboard grid, so a
             // swipe on a phone never stops mid-cell or hides the hour labels.

@@ -54,6 +54,7 @@ export default async function AvailabilityPage() {
       <AvailabilityView
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
+        defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
         initialSessions={sessions.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),
