@@ -2,6 +2,10 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { generateBookingIcs } from "@/lib/ics";
 import { appUrl as getAppUrl } from "@/lib/public-url";
+import { getCredentials, recordIntegrationFailure } from "@/lib/integrations";
+import { createZoomMeeting } from "@/lib/zoom";
+import { sendWhatsApp } from "@/lib/whatsapp";
+import { confirmationWhatsApp, reminderWhatsApp } from "@/lib/whatsapp-templates";
 import {
   confirmationEmailForClient,
   newBookingEmailForTherapist,
@@ -10,7 +14,7 @@ import {
   cancellationEmailForClient,
   rescheduledEmailForTherapist,
 } from "@/lib/email-templates";
-import type { NotificationType } from "@/generated/prisma/client";
+import type { NotificationChannel, NotificationType } from "@/generated/prisma/client";
 
 
 
@@ -22,13 +26,14 @@ async function recordNotification(input: {
   bookingId: string;
   type: NotificationType;
   recipient: string;
+  channel?: NotificationChannel;
   send: () => Promise<{ ok: true } | { ok: false; error: string }>;
 }) {
   const notification = await prisma.notification.create({
     data: {
       bookingId: input.bookingId,
       type: input.type,
-      channel: "email",
+      channel: input.channel ?? "email",
       recipient: input.recipient,
       status: "pending",
     },
@@ -46,6 +51,140 @@ async function recordNotification(input: {
   return result;
 }
 
+type BookingWithContext = {
+  id: string;
+  therapistId: string;
+  clientNameSnapshot: string;
+  clientEmailSnapshot: string | null;
+  clientPhoneSnapshot: string | null;
+  manageToken: string;
+  session: { startsAt: Date; endsAt: Date };
+  therapist: {
+    fullName: string;
+    slug: string;
+    timezone: string;
+    settings: {
+      locationType: string;
+      locationAddress: string | null;
+      onlineMeetingUrl: string | null;
+      sendEmailReminder: boolean;
+      sendSmsReminder: boolean;
+      reminderHoursBefore: number;
+    } | null;
+  };
+};
+
+/**
+ * A WhatsApp message goes out only when the therapist connected their own Twilio
+ * account on the add-ons tab — there is no shared sender, so an unconnected
+ * therapist simply keeps getting email and nothing is recorded.
+ */
+async function sendWhatsAppToClient(
+  booking: BookingWithContext,
+  type: NotificationType,
+  body: string
+) {
+  if (!booking.clientPhoneSnapshot) return;
+
+  const credentials = await getCredentials(booking.therapistId, "whatsapp");
+  if (!credentials) return;
+
+  await recordNotification({
+    bookingId: booking.id,
+    type,
+    channel: "whatsapp",
+    recipient: booking.clientPhoneSnapshot,
+    send: () => sendWhatsApp(credentials, { to: booking.clientPhoneSnapshot!, body }),
+  });
+}
+
+/**
+ * Queues the client's reminder on every channel they've opted into. Each channel
+ * is its own row so one failing (a revoked Twilio token) doesn't cancel the other,
+ * and so the cron can retry them independently.
+ */
+async function scheduleReminders(booking: BookingWithContext) {
+  const settings = booking.therapist.settings;
+  if (!settings) return;
+
+  const scheduledFor = new Date(
+    booking.session.startsAt.getTime() - settings.reminderHoursBefore * 60 * 60 * 1000
+  );
+  if (scheduledFor.getTime() <= Date.now()) return;
+
+  if (settings.sendEmailReminder && booking.clientEmailSnapshot) {
+    await prisma.notification.create({
+      data: {
+        bookingId: booking.id,
+        type: "reminder",
+        channel: "email",
+        recipient: booking.clientEmailSnapshot,
+        scheduledFor,
+        status: "pending",
+      },
+    });
+  }
+
+  // sendSmsReminder is the old "text the client a reminder" toggle. SMS was never
+  // implemented; WhatsApp is what it now drives, which is why the column name and
+  // the channel disagree.
+  if (settings.sendSmsReminder && booking.clientPhoneSnapshot) {
+    const connected = await getCredentials(booking.therapistId, "whatsapp");
+    if (connected) {
+      await prisma.notification.create({
+        data: {
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "whatsapp",
+          recipient: booking.clientPhoneSnapshot,
+          scheduledFor,
+          status: "pending",
+        },
+      });
+    }
+  }
+}
+
+/**
+ * Opens a Zoom meeting for this booking, if the therapist works online and has
+ * connected their Zoom account. Returns the join URL, or null when there is
+ * nothing to open — including when Zoom refuses, which is recorded against the
+ * add-on rather than raised: a booking must not fail because a video link
+ * couldn't be created.
+ *
+ * Note the meeting is created once, at booking time. If the client later moves
+ * the appointment the join URL still works; the time shown inside Zoom does not
+ * follow.
+ */
+async function createMeetingFor(booking: BookingWithContext): Promise<string | null> {
+  const locationType = booking.therapist.settings?.locationType;
+  if (locationType !== "online" && locationType !== "hybrid") return null;
+
+  const credentials = await getCredentials(booking.therapistId, "zoom");
+  if (!credentials) return null;
+
+  const durationMinutes = Math.round(
+    (booking.session.endsAt.getTime() - booking.session.startsAt.getTime()) / 60000
+  );
+  const result = await createZoomMeeting(credentials, {
+    topic: `${booking.clientNameSnapshot} — ${booking.therapist.fullName}`,
+    startsAt: booking.session.startsAt,
+    durationMinutes,
+    timezone: booking.therapist.timezone,
+  });
+
+  if (!result.ok) {
+    await recordIntegrationFailure(booking.therapistId, "zoom", result.error);
+    return null;
+  }
+
+  await prisma.booking.update({
+    where: { id: booking.id },
+    data: { meetingUrl: result.joinUrl },
+  });
+  return result.joinUrl;
+}
+
 /** Fires the immediate side effects of a new booking (spec 8.6): confirmation to the
  *  client, a heads-up to the therapist, and (if enabled) a scheduled reminder. */
 export async function sendBookingCreatedNotifications(bookingId: string) {
@@ -57,7 +196,10 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
 
   const { session, therapist } = booking;
   const settings = therapist.settings;
-  const location = resolveLocation(settings);
+  // A meeting opened for this booking is the location — it's more use to the
+  // client than the therapist's street address or a static room link.
+  const meetingUrl = await createMeetingFor(booking);
+  const location = meetingUrl ?? resolveLocation(settings);
   const manageUrl = `${getAppUrl()}/book/${therapist.slug}/manage/${booking.manageToken}`;
 
   if (booking.clientEmailSnapshot && settings?.sendEmailConfirmation) {
@@ -105,21 +247,21 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
     send: () => sendEmail({ to: therapist.email, subject: therapistSubject, html: therapistHtml }),
   });
 
-  if (settings?.sendEmailReminder && booking.clientEmailSnapshot) {
-    const scheduledFor = new Date(session.startsAt.getTime() - settings.reminderHoursBefore * 60 * 60 * 1000);
-    if (scheduledFor.getTime() > Date.now()) {
-      await prisma.notification.create({
-        data: {
-          bookingId,
-          type: "reminder",
-          channel: "email",
-          recipient: booking.clientEmailSnapshot,
-          scheduledFor,
-          status: "pending",
-        },
-      });
-    }
-  }
+  await sendWhatsAppToClient(
+    booking,
+    "confirmation",
+    confirmationWhatsApp({
+      clientFullName: booking.clientNameSnapshot,
+      therapistFullName: therapist.fullName,
+      startsAt: session.startsAt,
+      endsAt: session.endsAt,
+      timezone: therapist.timezone,
+      location,
+      manageUrl,
+    })
+  );
+
+  await scheduleReminders(booking);
 }
 
 /** Fires the immediate side effects of a cancellation (spec 8.6) and cancels any
@@ -181,27 +323,12 @@ export async function sendBookingRescheduledNotifications(bookingId: string, old
   if (!booking) return;
 
   const { session, therapist } = booking;
-  const settings = therapist.settings;
 
   await prisma.notification.updateMany({
     where: { bookingId, type: "reminder", status: "pending" },
     data: { status: "canceled" },
   });
-  if (settings?.sendEmailReminder && booking.clientEmailSnapshot) {
-    const scheduledFor = new Date(session.startsAt.getTime() - settings.reminderHoursBefore * 60 * 60 * 1000);
-    if (scheduledFor.getTime() > Date.now()) {
-      await prisma.notification.create({
-        data: {
-          bookingId,
-          type: "reminder",
-          channel: "email",
-          recipient: booking.clientEmailSnapshot,
-          scheduledFor,
-          status: "pending",
-        },
-      });
-    }
-  }
+  await scheduleReminders(booking);
 
   const { subject, html } = rescheduledEmailForTherapist({
     therapistFullName: therapist.fullName,
@@ -239,7 +366,7 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
     const location = resolveLocation(
       await prisma.therapistSettings.findUnique({ where: { therapistId: booking.therapistId } })
     );
-    const { subject, html } = reminderEmailForClient({
+    const message = {
       clientFullName: booking.clientNameSnapshot,
       therapistFullName: booking.therapist.fullName,
       startsAt: booking.session.startsAt,
@@ -247,9 +374,28 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
       timezone: booking.therapist.timezone,
       location,
       manageUrl: `${getAppUrl()}/book/${booking.therapist.slug}/manage/${booking.manageToken}`,
-    });
+    };
 
-    const result = await sendEmail({ to: notification.recipient, subject, html });
+    let result: { ok: true } | { ok: false; error: string };
+    if (notification.channel === "whatsapp") {
+      const credentials = await getCredentials(booking.therapistId, "whatsapp");
+      // The therapist disconnected WhatsApp between booking and reminder. Not a
+      // failure to retry — the channel is simply gone, so drop the row.
+      if (!credentials) {
+        await prisma.notification.update({
+          where: { id: notification.id },
+          data: { status: "canceled" },
+        });
+        continue;
+      }
+      result = await sendWhatsApp(credentials, {
+        to: notification.recipient,
+        body: reminderWhatsApp(message),
+      });
+    } else {
+      const { subject, html } = reminderEmailForClient(message);
+      result = await sendEmail({ to: notification.recipient, subject, html });
+    }
     await prisma.notification.update({
       where: { id: notification.id },
       data: result.ok

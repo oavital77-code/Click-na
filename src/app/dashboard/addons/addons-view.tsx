@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Check, Copy, CreditCard, MessageCircle, Video } from "lucide-react";
+import { CalendarDays, Check, Copy, CreditCard, ExternalLink, MessageCircle, Video } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { statusBadgeClass, type StatusTone } from "@/lib/status-badge";
-import type { IntegrationCard, IntegrationProvider, IntegrationState } from "@/lib/integrations";
+import { statusBadgeClass } from "@/lib/status-badge";
+import { cn } from "@/lib/utils";
+import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
@@ -15,53 +18,22 @@ const ICONS: Record<IntegrationProvider, LucideIcon> = {
   whatsapp: MessageCircle,
 };
 
-const STATE_LABEL: Record<IntegrationState, string> = {
-  connected: "מחובר",
-  disconnected: "לא מחובר",
-  unavailable: "ממתין להגדרת חשבון",
-};
+type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolean };
 
-const STATE_TONE: Record<IntegrationState, StatusTone> = {
-  connected: "open",
-  disconnected: "neutral",
-  unavailable: "held",
-};
-
-export function AddonsView({ initialIntegrations }: { initialIntegrations: IntegrationCard[] }) {
-  const [integrations, setIntegrations] = useState(initialIntegrations);
-  const [busy, setBusy] = useState<IntegrationProvider | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  async function toggle(provider: IntegrationProvider, action: "connect" | "disconnect") {
-    setBusy(provider);
-    setError(null);
-    try {
-      const res = await fetch("/api/me/integrations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider, action }),
-      });
-      if (!res.ok) throw new Error("request failed");
-      const data = (await res.json()) as { integrations: IntegrationCard[] };
-      setIntegrations(data.integrations);
-    } catch {
-      setError("החיבור נכשל. נסה שוב.");
-    } finally {
-      setBusy(null);
-    }
-  }
+export function AddonsView({ initial }: { initial: Payload }) {
+  const [payload, setPayload] = useState(initial);
 
   return (
     <div className="flex flex-col gap-4">
-      {error && <p className="text-destructive text-sm">{error}</p>}
+      {!payload.credentialStorageReady && (
+        <p className="border-st-held/50 bg-st-held/10 rounded-md border p-3 text-sm">
+          שמירת פרטי חשבון מושבתת עד שיוגדר מפתח ההצפנה בשרת (INTEGRATION_ENCRYPTION_KEY). סנכרון
+          היומן עובד גם בלעדיו.
+        </p>
+      )}
       <div className="grid gap-4 lg:grid-cols-2">
-        {integrations.map((integration) => (
-          <AddonCard
-            key={integration.provider}
-            integration={integration}
-            busy={busy === integration.provider}
-            onToggle={toggle}
-          />
+        {payload.integrations.map((integration) => (
+          <AddonCard key={integration.provider} integration={integration} onChange={setPayload} />
         ))}
       </div>
     </div>
@@ -70,16 +42,77 @@ export function AddonsView({ initialIntegrations }: { initialIntegrations: Integ
 
 function AddonCard({
   integration,
-  busy,
-  onToggle,
+  onChange,
 }: {
   integration: IntegrationCard;
-  busy: boolean;
-  onToggle: (provider: IntegrationProvider, action: "connect" | "disconnect") => void;
+  onChange: (payload: Payload) => void;
 }) {
   const Icon = ICONS[integration.provider];
   const connected = integration.state === "connected";
-  const unavailable = integration.state === "unavailable";
+  const needsCredentials = integration.fields.length > 0;
+
+  const [editing, setEditing] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function send(body: Record<string, unknown>) {
+    setBusy(true);
+    setError(null);
+    setFieldErrors({});
+    try {
+      const res = await fetch("/api/me/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = (await res.json()) as Payload & {
+        error?: string;
+        fieldErrors?: Record<string, string>;
+      };
+      if (data.integrations) onChange(data);
+
+      if (!res.ok) {
+        setError(data.error ?? "הפעולה נכשלה. נסה שוב.");
+        setFieldErrors(data.fieldErrors ?? {});
+        return false;
+      }
+      return true;
+    } catch {
+      setError("הפעולה נכשלה. נסה שוב.");
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onToggle() {
+    if (connected) {
+      await send({ action: "disconnect", provider: integration.provider });
+      setEditing(false);
+      setValues({});
+      return;
+    }
+    // Nothing to fill in (the calendar feed) — flip it straight on.
+    if (!needsCredentials) {
+      await send({ action: "connect", provider: integration.provider });
+      return;
+    }
+    setEditing((open) => !open);
+  }
+
+  async function submit() {
+    const ok = await send({
+      action: "connect",
+      provider: integration.provider,
+      credentials: values,
+    });
+    if (ok) {
+      setEditing(false);
+      setValues({});
+    }
+  }
 
   return (
     // min-w-0: a grid item defaults to min-width:auto, so the long feed URL below
@@ -94,40 +127,187 @@ function AddonCard({
             <Icon className="text-primary size-5" strokeWidth={1.75} />
             {integration.label}
           </CardTitle>
-          <span className={statusBadgeClass(STATE_TONE[integration.state])}>
-            {STATE_LABEL[integration.state]}
-          </span>
+          <Toggle
+            checked={connected}
+            busy={busy}
+            label={`${connected ? "כבה" : "הפעל"} ${integration.label}`}
+            onClick={onToggle}
+          />
         </div>
         <CardDescription>{integration.summary}</CardDescription>
+        {integration.note && (
+          <p className="text-muted-foreground text-xs italic">{integration.note}</p>
+        )}
       </CardHeader>
 
       <CardContent className="flex min-w-0 flex-col gap-3">
-        {connected && integration.feedUrl && <CalendarFeed url={integration.feedUrl} />}
-
-        {unavailable && (
-          <div className="bg-muted/60 border-border flex min-w-0 flex-col gap-1 rounded-md border p-3 text-center md:text-start">
-            <p className="text-sm font-medium">מה צריך כדי לחבר</p>
-            <p className="text-muted-foreground text-sm">{integration.setupHint}</p>
-            {/* dir="ltr" keeps the variable names in reading order; text-end then
-                lands them on the same side as the Hebrew around them. */}
-            <p className="text-muted-foreground text-xs text-end" dir="ltr">
-              {integration.missingEnv.join(" · ")}
-            </p>
+        {connected && (
+          <div className="flex flex-col items-center gap-1 md:items-start">
+            <span className={statusBadgeClass("open")}>מחובר</span>
+            {integration.accountLabel && (
+              <span className="text-muted-foreground text-xs">
+                חשבון: <span dir="ltr">{integration.accountLabel}</span>
+              </span>
+            )}
           </div>
         )}
 
-        <div className="flex justify-center md:justify-start">
+        {connected && integration.feedUrl && <CalendarFeed url={integration.feedUrl} />}
+
+        {error && <p className="text-destructive text-sm">{error}</p>}
+
+        {!connected && integration.lastError && !error && (
+          <p className="text-destructive text-sm">{integration.lastError}</p>
+        )}
+
+        {editing && !connected && (
+          <CredentialForm
+            integration={integration}
+            values={values}
+            fieldErrors={fieldErrors}
+            busy={busy}
+            onValueChange={(name, value) => setValues((prev) => ({ ...prev, [name]: value }))}
+            onSubmit={submit}
+            onCancel={() => {
+              setEditing(false);
+              setValues({});
+              setError(null);
+            }}
+          />
+        )}
+
+        {connected && needsCredentials && (
           <Button
             type="button"
-            variant={connected ? "outline" : "default"}
-            disabled={unavailable || busy}
-            onClick={() => onToggle(integration.provider, connected ? "disconnect" : "connect")}
+            variant="ghost"
+            size="sm"
+            className="self-center md:self-start"
+            // Swapping accounts is a disconnect followed by a fresh entry: we hold
+            // no plaintext to pre-fill, so the form opens empty rather than
+            // pretending the old values are still editable.
+            onClick={async () => {
+              const ok = await send({ action: "disconnect", provider: integration.provider });
+              if (ok) setEditing(true);
+            }}
+            disabled={busy}
           >
-            {busy ? "רגע..." : connected ? "נתק" : "חבר"}
+            החלפת פרטי חשבון
           </Button>
-        </div>
+        )}
       </CardContent>
     </Card>
+  );
+}
+
+function Toggle({
+  checked,
+  busy,
+  label,
+  onClick,
+}: {
+  checked: boolean;
+  busy: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      disabled={busy}
+      onClick={onClick}
+      className={cn(
+        "focus-visible:ring-ring/50 relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-50",
+        checked ? "bg-primary" : "bg-muted-foreground/30"
+      )}
+    >
+      {/* start-0.5 / translate-x: in RTL the knob has to travel the other way, and
+          a logical property can't move it, so the direction is baked into the
+          transform via RTL variants. */}
+      <span
+        className={cn(
+          "absolute start-0.5 size-5 rounded-full bg-white shadow-sm transition-transform",
+          checked ? "translate-x-5 rtl:-translate-x-5" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
+
+function CredentialForm({
+  integration,
+  values,
+  fieldErrors,
+  busy,
+  onValueChange,
+  onSubmit,
+  onCancel,
+}: {
+  integration: IntegrationCard;
+  values: Record<string, string>;
+  fieldErrors: Record<string, string>;
+  busy: boolean;
+  onValueChange: (name: string, value: string) => void;
+  onSubmit: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <form
+      className="border-border flex min-w-0 flex-col gap-3 rounded-md border p-3 text-center md:text-start"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit();
+      }}
+    >
+      <p className="text-muted-foreground text-xs">{integration.setupHint}</p>
+
+      {integration.docsUrl && (
+        <a
+          href={integration.docsUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-primary inline-flex items-center justify-center gap-1 text-xs hover:underline md:justify-start"
+        >
+          <ExternalLink className="size-3.5" />
+          פתיחת העמוד שבו נמצאים הפרטים
+        </a>
+      )}
+
+      {integration.fields.map((field) => (
+        <div key={field.name} className="flex flex-col gap-1 text-start">
+          <Label htmlFor={`${integration.provider}-${field.name}`} className="text-xs">
+            {field.label}
+          </Label>
+          <Input
+            id={`${integration.provider}-${field.name}`}
+            // Masked so the value isn't left on screen in a shared clinic space,
+            // and so browsers don't offer to autofill it somewhere else.
+            type={field.secret ? "password" : "text"}
+            dir="ltr"
+            autoComplete="off"
+            placeholder={field.placeholder}
+            value={values[field.name] ?? ""}
+            onChange={(e) => onValueChange(field.name, e.target.value)}
+            aria-invalid={!!fieldErrors[field.name]}
+          />
+          {field.help && <p className="text-muted-foreground text-xs">{field.help}</p>}
+          {fieldErrors[field.name] && (
+            <p className="text-destructive text-xs">{fieldErrors[field.name]}</p>
+          )}
+        </div>
+      ))}
+
+      <div className="flex flex-col justify-center gap-2 sm:flex-row md:justify-start">
+        <Button type="submit" disabled={busy}>
+          {busy ? "בודקים מול השירות..." : "שמור והפעל"}
+        </Button>
+        <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
+          ביטול
+        </Button>
+      </div>
+    </form>
   );
 }
 
@@ -160,7 +340,7 @@ function CalendarFeed({ url }: { url: string }) {
           {copied ? "הועתק!" : "העתק כתובת"}
         </Button>
       </div>
-      <ul className="text-muted-foreground flex list-inside list-disc flex-col gap-1 text-xs text-start">
+      <ul className="text-muted-foreground flex list-inside list-disc flex-col gap-1 text-start text-xs">
         <li>Google Calendar: הוספת יומן ← מכתובת URL ← להדביק.</li>
         <li>אייפון: הגדרות ← אפליקציות ← יומן ← חשבונות ← הוספה ← מנוי ליומן.</li>
         <li>העדכון ביומן אינו מיידי — הוא נמשך פעם בכמה שעות, לפי הגדרות היומן.</li>

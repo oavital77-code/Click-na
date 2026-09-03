@@ -442,7 +442,7 @@ export function SettingsView({
             onChange={(v) => updateSettings("sendEmailReminder", v)}
           />
           <ToggleRow
-            label="תזכורת ב-SMS"
+            label="תזכורת בוואטסאפ"
             checked={settings.sendSmsReminder}
             onChange={(v) => updateSettings("sendSmsReminder", v)}
           />

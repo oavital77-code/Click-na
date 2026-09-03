@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
-import { listIntegrations } from "@/lib/integrations";
+import { credentialStorageReady, listIntegrations } from "@/lib/integrations";
 import { AddonsView } from "./addons-view";
 
 export default async function AddonsPage() {
@@ -26,10 +26,12 @@ export default async function AddonsPage() {
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold">תוספים</h1>
         <p className="text-muted-foreground text-sm">
-          חיבור המערכת לשירותים חיצוניים. מה שמוכן לחיבור אפשר להפעיל כאן ועכשיו.
+          מפעילים תוסף, מזינים את פרטי החשבון שלך אצל אותו שירות, וזה מתחיל לעבוד.
         </p>
       </div>
-      <AddonsView initialIntegrations={integrations} />
+      <AddonsView
+        initial={{ integrations, credentialStorageReady: credentialStorageReady() }}
+      />
     </main>
   );
 }
