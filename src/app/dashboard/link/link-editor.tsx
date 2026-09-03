@@ -133,14 +133,14 @@ export function LinkEditor({
   return (
     <div className="flex flex-1 flex-col md:flex-row">
       {/* Preview — always reflects the last saved state. */}
-      <div className="flex min-h-[50vh] flex-1 flex-col gap-3 p-4 md:min-h-0 md:p-8">
-        <div className="flex items-center justify-between">
+      <div className="flex min-h-[50vh] flex-1 flex-col gap-3 p-4 text-center md:min-h-0 md:p-8 md:text-start">
+        <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
           <h1 className="text-xl">תצוגה מקדימה</h1>
           <a
             href={`/book/${savedSlug}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-primary text-sm underline underline-offset-2"
+            className="text-primary inline-flex min-h-11 items-center text-sm underline underline-offset-2 md:min-h-0"
           >
             פתח בטאב חדש
           </a>
@@ -156,14 +156,14 @@ export function LinkEditor({
       </div>
 
       {/* Options panel — opposite side from the main nav. */}
-      <aside className="border-border bg-card flex w-full flex-col gap-4 border-t p-4 md:w-80 md:shrink-0 md:border-t-0 md:border-s md:p-6">
+      <aside className="border-border bg-card flex w-full flex-col gap-4 border-t p-4 text-center md:w-80 md:shrink-0 md:border-t-0 md:border-s md:p-6 md:text-start">
         <Card>
           <CardHeader>
             <CardTitle className="text-base">הקישור שלך</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <Label htmlFor="slug">הכתובת שלך</Label>
-            <div className="text-muted-foreground flex items-center gap-1 text-sm">
+            <div className="text-muted-foreground flex items-center justify-center gap-1 text-sm md:justify-start">
               <span className="num">cleana.co.il/book/</span>
               <Input
                 id="slug"
@@ -177,7 +177,7 @@ export function LinkEditor({
             {slugCooldownActive && (
               <p className="text-muted-foreground text-xs">ניתן לשנות את הכתובת רק פעם ב-30 יום</p>
             )}
-            <div className="flex flex-wrap gap-2 pt-1">
+            <div className="flex flex-wrap justify-center gap-2 pt-1 md:justify-start">
               <Button type="button" variant="outline" size="sm" onClick={copyLink}>
                 {copied ? "הועתק!" : "העתק קישור"}
               </Button>
@@ -225,7 +225,7 @@ export function LinkEditor({
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label htmlFor="brandColor">צבע מותג</Label>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center gap-2 md:justify-start">
                 <Input
                   id="brandColor"
                   type="color"

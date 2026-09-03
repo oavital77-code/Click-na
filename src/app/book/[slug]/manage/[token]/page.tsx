@@ -27,7 +27,7 @@ export default async function ManageBookingPage({
   const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-4 py-8">
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-4 py-8 text-center md:text-start">
       <ManageBooking
         token={token}
         slug={booking.therapist.slug}

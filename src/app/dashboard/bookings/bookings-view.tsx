@@ -84,7 +84,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
         {([
           ["today", "היום"],
           ["week", "השבוע"],
@@ -112,7 +112,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
             <li key={booking.id}>
               <Card>
                 <CardContent className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
                     <span className="text-sm">
                       {formatInTimeZone(new Date(booking.startsAt), timezone, "EEEE, d.M", {
                         locale: he,
@@ -140,7 +140,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
                         />
-                        <div className="flex gap-2">
+                        <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                           <Button
                             type="button"
                             variant="destructive"
@@ -167,7 +167,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="w-fit"
+                        className="w-full md:w-fit"
                         onClick={() => setCanceling(booking.id)}
                       >
                         בטל תור

@@ -126,7 +126,7 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
             {formatInTimeZone(new Date(selectedSlot.endsAt), timezone, "HH:mm")}
           </p>
           {manageToken && (
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-4">
               <a
                 href={`/api/public/bookings/manage/${manageToken}/ics`}
                 className="text-primary text-sm underline underline-offset-4"
@@ -225,7 +225,7 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
     const day = days.find((d) => d.date === selectedDate);
     return (
       <div className="flex flex-col gap-4">
-        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setStep("date")}>
+        <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setStep("date")}>
           → בחר תאריך אחר
         </Button>
         {formError && <p className="text-destructive text-sm">{formError}</p>}
@@ -249,7 +249,7 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
     <div className="flex flex-col gap-2">
       <Label>בחר תאריך</Label>
       <div className="border-border bg-card overflow-hidden rounded-lg border">
-        <div className="divide-border grid auto-cols-[minmax(4rem,1fr)] grid-flow-col divide-x divide-x-reverse overflow-x-auto">
+        <div className="divide-border grid snap-x snap-mandatory auto-cols-[minmax(4rem,1fr)] grid-flow-col divide-x divide-x-reverse overflow-x-auto">
           {days.map((d) => {
             const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
             const available = d.slots.length > 0;
@@ -263,7 +263,7 @@ export function BookingFlow({ slug, timezone, requirePhone }: Props) {
                   setStep("time");
                 }}
                 className={cn(
-                  "flex flex-col items-center gap-1 px-3 py-3 text-sm transition-colors",
+                  "flex snap-start flex-col items-center gap-1 px-3 py-3 text-sm transition-colors",
                   available
                     ? "hover:bg-accent hover:text-accent-foreground"
                     : "text-muted-foreground opacity-40"

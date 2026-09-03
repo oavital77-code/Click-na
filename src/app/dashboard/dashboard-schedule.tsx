@@ -258,8 +258,10 @@ export function DashboardSchedule({
 
   return (
     <Card>
+      {/* Every control row centers as a block on mobile and only splits to the
+          edges from md up, so the narrow screen never shows a ragged edge. */}
       <CardHeader className="flex flex-col gap-3">
-        <div className="flex flex-row items-center justify-between gap-2">
+        <div className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
           <CardTitle className="text-lg">הלו״ז שלי</CardTitle>
           {granularity !== "month" && (
             <div className="bg-muted inline-flex gap-1 rounded-md p-1">
@@ -267,7 +269,7 @@ export function DashboardSchedule({
                 type="button"
                 onClick={() => setView("calendar")}
                 className={cn(
-                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  "min-h-11 rounded-sm px-3 text-sm font-medium transition-colors md:min-h-9",
                   view === "calendar" ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
@@ -277,7 +279,7 @@ export function DashboardSchedule({
                 type="button"
                 onClick={() => setView("list")}
                 className={cn(
-                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  "min-h-11 rounded-sm px-3 text-sm font-medium transition-colors md:min-h-9",
                   view === "list" ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
@@ -287,15 +289,15 @@ export function DashboardSchedule({
           )}
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div className="bg-muted inline-flex gap-1 rounded-md p-1 self-start">
+        <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
+          <div className="bg-muted inline-flex gap-1 rounded-md p-1">
             {(["day", "week", "month"] as const).map((g) => (
               <button
                 key={g}
                 type="button"
                 onClick={() => switchGranularity(g)}
                 className={cn(
-                  "min-h-9 rounded-sm px-3 text-sm font-medium transition-colors",
+                  "min-h-11 rounded-sm px-3 text-sm font-medium transition-colors md:min-h-9",
                   granularity === g ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
@@ -303,7 +305,7 @@ export function DashboardSchedule({
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
             <div className="flex gap-1">
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
@@ -336,16 +338,25 @@ export function DashboardSchedule({
           byDayAndTime.times.length === 0 && sessions.length === 0 ? (
             <EmptyCalendarHint granularity={granularity} />
           ) : (
-            <div className="overflow-x-auto">
-              <table className={cn("w-full border-collapse text-sm", granularity === "week" && "min-w-[620px]")}>
+            // Scrolling snaps to whole day columns (scroll-ps-12 clears the pinned
+            // hour column) so a swipe never leaves a cell cut in half. Sticky cells
+            // need border-separate — with border-collapse the row line is owned by
+            // the table and tears when the pinned column scrolls over it.
+            <div className="snap-x snap-mandatory scroll-ps-12 overflow-x-auto">
+              <table
+                className={cn(
+                  "w-full border-separate border-spacing-0 text-sm",
+                  granularity === "week" && "min-w-[620px]"
+                )}
+              >
                 <thead>
                   <tr>
-                    <th className="w-12" />
+                    <th className="bg-card sticky start-0 z-10 w-12" />
                     {columns.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th key={dateKey} className="min-w-16 pb-2 text-center font-medium">
+                        <th key={dateKey} className="min-w-16 snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>{DAY_LABELS_SHORT[dow]}</div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
@@ -357,10 +368,15 @@ export function DashboardSchedule({
                 </thead>
                 <tbody>
                   {byDayAndTime.times.map((time) => (
-                    <tr key={time} className="border-border border-t">
-                      <td className="num text-muted-foreground py-2 pe-2 text-xs">{time}</td>
+                    <tr key={time}>
+                      <td className="num text-muted-foreground border-border bg-card sticky start-0 z-10 border-t py-2 pe-2 text-xs">
+                        {time}
+                      </td>
                       {columns.map((dateKey) => (
-                        <td key={dateKey} className="min-w-16 p-1 text-center align-middle">
+                        <td
+                          key={dateKey}
+                          className="border-border min-w-16 snap-start border-t p-1 text-center align-middle"
+                        >
                           <SlotCell
                             session={byDayAndTime.map.get(`${dateKey}T${time}`)}
                             dateKey={dateKey}
@@ -387,7 +403,7 @@ export function DashboardSchedule({
             {bookedOrOpen.map((session) => (
               <li
                 key={session.id}
-                className="border-border flex min-h-11 items-center justify-between rounded-md border px-3 py-2 text-sm"
+                className="border-border flex min-h-11 flex-col items-center justify-center gap-1 rounded-md border px-3 py-2 text-sm md:flex-row md:justify-between md:gap-2"
               >
                 <span className="num text-muted-foreground">
                   {formatInTimeZone(new Date(session.startsAt), timezone, "EEEE, d.M", { locale: he })} ·{" "}
@@ -537,7 +553,7 @@ function SlotCell({
           <button
             type="button"
             aria-label={`פתח חלון טיפול ב-${time}`}
-            className="border-muted-foreground/30 hover:border-primary hover:text-primary text-muted-foreground/50 flex min-h-9 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors"
+            className="border-muted-foreground/30 hover:border-primary hover:text-primary text-muted-foreground/50 flex min-h-11 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors md:min-h-9"
           >
             +
           </button>
@@ -589,7 +605,7 @@ function SlotCell({
           if (!next) setError(null);
         }}
         trigger={
-          <button type="button" className={statusBadgeClass("open") + " w-full min-h-9 justify-center"}>
+          <button type="button" className={statusBadgeClass("open") + " w-full min-h-11 md:min-h-9 justify-center"}>
             {chipLabel}
           </button>
         }
@@ -627,7 +643,7 @@ function SlotCell({
         trigger={
           <button
             type="button"
-            className={statusBadgeClass("blocked") + " w-full min-h-9 justify-center"}
+            className={statusBadgeClass("blocked") + " w-full min-h-11 md:min-h-9 justify-center"}
           >
             {chipLabel}
           </button>
@@ -675,7 +691,7 @@ function SlotCell({
   return (
     <span
       title={hoverDetails}
-      className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-9 justify-center"}
+      className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center"}
     >
       {chipLabel}
     </span>

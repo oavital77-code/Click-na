@@ -41,7 +41,7 @@ export default async function BookingPage({
 
   return (
     <main
-      className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-4 py-8"
+      className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-4 py-8 text-center md:text-start"
       style={
         brandHsl
           ? ({ "--primary": brandHsl, "--ring": brandHsl } as CSSProperties)

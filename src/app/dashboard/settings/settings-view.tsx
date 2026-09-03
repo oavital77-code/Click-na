@@ -69,12 +69,12 @@ function ToggleRow({
   onChange: (v: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
+    <label className="flex min-h-11 items-center justify-center gap-2 text-sm md:min-h-0 md:justify-start">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="size-4"
+        className="size-5 md:size-4"
       />
       {label}
     </label>
@@ -282,7 +282,7 @@ export function SettingsView({
               </SelectContent>
             </Select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="bufferBefore">זמן הכנה לפני (דקות)</Label>
               <Input
@@ -304,7 +304,7 @@ export function SettingsView({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="minNotice">מינימום שעות מראש</Label>
               <Input
@@ -505,11 +505,11 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center justify-center gap-2 md:justify-start">
         {settingsError && <p className="text-destructive text-sm">{settingsError}</p>}
       </div>
-      <div className="flex items-center gap-2">
-        <Button type="button" disabled={settingsSaving} onClick={saveSettings} className="w-fit">
+      <div className="flex flex-col items-center gap-2 md:flex-row md:justify-start">
+        <Button type="button" disabled={settingsSaving} onClick={saveSettings} className="w-full md:w-fit">
           {settingsSaving ? "שומר..." : "שמור הגדרות"}
         </Button>
         {settingsSaved && <span className="text-sm text-green-600">נשמר ✓</span>}
@@ -522,7 +522,7 @@ export function SettingsView({
           <CardDescription>הנתונים שלך בלבד — לא נחשפים ללקוחות אחרים</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <Button asChild variant="outline" className="w-fit">
+          <Button asChild variant="outline" className="w-full md:w-fit">
             <a href="/api/me/export">ייצוא הנתונים שלי (JSON)</a>
           </Button>
           <p className="text-muted-foreground text-xs">

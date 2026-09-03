@@ -181,7 +181,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
               <li key={rule.id} className="rounded-md border px-3 py-2 text-sm">
                 {editingId === rule.id ? (
                   <div className="flex flex-col gap-3">
-                    <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor={`start-${rule.id}`}>משעה</Label>
                         <Input
@@ -219,7 +219,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         </Select>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                       <Button
                         type="button"
                         size="sm"
@@ -245,7 +245,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                       חלונות מוזמנים בעתיד. ההזמנות הקיימות{" "}
                       <strong>לעולם לא יימחקו</strong>. למחוק גם את החלונות הפתוחים?
                     </p>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                       <Button
                         type="button"
                         size="sm"
@@ -275,7 +275,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
                     <span className={cn(!rule.isActive && "text-muted-foreground line-through")}>
                       {DAY_LABELS[rule.dayOfWeek]} · {rule.startTime}–{rule.endTime} ·{" "}
                       {rule.slotDurationMinutes} דקות
@@ -286,7 +286,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         </span>
                       )}
                     </span>
-                    <span className="flex shrink-0 gap-1">
+                    <span className="flex shrink-0 flex-wrap justify-center gap-1">
                       <Button
                         type="button"
                         size="sm"
@@ -324,14 +324,14 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
 
         <div className="flex flex-col gap-3 border-t pt-4">
           <p className="text-sm font-medium">הוסף כלל חדש</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap justify-center gap-2 md:justify-start">
             {DAY_LABELS.map((label, day) => (
               <button
                 key={day}
                 type="button"
                 onClick={() => toggleAddingDay(day)}
                 className={cn(
-                  "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                  "min-h-11 rounded-md border px-3 py-1.5 text-sm transition-colors md:min-h-9",
                   addingDays.includes(day)
                     ? "bg-primary text-primary-foreground"
                     : "bg-background hover:bg-accent"
@@ -341,7 +341,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <div className="flex flex-col gap-1">
               <Label htmlFor="addStart">משעה</Label>
               <Input
@@ -377,6 +377,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
             </div>
             <Button
               type="button"
+              className="w-full md:w-auto"
               disabled={addingDays.length === 0 || adding}
               onClick={submitAdd}
             >

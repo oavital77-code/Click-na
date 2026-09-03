@@ -26,7 +26,7 @@ export default async function ClientsPage() {
   });
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-4 md:p-8">
+    <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <h1 className="text-2xl font-bold">לקוחות</h1>
 
       {clients.length === 0 ? (
@@ -34,25 +34,31 @@ export default async function ClientsPage() {
           עדיין אין לקוחות — הם ייווספו כאן אוטומטית ברגע שמישהו יזמין תור דרך הקישור שלך.
         </p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse text-sm">
+        // The name column stays pinned and the rest snap into place, so scrolling
+        // this table on a phone never strands a row without its client name.
+        <div className="snap-x snap-mandatory scroll-ps-32 overflow-x-auto">
+          <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
             <thead>
-              <tr className="border-border border-b text-start">
-                <th className="p-2 text-start font-medium">שם</th>
-                <th className="p-2 text-start font-medium">טלפון</th>
-                <th className="p-2 text-start font-medium">מייל</th>
-                <th className="p-2 text-center font-medium">תורים</th>
-                <th className="p-2 text-center font-medium">לא הגיע/ה</th>
+              <tr className="text-start">
+                <th className="border-border bg-card sticky start-0 z-10 w-32 border-b p-2 text-start font-medium">
+                  שם
+                </th>
+                <th className="border-border snap-start border-b p-2 text-start font-medium">טלפון</th>
+                <th className="border-border snap-start border-b p-2 text-start font-medium">מייל</th>
+                <th className="border-border snap-start border-b p-2 text-center font-medium">תורים</th>
+                <th className="border-border snap-start border-b p-2 text-center font-medium">לא הגיע/ה</th>
               </tr>
             </thead>
             <tbody>
               {clients.map((client) => (
-                <tr key={client.id} className="border-border border-b last:border-0">
-                  <td className="p-2 font-medium">{client.fullName}</td>
-                  <td className="num p-2">{client.phone ?? "—"}</td>
-                  <td className="num p-2 truncate">{client.email ?? "—"}</td>
-                  <td className="num p-2 text-center">{client.totalBookings}</td>
-                  <td className="p-2 text-center">
+                <tr key={client.id} className="[&:last-child>td]:border-b-0">
+                  <td className="border-border bg-card sticky start-0 z-10 w-32 border-b p-2 text-start font-medium">
+                    {client.fullName}
+                  </td>
+                  <td className="num border-border snap-start border-b p-2 text-start">{client.phone ?? "—"}</td>
+                  <td className="num border-border snap-start truncate border-b p-2 text-start">{client.email ?? "—"}</td>
+                  <td className="num border-border snap-start border-b p-2 text-center">{client.totalBookings}</td>
+                  <td className="border-border snap-start border-b p-2 text-center">
                     {client.noShowCount > 0 ? (
                       <span className={statusBadgeClass("danger")}>{client.noShowCount}</span>
                     ) : (
