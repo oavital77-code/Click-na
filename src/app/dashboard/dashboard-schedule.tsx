@@ -259,8 +259,11 @@ export function DashboardSchedule({
   return (
     <Card>
       {/* Every control row centers as a block on mobile and only splits to the
-          edges from md up, so the narrow screen never shows a ragged edge. */}
-      <CardHeader className="flex flex-col gap-3">
+          edges from md up. items-stretch is load-bearing here: CardHeader ships
+          items-start, which shrink-wraps each row to its widest child and pins it
+          to the inline-start edge — the rows then centre inside that narrow box
+          instead of on the card. */}
+      <CardHeader className="flex flex-col items-stretch gap-3">
         <div className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
           <CardTitle className="text-lg">הלו״ז שלי</CardTitle>
           {granularity !== "month" && (
