@@ -133,7 +133,7 @@ export function ManageBooking({
             <p className="text-muted-foreground text-sm">טוען זמנים פנויים...</p>
           ) : day ? (
             <>
-              <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setSelectedDate(null)}>
+              <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setSelectedDate(null)}>
                 → בחר תאריך אחר
               </Button>
               <div className="grid grid-cols-3 gap-2">
@@ -155,7 +155,7 @@ export function ManageBooking({
           ) : availableDates.length === 0 ? (
             <p className="text-muted-foreground text-sm">אין זמנים פנויים בקרוב</p>
           ) : (
-            <div className="flex gap-2 overflow-x-auto pb-2">
+            <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2">
               {days.map((d) => {
                 const dow = new Date(`${d.date}T00:00:00Z`).getUTCDay();
                 const available = d.slots.length > 0;
@@ -165,7 +165,7 @@ export function ManageBooking({
                     type="button"
                     disabled={!available}
                     onClick={() => setSelectedDate(d.date)}
-                    className="flex min-h-11 min-w-16 flex-col items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:text-muted-foreground disabled:opacity-40"
+                    className="flex min-h-11 min-w-16 snap-start flex-col items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:text-muted-foreground disabled:opacity-40"
                   >
                     <span>{DAY_LABELS_SHORT[dow]}</span>
                     <span className="num font-semibold">{d.date.slice(8, 10)}</span>
@@ -174,7 +174,7 @@ export function ManageBooking({
               })}
             </div>
           )}
-          <Button type="button" variant="ghost" size="sm" className="w-fit" onClick={() => setMode("view")}>
+          <Button type="button" variant="ghost" size="sm" className="w-full sm:w-fit" onClick={() => setMode("view")}>
             ביטול
           </Button>
         </CardContent>
@@ -196,7 +196,7 @@ export function ManageBooking({
         {!isCanceled && (
           <a
             href={`/api/public/bookings/manage/${token}/ics`}
-            className="text-primary w-fit text-sm underline underline-offset-4"
+            className="text-primary inline-flex min-h-11 items-center justify-center text-sm underline underline-offset-4 md:min-h-0 md:w-fit"
           >
             הוסף ליומן
           </a>
@@ -212,7 +212,7 @@ export function ManageBooking({
         ) : (
           <>
             {error && <p className="text-destructive text-sm">{error}</p>}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap justify-center gap-2 md:justify-start">
               <Button type="button" variant="outline" onClick={startReschedule}>
                 שנה מועד
               </Button>

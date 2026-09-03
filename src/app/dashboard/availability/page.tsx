@@ -49,7 +49,7 @@ export default async function AvailabilityPage() {
   }));
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-4 md:p-8">
+    <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <h1 className="text-2xl font-bold">ניהול זמינות</h1>
       <AvailabilityView
         timezone={therapist.timezone}

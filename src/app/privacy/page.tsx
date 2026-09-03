@@ -8,8 +8,8 @@ export const metadata: Metadata = { title: "מדיניות פרטיות — Clea
 export default function PrivacyPage() {
   return (
     <>
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-12">
-      <h1 className="text-3xl font-bold">מדיניות פרטיות</h1>
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-5 py-12 md:px-8">
+      <h1 className="text-center text-3xl font-bold md:text-start">מדיניות פרטיות</h1>
       <LegalDraftNotice />
 
       <section className="flex flex-col gap-2">

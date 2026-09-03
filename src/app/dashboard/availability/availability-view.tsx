@@ -157,12 +157,12 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-2">
+        <CardHeader className="flex flex-col items-center gap-2 md:flex-row md:flex-wrap md:justify-between">
           <CardTitle className="text-base">
             לוח שבועי · {weekDates[0].slice(8, 10)}.{weekDates[0].slice(5, 7)}–
             {weekDates[6].slice(8, 10)}.{weekDates[6].slice(5, 7)}
           </CardTitle>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -196,16 +196,18 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
           {byDayAndTime.times.length === 0 ? (
             <p className="text-muted-foreground text-sm">אין חלונות טיפול בשבוע זה</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] border-collapse text-sm">
+            // Same pinned-hours + column snapping as the dashboard grid, so a
+            // swipe on a phone never stops mid-cell or hides the hour labels.
+            <div className="snap-x snap-mandatory scroll-ps-14 overflow-x-auto">
+              <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
-                    <th className="w-14" />
+                    <th className="bg-card sticky start-0 z-10 w-14" />
                     {weekDates.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th key={dateKey} className="pb-2 text-center font-medium">
+                        <th key={dateKey} className="snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>
                             {DAY_LABELS_SHORT[dow]}
                           </div>
@@ -219,12 +221,17 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
                 </thead>
                 <tbody>
                   {byDayAndTime.times.map((time) => (
-                    <tr key={time} className="border-border border-t">
-                      <td className="num text-muted-foreground py-2 pe-2 text-xs">{time}</td>
+                    <tr key={time}>
+                      <td className="num text-muted-foreground border-border bg-card sticky start-0 z-10 border-t py-2 pe-2 text-xs">
+                        {time}
+                      </td>
                       {weekDates.map((dateKey) => {
                         const session = byDayAndTime.map.get(`${dateKey}T${time}`);
                         return (
-                          <td key={dateKey} className="p-1 text-center align-middle">
+                          <td
+                            key={dateKey}
+                            className="border-border snap-start border-t p-1 text-center align-middle"
+                          >
                             {session ? (
                               <button
                                 type="button"
@@ -234,7 +241,7 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
                                 }
                                 onClick={() => toggleStatus(session)}
                                 title={session.clientName ?? undefined}
-                                className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full justify-center disabled:opacity-100"}
+                                className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center disabled:opacity-100"}
                               >
                                 {session.clientName ?? STATUS_LABELS[session.status] ?? session.status}
                               </button>
@@ -248,6 +255,9 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
                   ))}
                 </tbody>
               </table>
+              <p className="text-muted-foreground mt-3 text-xs md:hidden">
+                גלול לצדדים לצפייה בכל ימות השבוע
+              </p>
             </div>
           )}
         </CardContent>
@@ -258,7 +268,7 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
           <CardTitle>הוסף חלון טיפול</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <div className="flex flex-col gap-2">
               <Label htmlFor="date">תאריך</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
@@ -281,7 +291,7 @@ export function AvailabilityView({ timezone, initialWeekStart, initialSessions }
                 onChange={(e) => setEndTime(e.target.value)}
               />
             </div>
-            <Button type="button" disabled={submitting} onClick={handleAdd}>
+            <Button type="button" className="w-full md:w-auto" disabled={submitting} onClick={handleAdd}>
               {submitting ? "מוסיף..." : "+ הוסף חלון"}
             </Button>
           </div>

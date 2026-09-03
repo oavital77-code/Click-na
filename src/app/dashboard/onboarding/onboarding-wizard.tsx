@@ -283,14 +283,14 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
               <Label>מתי אתה פנוי?</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                 {DAY_LABELS.map((label, day) => (
                   <button
                     key={day}
                     type="button"
                     onClick={() => toggleDay(day)}
                     className={cn(
-                      "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                      "min-h-11 rounded-md border px-3 py-1.5 text-sm transition-colors md:min-h-9",
                       days.includes(day)
                         ? "bg-primary text-primary-foreground"
                         : "bg-background hover:bg-accent"
@@ -301,7 +301,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                 ))}
               </div>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="startTime">משעה</Label>
                 <Input
@@ -326,10 +326,11 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
 
         {submitError && <p className="text-destructive text-sm">{submitError}</p>}
 
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
           <Button
             type="button"
             variant="outline"
+            className="w-full md:w-auto"
             disabled={step === 1}
             onClick={() => setStep((s) => s - 1)}
           >
@@ -338,6 +339,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
           {step < 4 ? (
             <Button
               type="button"
+              className="w-full md:w-auto"
               disabled={
                 (step === 1 && !canProceedStep1) ||
                 (step === 2 && !canProceedStep2) ||
@@ -348,7 +350,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
               הבא
             </Button>
           ) : (
-            <Button type="button" disabled={days.length === 0 || submitting} onClick={handleSubmit}>
+            <Button type="button" className="w-full md:w-auto" disabled={days.length === 0 || submitting} onClick={handleSubmit}>
               {submitting ? "שומר..." : "סיום"}
             </Button>
           )}

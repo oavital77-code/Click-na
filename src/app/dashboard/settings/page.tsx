@@ -23,7 +23,7 @@ export default async function SettingsPage() {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-8">
+    <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <h1 className="text-2xl font-bold">הגדרות</h1>
       <SettingsView
         profile={{

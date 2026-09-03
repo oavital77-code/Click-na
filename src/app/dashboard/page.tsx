@@ -73,8 +73,8 @@ export default async function DashboardPage() {
   ];
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-4 md:gap-8 md:p-8">
-      <div className="flex items-center justify-between">
+    <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:gap-8 md:p-8 md:text-start">
+      <div className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
         <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName}</h1>
         <UserButton />
       </div>
@@ -105,7 +105,7 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
         <Button asChild>
           <Link href="/dashboard/availability">+ פתח חלון טיפול</Link>
         </Button>

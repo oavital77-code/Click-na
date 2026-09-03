@@ -8,7 +8,7 @@ export default async function OnboardingPage() {
   if (therapist.onboardingCompleted) redirect("/dashboard");
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center p-8">
+    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center p-4 text-center md:p-8 md:text-start">
       <OnboardingWizard
         initialFullName={therapist.fullName}
         initialPhone={therapist.phone ?? ""}
