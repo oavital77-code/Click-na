@@ -104,6 +104,24 @@ describe("generateCalendarFeed", () => {
     expect(feed).not.toContain("BEGIN:VEVENT");
   });
 
+  // Apple reads REFRESH-INTERVAL, older clients read X-PUBLISHED-TTL. Emitting
+  // both is what keeps a subscription from sitting stale for a day.
+  it("tells the client how often to poll, in both feed shapes", () => {
+    for (const feed of [
+      generateCalendarFeed({ calendarName: "Cleana+", events }),
+      generateCalendarFeed({ calendarName: "Cleana+", events: [] }),
+    ]) {
+      expect(feed).toContain("REFRESH-INTERVAL;VALUE=DURATION:PT1H");
+      expect(feed).toContain("X-PUBLISHED-TTL:PT1H");
+    }
+  });
+
+  it("keeps the refresh headers on their own CRLF-terminated lines", () => {
+    const feed = generateCalendarFeed({ calendarName: "Cleana+", events });
+    expect(feed).toContain("REFRESH-INTERVAL;VALUE=DURATION:PT1H\r\nX-PUBLISHED-TTL:PT1H\r\n");
+    expect(feed).not.toContain("\r\r");
+  });
+
   it("uses RFC 5545 CRLF line endings, empty feed included", () => {
     expect(generateCalendarFeed({ calendarName: "Cleana+", events: [] })).toContain("\r\n");
   });

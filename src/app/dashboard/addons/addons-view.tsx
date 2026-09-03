@@ -1,13 +1,24 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Check, Copy, CreditCard, ExternalLink, MessageCircle, Video } from "lucide-react";
+import {
+  Apple,
+  CalendarDays,
+  CalendarPlus,
+  Check,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  MessageCircle,
+  Video,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { statusBadgeClass } from "@/lib/status-badge";
+import { subscribeLinks } from "@/lib/calendar-subscribe";
 import { cn } from "@/lib/utils";
 import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 
@@ -313,6 +324,8 @@ function CredentialForm({
 
 function CalendarFeed({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
+  const links = subscribeLinks(url, "Cleana+");
 
   async function copy() {
     try {
@@ -326,25 +339,60 @@ function CalendarFeed({ url }: { url: string }) {
   }
 
   return (
-    <div className="border-border flex min-w-0 flex-col gap-2 rounded-md border p-3 text-center md:text-start">
-      <p className="text-sm font-medium">כתובת המנוי ליומן</p>
-      <code
-        dir="ltr"
-        className="bg-muted text-muted-foreground block overflow-x-auto rounded-sm px-2 py-1.5 text-xs whitespace-nowrap"
-      >
-        {url}
-      </code>
-      <div className="flex justify-center md:justify-start">
-        <Button type="button" variant="outline" size="sm" onClick={copy}>
-          {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-          {copied ? "הועתק!" : "העתק כתובת"}
+    <div className="border-border flex min-w-0 flex-col gap-3 rounded-md border p-3 text-center md:text-start">
+      <p className="text-sm font-medium">הוספה ליומן שלך</p>
+
+      <div className="flex flex-col justify-center gap-2 sm:flex-row md:justify-start">
+        {/* Opens the calendar app straight onto a subscribe prompt, instead of
+            making the therapist find the right settings screen themselves. */}
+        <Button asChild variant="outline" size="sm">
+          <a href={links.webcal}>
+            <Apple className="size-4" />
+            אייפון / מק
+          </a>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <a href={links.google} target="_blank" rel="noreferrer noopener">
+            <CalendarPlus className="size-4" />
+            Google Calendar
+          </a>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <a href={links.outlook} target="_blank" rel="noreferrer noopener">
+            <CalendarPlus className="size-4" />
+            Outlook
+          </a>
         </Button>
       </div>
-      <ul className="text-muted-foreground flex list-inside list-disc flex-col gap-1 text-start text-xs">
-        <li>Google Calendar: הוספת יומן ← מכתובת URL ← להדביק.</li>
-        <li>אייפון: הגדרות ← אפליקציות ← יומן ← חשבונות ← הוספה ← מנוי ליומן.</li>
-        <li>העדכון ביומן אינו מיידי — הוא נמשך פעם בכמה שעות, לפי הגדרות היומן.</li>
-      </ul>
+
+      <button
+        type="button"
+        onClick={() => setShowUrl((open) => !open)}
+        className="text-muted-foreground hover:text-foreground self-center text-xs underline underline-offset-4 md:self-start"
+      >
+        {showUrl ? "הסתר את הכתובת" : "יומן אחר? הצג את הכתובת להדבקה"}
+      </button>
+
+      {showUrl && (
+        <div className="flex min-w-0 flex-col gap-2">
+          <code
+            dir="ltr"
+            className="bg-muted text-muted-foreground block overflow-x-auto rounded-sm px-2 py-1.5 text-xs whitespace-nowrap"
+          >
+            {url}
+          </code>
+          <div className="flex justify-center md:justify-start">
+            <Button type="button" variant="outline" size="sm" onClick={copy}>
+              {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+              {copied ? "הועתק!" : "העתק כתובת"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      <p className="text-muted-foreground text-xs">
+        העדכון ביומן אינו מיידי — היומן מושך את השינויים פעם בכמה שעות, בקצב שלו.
+      </p>
     </div>
   );
 }
