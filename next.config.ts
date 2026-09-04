@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/opengraph-image": ["./assets/**"],
     "/book/[slug]/opengraph-image": ["./assets/**"],
+    "/icon": ["./assets/**"],
   },
 };
 
