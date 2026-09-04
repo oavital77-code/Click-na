@@ -93,9 +93,14 @@ enum NotificationStatus {
 
 enum IntegrationProvider {
   whatsapp
-  payments
   zoom
   calendar
+  // Kept only so existing rows stay readable. Payments was withdrawn from the
+  // product; Postgres cannot drop a value from an enum in place, and recreating
+  // the type is not worth the risk for a value nothing writes any more. The
+  // app-level catalogue in src/lib/integration-providers.ts is the source of
+  // truth for which add-ons exist.
+  payments
 }
 
 // Only what a therapist actually did. "Unavailable" (the server has no API

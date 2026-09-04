@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "payments", "whatsapp"] as const;
+export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp"] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
 export type CredentialField = {
@@ -48,23 +48,6 @@ export const PROVIDER_SPECS: Record<IntegrationProvider, ProviderSpec> = {
     setupHint:
       'ב-Zoom Marketplace: Develop ← Build App ← "Server-to-Server OAuth". בהרשאות (Scopes) צריך meeting:write:admin. שלושת הערכים מופיעים בלשונית App Credentials.',
   },
-  payments: {
-    provider: "payments",
-    label: "תשלומים",
-    summary: "חיבור חשבון Stripe שלך. הכסף ייכנס ישירות לחשבון הזה ולא יעבור דרכנו.",
-    note: "כרגע החיבור נשמר ומאומת בלבד — מסך התשלום בדף ההזמנה עדיין לא פעיל.",
-    fields: [
-      {
-        name: "secretKey",
-        label: "Secret key",
-        secret: true,
-        placeholder: "sk_live_...",
-        help: "מפתח החשבון שלך. הכסף נכנס לחשבון הזה ולא עובר דרכנו.",
-      },
-    ],
-    docsUrl: "https://dashboard.stripe.com/apikeys",
-    setupHint: "ב-Stripe Dashboard: Developers ← API keys ← Secret key.",
-  },
   whatsapp: {
     provider: "whatsapp",
     label: "WhatsApp",
@@ -98,9 +81,6 @@ export const CREDENTIAL_SCHEMAS = {
     accountId: z.string().trim().min(1, "שדה חובה"),
     clientId: z.string().trim().min(1, "שדה חובה"),
     clientSecret: z.string().trim().min(1, "שדה חובה"),
-  }),
-  payments: z.object({
-    secretKey: z.string().trim().min(1, "שדה חובה"),
   }),
   whatsapp: z.object({
     accountSid: z.string().trim().min(1, "שדה חובה"),

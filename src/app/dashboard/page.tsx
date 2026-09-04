@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/page-header";
 import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
@@ -70,12 +71,21 @@ export default async function DashboardPage() {
     { value: newClientsCount, text: "לקוחות חדשים" },
   ];
 
+  // The header's meta line, built from the figures the page already loaded —
+  // the same numbers as the stat row, said as a sentence.
+  const todayLine =
+    todayBookedCount === 0
+      ? `אין תורים היום · ${openSlotsCount} חלונות פנויים השבוע`
+      : `${todayBookedCount} תורים היום · ${weekBookingsCount} השבוע`;
+
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:gap-8 md:p-8 md:text-start">
-      <div className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
-        <h1 className="text-2xl font-bold md:text-3xl">שלום {therapist.fullName}</h1>
-        <UserButton />
-      </div>
+      <PageHeader
+        kicker="מרכז הבקרה"
+        title={`שלום ${therapist.fullName}`}
+        meta={todayLine}
+        actions={<UserButton />}
+      />
 
       <DashboardSchedule
         timezone={therapist.timezone}

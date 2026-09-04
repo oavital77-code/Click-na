@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -27,7 +28,11 @@ export default async function ClientsPage() {
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
-      <h1 className="text-2xl font-bold">לקוחות</h1>
+      <PageHeader
+        kicker="אנשים"
+        title="לקוחות"
+        meta="מי שקבע אצלך תור, וההיסטוריה שלו."
+      />
 
       {clients.length === 0 ? (
         <p className="text-muted-foreground text-sm">

@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { credentialStorageReady, listIntegrations } from "@/lib/integrations";
@@ -23,12 +24,11 @@ export default async function AddonsPage() {
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-bold">תוספים</h1>
-        <p className="text-muted-foreground text-sm">
-          מפעילים תוסף, מזינים את פרטי החשבון שלך אצל אותו שירות, וזה מתחיל לעבוד.
-        </p>
-      </div>
+      <PageHeader
+        kicker="חיבורים"
+        title="תוספים"
+        meta="מפעילים תוסף, מזינים את פרטי החשבון שלך אצל אותו שירות, וזה מתחיל לעבוד."
+      />
       <AddonsView
         initial={{ integrations, credentialStorageReady: credentialStorageReady() }}
       />

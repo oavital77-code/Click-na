@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { SettingsView } from "./settings-view";
@@ -24,7 +25,11 @@ export default async function SettingsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
-      <h1 className="text-2xl font-bold">הגדרות</h1>
+      <PageHeader
+        kicker="החשבון שלי"
+        title="הגדרות"
+        meta="פרטי העסק, מדיניות ההזמנה, המיתוג וההתראות."
+      />
       <SettingsView
         profile={{
           fullName: therapist.fullName,
