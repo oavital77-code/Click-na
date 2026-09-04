@@ -3,6 +3,7 @@ import { Heebo, Inter, Frank_Ruhl_Libre, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { heIL } from "@clerk/localizations";
 import { DirectionProvider } from "@radix-ui/react-direction";
+import { appUrl } from "@/lib/public-url";
 import "./globals.css";
 
 // Heebo carries all Hebrew body text; Inter is reserved for numerals/tabular
@@ -31,9 +32,22 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description = "מערכת ניהול תורים וזימונים למטפלים ובעלי מקצוע עצמאיים";
+
 export const metadata: Metadata = {
-  title: "Cleana+",
-  description: "מערכת ניהול תורים וזימונים למטפלים ובעלי מקצוע עצמאיים",
+  // Absolute URLs for the share cards. Without metadataBase, Next emits a
+  // relative og:image and WhatsApp shows no preview at all.
+  metadataBase: new URL(appUrl()),
+  title: { default: "Cleana+", template: "%s · Cleana+" },
+  description,
+  openGraph: {
+    type: "website",
+    locale: "he_IL",
+    siteName: "Cleana+",
+    title: "Cleana+",
+    description,
+  },
+  twitter: { card: "summary_large_image", title: "Cleana+", description },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
