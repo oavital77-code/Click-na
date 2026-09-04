@@ -6,6 +6,34 @@ import { resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
 import { BookingFlow } from "./booking-flow";
 
+/**
+ * The therapist's link is pasted into WhatsApp far more often than it is typed,
+ * so the preview a chat renders is most clients' first impression of both the
+ * therapist and Cleana+. The image itself is built in opengraph-image.tsx.
+ */
+export async function generateMetadata({ params }: PageProps<"/book/[slug]">) {
+  const { slug } = await params;
+  const therapist = await prisma.therapist.findUnique({
+    where: { slug },
+    include: { settings: true },
+  });
+
+  if (!therapist) return { title: "הדף לא נמצא" };
+
+  const name = therapist.settings?.bookingPageHeadline || therapist.fullName;
+  const profession = therapist.professionType
+    ? PROFESSION_LABELS[therapist.professionType]
+    : null;
+  const description = [profession, "קביעת תור אונליין"].filter(Boolean).join(" · ");
+
+  return {
+    title: name,
+    description,
+    openGraph: { title: name, description, type: "website" as const, locale: "he_IL" },
+    twitter: { card: "summary_large_image" as const, title: name, description },
+  };
+}
+
 export default async function BookingPage({
   params,
 }: PageProps<"/book/[slug]">) {
