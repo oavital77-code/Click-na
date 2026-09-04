@@ -88,6 +88,10 @@ export function DashboardSchedule({
   const [sessions, setSessions] = useState(initialSessions);
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // Which day the phone layout is showing. The desktop grid shows all seven at
+  // once; a phone cannot, and squeezing seven columns into 390px was what made
+  // the week unreadable in the first place.
+  const [selectedDay, setSelectedDay] = useState(today);
   const isFirstRender = useRef(true);
 
   const range = useMemo(() => {
@@ -181,6 +185,10 @@ export function DashboardSchedule({
   function goToday() {
     setAnchorDate(granularity === "month" ? startOfMonthUtc(today) : today);
   }
+  // Moving the week under the phone strip must move the selection with it, or
+  // the list below keeps showing a day that is no longer on screen.
+  const phoneDay = columns.includes(selectedDay) ? selectedDay : columns[0];
+
   function switchGranularity(g: Granularity) {
     setGranularity(g);
     setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
@@ -368,25 +376,101 @@ export function DashboardSchedule({
             }}
           />
         ) : view === "calendar" ? (
-            // Scrolling snaps to whole day columns (scroll-ps-12 clears the pinned
-            // hour column) so a swipe never leaves a cell cut in half. Sticky cells
-            // need border-separate — with border-collapse the row line is owned by
-            // the table and tears when the pinned column scrolls over it.
-            <div className="snap-x snap-mandatory scroll-ps-12 overflow-x-auto">
+          <>
+            {/* Phone: pick a day, then read that day. A seven-column grid at
+                390px gives each day ~50px, which wraps a client's name to one
+                glyph per line — so the week is a strip of chips instead, and
+                every day is one tap away rather than a sideways scroll. */}
+            {granularity === "week" && (
+              <div className="flex flex-col gap-4 md:hidden">
+                <div className="grid grid-cols-7 gap-1">
+                  {columns.map((dateKey) => {
+                    const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+                    const count = sessions.filter(
+                      (session) =>
+                        formatInTimeZone(new Date(session.startsAt), timezone, "yyyy-MM-dd") ===
+                          dateKey && session.status === "booked"
+                    ).length;
+                    return (
+                      <button
+                        key={dateKey}
+                        type="button"
+                        onClick={() => setSelectedDay(dateKey)}
+                        className={cn(
+                          "flex min-h-14 flex-col items-center justify-center gap-0.5 rounded-lg border transition-colors",
+                          phoneDay === dateKey
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : "border-border hover:bg-secondary"
+                        )}
+                      >
+                        <span className="text-[11px] leading-none font-medium">
+                          {DAY_LABELS_SHORT[dow]}
+                        </span>
+                        <span className="num text-xs leading-none">{dateKey.slice(8, 10)}</span>
+                        <span
+                          className={cn(
+                            "size-1.5 rounded-full",
+                            count > 0
+                              ? phoneDay === dateKey
+                                ? "bg-primary-foreground"
+                                : "bg-st-booked"
+                              : "bg-transparent"
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col gap-1.5">
+                  {byDayAndTime.times.map((time) => (
+                    <div key={time} className="flex items-center gap-3">
+                      <span className="num text-muted-foreground w-12 shrink-0 text-xs">{time}</span>
+                      <div className="min-w-0 flex-1">
+                        <SlotCell
+                          session={byDayAndTime.map.get(`${phoneDay}T${time}`)}
+                          dateKey={phoneDay}
+                          time={time}
+                          onOpenSlot={handleOpenSlot}
+                          onBlockSlot={handleBlockSlot}
+                          onReopenSlot={handleReopenSlot}
+                          onDeleteSlot={handleDeleteSlot}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Desktop, and every granularity on phones except the week. Scrolling
+                snaps to whole day columns (scroll-ps-12 clears the pinned hour
+                column) so a swipe never leaves a cell cut in half. Sticky cells
+                need border-separate — with border-collapse the row line is owned
+                by the table and tears when the pinned column scrolls over it. */}
+            <div
+              className={cn(
+                "snap-x snap-mandatory scroll-ps-12 overflow-x-auto",
+                granularity === "week" && "hidden md:block"
+              )}
+            >
               <table
                 className={cn(
                   "w-full border-separate border-spacing-0 text-sm",
-                  granularity === "week" && "min-w-[620px]"
+                  // 7 × 148px + the 48px pinned hour column. Below this the
+                  // container scrolls; the columns never squeeze, because at
+                  // ~80px a client's name wrapped to one glyph per line.
+                  granularity === "week" && "min-w-[1084px]"
                 )}
               >
                 <thead>
                   <tr>
-                    <th className="bg-card sticky start-0 z-10 w-12" />
+                    <th className="bg-card sticky start-0 z-10 w-12 min-w-12" />
                     {columns.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th key={dateKey} className="min-w-16 snap-start pb-2 text-center font-medium">
+                        <th key={dateKey} className="min-w-[148px] snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>{DAY_LABELS_SHORT[dow]}</div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
@@ -405,7 +489,7 @@ export function DashboardSchedule({
                       {columns.map((dateKey) => (
                         <td
                           key={dateKey}
-                          className="border-border min-w-16 snap-start border-t p-1 text-center align-middle"
+                          className="border-border min-w-[148px] snap-start border-t p-1 text-center align-middle"
                         >
                           <SlotCell
                             session={byDayAndTime.map.get(`${dateKey}T${time}`)}
@@ -422,10 +506,8 @@ export function DashboardSchedule({
                   ))}
                 </tbody>
               </table>
-              {granularity === "week" && (
-                <p className="text-muted-foreground mt-3 text-xs md:hidden">גלול לצדדים לצפייה בכל ימות השבוע</p>
-              )}
             </div>
+          </>
         ) : bookedOrOpen.length === 0 ? (
           <EmptyCalendarHint granularity={granularity} />
         ) : (

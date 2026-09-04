@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
@@ -33,7 +34,11 @@ export default async function BookingsPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4 text-center md:p-8 md:text-start">
-      <h1 className="text-2xl font-bold">הזמנות</h1>
+      <PageHeader
+        kicker="יומן"
+        title="הזמנות"
+        meta="כל התורים שנקבעו, לפי טווח זמן."
+      />
       <BookingsView
         timezone={therapist.timezone}
         initialBookings={bookings.map((b) => ({

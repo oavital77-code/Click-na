@@ -43,34 +43,6 @@ async function verifyTwilio(creds: AnyCredentials): Promise<VerifyResult> {
   }
 }
 
-async function verifyStripe(creds: AnyCredentials): Promise<VerifyResult> {
-  try {
-    const res = await request("https://api.stripe.com/v1/account", {
-      headers: { Authorization: `Bearer ${creds.secretKey}` },
-    });
-
-    if (res.status === 401) return { ok: false, error: "המפתח הסודי שגוי או בוטל." };
-    if (!res.ok) return { ok: false, error: `Stripe החזירה שגיאה (${res.status}).` };
-
-    const body = (await res.json()) as {
-      id?: string;
-      email?: string;
-      charges_enabled?: boolean;
-      business_profile?: { name?: string | null };
-    };
-
-    // A key can be perfectly valid on an account that Stripe hasn't cleared for
-    // charges yet. Connecting it would look fine and then fail on the first
-    // booking, so it counts as not connected.
-    if (body.charges_enabled === false) {
-      return { ok: false, error: "חשבון ה-Stripe עדיין לא אושר לגבייה. השלם את ההרשמה ב-Stripe." };
-    }
-    return { ok: true, accountLabel: body.business_profile?.name || body.email || body.id || "Stripe" };
-  } catch (err) {
-    return { ok: false, error: networkError(err) };
-  }
-}
-
 /**
  * Server-to-Server OAuth: the token is minted per call from the account
  * credentials, so there is no refresh token to store or expire.
@@ -125,7 +97,6 @@ const VERIFIERS: Record<IntegrationProvider, (creds: AnyCredentials) => Promise<
   // Nothing to verify: the feed is served by this app, from data it already has.
   calendar: async () => ({ ok: true, accountLabel: "" }),
   whatsapp: verifyTwilio,
-  payments: verifyStripe,
   zoom: verifyZoom,
 };
 

@@ -7,7 +7,6 @@ import {
   CalendarPlus,
   Check,
   Copy,
-  CreditCard,
   ExternalLink,
   MessageCircle,
   Video,
@@ -25,7 +24,6 @@ import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
   zoom: Video,
-  payments: CreditCard,
   whatsapp: MessageCircle,
 };
 

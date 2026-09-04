@@ -1,23 +1,24 @@
 import { cn } from "@/lib/utils";
 
-// Nocturne §06: status is never color-only — the dot plus a bordered, tinted
-// chip carries the meaning, so the four/five tones stay distinguishable
-// without relying on hue alone.
+// Status is never carried by colour alone — the tint, the border and the label
+// each carry it, so the states stay distinguishable without relying on hue.
 export type StatusTone = "open" | "booked" | "held" | "blocked" | "danger" | "neutral";
 
 const TONE_CLASSES: Record<StatusTone, string> = {
-  open: "bg-st-open/15 text-st-open border-st-open/30",
-  booked: "bg-st-booked/12 text-st-booked border-st-booked/40 font-bold",
-  held: "bg-st-held/15 text-st-held border-st-held/30 font-bold",
-  // text-neutral-300 was a leftover from the old dark theme — illegible light-gray-on-cream.
-  blocked: "bg-st-blocked/20 text-foreground border-st-blocked/50 font-bold",
-  danger: "bg-st-danger/15 text-st-danger border-st-danger/30",
-  neutral: "bg-muted text-muted-foreground border-border",
+  // Sage on a pale sage wash — open time reads as calm and available.
+  open: "bg-st-open-bg/60 text-st-open border-st-open/35",
+  // Terracotta on warm peach. This is the loudest chip in the system on purpose:
+  // a booked slot has to be the first thing found when scanning the week.
+  booked: "bg-st-booked-bg text-st-booked border-st-booked/45 font-bold",
+  held: "bg-st-held-bg text-st-booked border-st-held font-bold",
+  blocked: "bg-st-blocked-bg text-foreground/75 border-st-blocked/45 font-bold",
+  danger: "bg-st-danger/12 text-st-danger border-st-danger/35",
+  neutral: "bg-secondary text-muted-foreground border-border",
 };
 
 export function statusBadgeClass(tone: StatusTone) {
   return cn(
-    "inline-flex items-center justify-center gap-1.5 rounded-sm border px-2 py-0.5 text-center text-xs leading-tight font-medium",
+    "inline-flex items-center justify-center gap-1.5 rounded-full border px-2.5 py-0.5 text-center text-xs leading-tight font-medium",
     TONE_CLASSES[tone]
   );
 }

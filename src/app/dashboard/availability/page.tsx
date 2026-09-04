@@ -1,3 +1,4 @@
+import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
@@ -51,7 +52,11 @@ export default async function AvailabilityPage() {
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
-      <h1 className="text-2xl font-bold">ניהול זמינות</h1>
+      <PageHeader
+        kicker="שעות עבודה"
+        title="זמינות"
+        meta="הכללים החוזרים שממלאים את הלוח, ומדיניות ההזמנה שנגזרת מהם."
+      />
       <AvailabilityView
         timezone={therapist.timezone}
         initialWeekStart={weekStart}

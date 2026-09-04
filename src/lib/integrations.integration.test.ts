@@ -54,7 +54,7 @@ describe("integrations (against a live database)", () => {
 
   it("lists every provider in the catalogue even with no rows stored", async () => {
     const cards = await listIntegrations(therapistId);
-    expect(cards.map((c) => c.provider)).toEqual(["calendar", "zoom", "payments", "whatsapp"]);
+    expect(cards.map((c) => c.provider)).toEqual(["calendar", "zoom", "whatsapp"]);
     expect(cards.every((c) => c.state === "disconnected")).toBe(true);
   });
 

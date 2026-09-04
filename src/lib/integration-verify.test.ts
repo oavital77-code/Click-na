@@ -58,42 +58,6 @@ describe("verifyCredentials — Twilio", () => {
   });
 });
 
-describe("verifyCredentials — Stripe", () => {
-  it("accepts a key on an account cleared for charges", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { id: "acct_1", charges_enabled: true, business_profile: { name: "Clinic" } })
-    );
-    expect(await verifyCredentials("payments", { secretKey: "sk_live_x" })).toEqual({
-      ok: true,
-      accountLabel: "Clinic",
-    });
-  });
-
-  // A valid key on an unapproved account looks connected and then fails on the
-  // first real booking — that belongs at connect time, not at checkout.
-  it("rejects a valid key whose account cannot take charges yet", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(200, { id: "acct_1", charges_enabled: false }));
-    const result = await verifyCredentials("payments", { secretKey: "sk_live_x" });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("לא אושר לגבייה");
-  });
-
-  it("falls back to the account email when there is no business name", async () => {
-    fetchMock.mockResolvedValue(
-      jsonResponse(200, { id: "acct_1", email: "or@example.com", charges_enabled: true })
-    );
-    const result = await verifyCredentials("payments", { secretKey: "sk_live_x" });
-    expect(result.ok && result.accountLabel).toBe("or@example.com");
-  });
-
-  it("reports a revoked key clearly", async () => {
-    fetchMock.mockResolvedValue(jsonResponse(401, {}));
-    const result = await verifyCredentials("payments", { secretKey: "sk_live_x" });
-    expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("בוטל");
-  });
-});
-
 describe("verifyCredentials — Zoom", () => {
   it("mints a token and then identifies the account", async () => {
     fetchMock
@@ -138,7 +102,7 @@ describe("verifyCredentials — failure handling", () => {
     timeout.name = "TimeoutError";
     fetchMock.mockRejectedValue(timeout);
 
-    const result = await verifyCredentials("payments", { secretKey: "sk_live_x" });
+    const result = await verifyCredentials("whatsapp", TWILIO);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("לא הגיב בזמן");
   });

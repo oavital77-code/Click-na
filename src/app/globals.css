@@ -4,42 +4,56 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * "Atelier" — Cleana+ design language v3, boutique/editorial light theme.
- * Warm cream + deep clay + gilded gold; Frank Ruhl Libre display serif
- * for headings over Heebo body text. Inspired by Cal.com's precision,
- * dialed toward a warmer, human, boutique-brand register.
+ * "Organic" — Cleana+ design language v4.
+ *
+ * Two cream grounds and no more, terracotta for every action, sage for open
+ * time. Frank Ruhl Libre over Heebo, unchanged from v3 — the type pairing was
+ * never the problem. What changed: one heading hierarchy on every screen,
+ * containers at 28px and controls as full pills, and a status palette where
+ * "booked" is the loudest thing on the calendar without falling back on a
+ * vivid red that fought everything around it.
  */
 :root {
-  --radius: 0.75rem;
+  /* Containers are 28px, buttons and chips are full pills, nothing has a sharp
+     corner. sm/md are pinned rather than derived, so a small element does not
+     inherit the container's over-rounding. */
+  --radius: 1.75rem;
 
   /* Raw HSL triples (no hsl() wrapper) — consumed as hsl(var(--x)) below,
      the classic shadcn/ui convention. */
-  --background: 40 33% 97%; /* warm cream */
-  --foreground: 20 16% 15%; /* warm charcoal, not cold black */
-  --card: 40 40% 99%;
-  --card-foreground: 20 16% 15%;
-  --popover: 40 40% 99%;
-  --popover-foreground: 20 16% 15%;
-  --primary: 14 45% 34%; /* deep clay/terracotta */
-  --primary-foreground: 40 40% 98%;
-  --secondary: 35 25% 93%;
-  --secondary-foreground: 20 16% 20%;
-  --muted: 35 25% 93%;
-  --muted-foreground: 25 12% 40%;
-  --accent: 38 68% 48%; /* warm gold — the single striking CTA color */
-  --accent-foreground: 20 30% 12%;
-  --destructive: 6 65% 42%;
-  --destructive-foreground: 40 40% 98%;
-  --border: 30 20% 88%;
-  --input: 30 20% 88%;
-  --ring: 14 45% 34%;
+  --background: 37 59% 90%; /* warm cream */
+  --foreground: 20 5% 12%; /* near-black with a warm bias, never cold */
+  --card: 35 50% 95%; /* the raised surface — lighter than the ground */
+  --card-foreground: 20 5% 12%;
+  --popover: 35 50% 95%;
+  --popover-foreground: 20 5% 12%;
+  --primary: 24 55% 50%; /* terracotta — every action */
+  --primary-foreground: 37 59% 94%;
+  --primary-strong: 25 69% 33%; /* the darker terracotta for links and kickers */
+  --secondary: 38 49% 85%; /* the second, deeper cream — the only other ground */
+  --secondary-foreground: 20 5% 12%;
+  --muted: 38 49% 85%;
+  --muted-foreground: 30 8% 40%;
+  --accent: 41 71% 46%; /* gilded gold — the wordmark's plus, and little else */
+  --accent-foreground: 20 5% 12%;
+  --destructive: 9 61% 40%;
+  --destructive-foreground: 37 59% 94%;
+  --border: 33 22% 82%;
+  --input: 33 22% 82%;
+  --ring: 24 55% 50%;
 
-  /* Session/booking status */
-  --st-open: 152 40% 32%;
-  --st-booked: 0 72% 45%; /* vivid red — a booked slot must pop against everything else */
-  --st-held: 38 68% 45%;
-  --st-blocked: 25 10% 55%;
-  --st-danger: 6 65% 42%;
+  /* Session status. Terracotta carries "booked" — it has to be the loudest
+     thing on the calendar — and sage carries open time, so the two states a
+     therapist scans for never rely on the same hue. */
+  --st-open: 82 19% 45%;
+  --st-open-bg: 82 36% 78%;
+  --st-booked: 24 60% 44%;
+  --st-booked-bg: 22 100% 91%;
+  --st-held: 23 89% 69%;
+  --st-held-bg: 35 50% 95%;
+  --st-blocked: 38 13% 58%;
+  --st-blocked-bg: 38 36% 90%;
+  --st-danger: 9 61% 40%;
 
   --tap-min: 44px;
 }
@@ -65,16 +79,22 @@
   --color-input: hsl(var(--input));
   --color-ring: hsl(var(--ring));
 
+  --color-primary-strong: hsl(var(--primary-strong));
+
   --color-st-open: hsl(var(--st-open));
+  --color-st-open-bg: hsl(var(--st-open-bg));
   --color-st-booked: hsl(var(--st-booked));
+  --color-st-booked-bg: hsl(var(--st-booked-bg));
   --color-st-held: hsl(var(--st-held));
+  --color-st-held-bg: hsl(var(--st-held-bg));
   --color-st-blocked: hsl(var(--st-blocked));
+  --color-st-blocked-bg: hsl(var(--st-blocked-bg));
   --color-st-danger: hsl(var(--st-danger));
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: 0.625rem;
+  --radius-md: 1rem;
   --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 6px);
+  --radius-xl: 2rem;
 
   /* Bumped ~1px+ over Tailwind's defaults for legibility. */
   --text-xs: 0.8125rem; /* 13px */
@@ -131,10 +151,12 @@
     unicode-bidi: isolate;
   }
 
+  /* The first line of the header triplet on every screen. Deliberately small
+     and letterspaced so it reads as a label, not as a second title. */
   .kicker {
     font-size: 0.6875rem;
     font-weight: 500;
-    letter-spacing: 0.09em;
-    color: hsl(var(--primary));
+    letter-spacing: 0.12em;
+    color: hsl(var(--primary-strong));
   }
 }
