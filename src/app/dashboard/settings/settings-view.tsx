@@ -27,6 +27,7 @@ import {
 } from "@/lib/onboarding-schema";
 import { PROFESSION_LABELS, LOCATION_LABELS } from "@/lib/labels";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
+import { ResetSchedule } from "@/components/reset-schedule";
 
 type ProfileState = {
   fullName: string;
@@ -529,6 +530,17 @@ export function SettingsView({
           <p className="text-muted-foreground text-xs">
             ניהול החשבון וההתחברות (כולל מחיקת חשבון) מתבצע דרך תפריט המשתמש למעלה.
           </p>
+        </CardContent>
+      </Card>
+
+      {/* איפוס */}
+      <Card>
+        <CardHeader>
+          <CardTitle>איפוס</CardTitle>
+          <CardDescription>התחלה מחדש מלוח ריק</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ResetSchedule scope="everything" />
         </CardContent>
       </Card>
     </div>

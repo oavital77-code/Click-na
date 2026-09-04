@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { he } from "date-fns/locale";
+// SVG icons, never the ‹ › punctuation: those are Unicode-mirrored characters,
+// so an RTL run flips the glyph and the arrows end up pointing inward.
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -279,7 +282,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
           onClick={() => setMonthAnchor((m) => addMonthsUtc(m, -1))}
           aria-label="החודש הקודם"
         >
-          ›
+          <ChevronRight className="size-4" />
         </Button>
         <span className="text-sm font-medium">
           {MONTH_LABELS[Number(monthAnchor.slice(5, 7)) - 1]} {monthAnchor.slice(0, 4)}
@@ -292,7 +295,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
           onClick={() => setMonthAnchor((m) => addMonthsUtc(m, 1))}
           aria-label="החודש הבא"
         >
-          ‹
+          <ChevronLeft className="size-4" />
         </Button>
       </div>
 

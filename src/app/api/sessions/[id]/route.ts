@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
+import { SlotNotDeletableError, deleteSlot } from "@/lib/reset";
 
 const patchSchema = z.object({
   status: z.enum(["open", "blocked"]),
@@ -44,4 +45,27 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
   });
 
   return NextResponse.json({ session: updated });
+}
+
+export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/sessions/[id]">) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
+  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+  const { id } = await ctx.params;
+  try {
+    const deleted = await deleteSlot(therapist.id, id);
+    if (!deleted) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  } catch (error) {
+    // A booked slot has a client behind it; deleting the row would strand their
+    // booking and the confirmation they are holding.
+    if (error instanceof SlotNotDeletableError) {
+      return NextResponse.json({ error: "not_deletable" }, { status: 409 });
+    }
+    throw error;
+  }
+
+  return NextResponse.json({ ok: true });
 }
