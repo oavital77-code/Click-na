@@ -37,10 +37,16 @@ export function AddonsView({ initial }: { initial: Payload }) {
   return (
     <div className="flex flex-col gap-4">
       {!payload.credentialStorageReady && (
-        <p className="border-st-held/50 bg-st-held/10 rounded-md border p-3 text-sm">
-          שמירת פרטי חשבון מושבתת עד שיוגדר מפתח ההצפנה בשרת (INTEGRATION_ENCRYPTION_KEY). סנכרון
-          היומן עובד גם בלעדיו.
-        </p>
+        <div className="border-st-held/50 bg-st-held/10 flex flex-col gap-1 rounded-md border p-3 text-sm">
+          <p className="font-medium">נשאר צעד אחד להשלמה</p>
+          <p className="text-muted-foreground">
+            כדי לשמור פרטי חשבון בבטחה צריך להגדיר פעם אחת את משתנה הסביבה{" "}
+            <span dir="ltr" className="font-mono text-xs">
+              INTEGRATION_ENCRYPTION_KEY
+            </span>{" "}
+            ולעשות Redeploy. עד אז סנכרון היומן עובד כרגיל — הוא לא דורש חשבון חיצוני.
+          </p>
+        </div>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
         {payload.integrations.map((integration) => (

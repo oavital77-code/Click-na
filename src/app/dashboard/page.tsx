@@ -1,11 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSchedule } from "./dashboard-schedule";
 
@@ -103,21 +101,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         ))}
-      </div>
-
-      <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-        <Button asChild>
-          <Link href="/dashboard/availability">+ פתח חלון טיפול</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/bookings">כל ההזמנות</Link>
-        </Button>
-        <Button asChild variant="outline" className="md:hidden">
-          <Link href="/dashboard/clients">לקוחות</Link>
-        </Button>
-        <Button asChild variant="outline">
-          <Link href="/dashboard/settings">הגדרות</Link>
-        </Button>
       </div>
     </main>
   );

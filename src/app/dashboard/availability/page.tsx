@@ -6,6 +6,7 @@ import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { listRulesWithCounts } from "@/lib/availability-rules";
 import { AvailabilityView } from "./availability-view";
 import { RecurringRules } from "./recurring-rules";
+import { ResetSchedule } from "@/components/reset-schedule";
 
 export default async function AvailabilityPage() {
   const therapist = await getCurrentTherapist();
@@ -64,6 +65,7 @@ export default async function AvailabilityPage() {
         }))}
       />
       <RecurringRules initialRules={rulesWithCounts} />
+      <ResetSchedule scope="slots" />
     </main>
   );
 }

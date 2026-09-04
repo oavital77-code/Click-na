@@ -6,6 +6,9 @@ import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
 import { he } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+// SVG icons, never the ‹ › punctuation: those are Unicode-mirrored characters,
+// so an RTL run flips the glyph and the arrows end up pointing inward.
+import { ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -241,6 +244,31 @@ export function DashboardSchedule({
     }
   }
 
+  /**
+   * Removes an empty window entirely. Until now a slot could only be flipped
+   * between open and blocked, so a calendar filled by a rule that was later
+   * deleted could never be cleaned up.
+   */
+  async function handleDeleteSlot(sessionId: string): Promise<ActionResult> {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        return {
+          ok: false,
+          error:
+            data?.error === "not_deletable"
+              ? "אי אפשר למחוק תור שכבר הוזמן — צריך לבטל אותו"
+              : "שגיאה במחיקה",
+        };
+      }
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+    }
+  }
+
   async function handleReopenSlot(sessionId: string): Promise<ActionResult> {
     try {
       const res = await fetch(`/api/sessions/${sessionId}`, {
@@ -314,13 +342,13 @@ export function DashboardSchedule({
             <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
             <div className="flex gap-1">
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
-                ›
+                <ChevronRight className="size-4" />
               </Button>
               <Button type="button" variant="outline" size="sm" disabled={loading || isCurrentPeriod} onClick={goToday}>
                 היום
               </Button>
               <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goNext} aria-label="התקופה הבאה">
-                ‹
+                <ChevronLeft className="size-4" />
               </Button>
             </div>
           </div>
@@ -386,6 +414,7 @@ export function DashboardSchedule({
                             onOpenSlot={handleOpenSlot}
                             onBlockSlot={handleBlockSlot}
                             onReopenSlot={handleReopenSlot}
+                            onDeleteSlot={handleDeleteSlot}
                           />
                         </td>
                       ))}
@@ -436,6 +465,7 @@ function SlotCell({
   onOpenSlot,
   onBlockSlot,
   onReopenSlot,
+  onDeleteSlot,
 }: {
   session: SessionRow | undefined;
   dateKey: string;
@@ -443,6 +473,7 @@ function SlotCell({
   onOpenSlot: (dateKey: string, time: string) => Promise<ActionResult>;
   onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
   onReopenSlot: (sessionId: string) => Promise<ActionResult>;
+  onDeleteSlot: (sessionId: string) => Promise<ActionResult>;
 }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -536,6 +567,17 @@ function SlotCell({
             else setError(result.error);
           }}
         />
+        <DeleteSlotButton
+          busy={busy}
+          onDelete={async () => {
+            setBusy(true);
+            setError(null);
+            const result = await onDeleteSlot(session.id);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        />
       </SlotPopover>
     );
   }
@@ -592,6 +634,17 @@ function SlotCell({
         >
           פתח מחדש
         </Button>
+        <DeleteSlotButton
+          busy={busy}
+          onDelete={async () => {
+            setBusy(true);
+            setError(null);
+            const result = await onDeleteSlot(session.id);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        />
       </SlotPopover>
     );
   }
@@ -604,6 +657,57 @@ function SlotCell({
     >
       {chipLabel}
     </span>
+  );
+}
+
+/**
+ * Two-step on purpose: deleting a window is instant and irreversible, and these
+ * sit inside a dense grid where the wrong cell is one pixel away.
+ */
+function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => void }) {
+  const [confirming, setConfirming] = useState(false);
+
+  if (!confirming) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:text-destructive mt-1 w-full"
+        disabled={busy}
+        onClick={() => setConfirming(true)}
+      >
+        <Trash2 className="size-4" />
+        מחק חלון
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1 flex flex-col gap-1">
+      <p className="text-muted-foreground text-xs">למחוק את החלון הזה?</p>
+      <div className="flex gap-1">
+        <Button
+          type="button"
+          variant="destructive"
+          size="sm"
+          className="flex-1"
+          disabled={busy}
+          onClick={onDelete}
+        >
+          {busy ? "מוחק..." : "כן, מחק"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={busy}
+          onClick={() => setConfirming(false)}
+        >
+          ביטול
+        </Button>
+      </div>
+    </div>
   );
 }
 
