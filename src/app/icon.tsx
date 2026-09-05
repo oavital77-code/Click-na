@@ -1,19 +1,17 @@
 import { ImageResponse } from "next/og";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { COLORS } from "@/lib/og";
 
 export const size = { width: 512, height: 512 };
 export const contentType = "image/png";
 
-const display = await readFile(join(process.cwd(), "assets/frank-ruhl-libre-700.ttf"));
-
 /**
- * The browser-tab icon, generated from the same tokens as everything else.
+ * The browser-tab icon: the brand tile from src/components/brand-mark.tsx,
+ * drawn at icon scale.
  *
- * A "C" and a plus rather than the full wordmark: at the 16px a tab actually
- * renders, "Cleana+" is an unreadable smudge. The plus keeps its gold so the
- * mark still reads as Cleana+ and not as a generic letter tile.
+ * The ring is a bordered box rather than an SVG stroke — satori supports
+ * border-radius and borders, not stroked paths. The proportions are deliberately
+ * heavier than the in-app tile: at the 16px a tab actually paints, a thin ring
+ * disappears into the terracotta.
  */
 export default function Icon() {
   return new ImageResponse(
@@ -25,41 +23,20 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          position: "relative",
           background: COLORS.primary,
-          borderRadius: 112,
+          borderRadius: 144,
         }}
       >
         <div
           style={{
-            display: "flex",
-            fontFamily: "FrankRuhl",
-            fontSize: 320,
-            lineHeight: 1,
-            color: COLORS.background,
-            // The serif "C" sits optically low and left inside its own box.
-            marginTop: -18,
-            marginLeft: -56,
+            width: 232,
+            height: 232,
+            borderRadius: 999,
+            border: `52px solid ${COLORS.background}`,
           }}
-        >
-          C
-        </div>
-        <div
-          style={{
-            display: "flex",
-            position: "absolute",
-            top: 96,
-            right: 74,
-            fontFamily: "FrankRuhl",
-            fontSize: 172,
-            lineHeight: 1,
-            color: COLORS.accent,
-          }}
-        >
-          +
-        </div>
+        />
       </div>
     ),
-    { ...size, fonts: [{ name: "FrankRuhl", data: display, weight: 700, style: "normal" }] }
+    size
   );
 }

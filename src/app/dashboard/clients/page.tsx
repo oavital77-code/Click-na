@@ -4,6 +4,8 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent } from "@/components/ui/card";
 import { statusBadgeClass } from "@/lib/status-badge";
+import { formatInTimeZone } from "date-fns-tz";
+import { cn } from "@/lib/utils";
 
 export default async function ClientsPage() {
   const therapist = await getCurrentTherapist();
@@ -24,6 +26,15 @@ export default async function ClientsPage() {
   const clients = await prisma.client.findMany({
     where: { therapistId: therapist.id },
     orderBy: { createdAt: "desc" },
+    include: {
+      // Just the most recent appointment per client — enough for "last visit"
+      // without pulling every booking they ever made.
+      bookings: {
+        orderBy: { session: { startsAt: "desc" } },
+        take: 1,
+        select: { session: { select: { startsAt: true } } },
+      },
+    },
   });
 
   return (
@@ -39,41 +50,46 @@ export default async function ClientsPage() {
           עדיין אין לקוחות — הם ייווספו כאן אוטומטית ברגע שמישהו יזמין תור דרך הקישור שלך.
         </p>
       ) : (
-        // The name column stays pinned and the rest snap into place, so scrolling
-        // this table on a phone never strands a row without its client name.
-        <div className="snap-x snap-mandatory scroll-ps-32 overflow-x-auto">
-          <table className="w-full min-w-[560px] border-separate border-spacing-0 text-sm">
-            <thead>
-              <tr className="text-start">
-                <th className="border-border bg-card sticky start-0 z-10 w-32 border-b p-2 text-start font-medium">
-                  שם
-                </th>
-                <th className="border-border snap-start border-b p-2 text-start font-medium">טלפון</th>
-                <th className="border-border snap-start border-b p-2 text-start font-medium">מייל</th>
-                <th className="border-border snap-start border-b p-2 text-center font-medium">תורים</th>
-                <th className="border-border snap-start border-b p-2 text-center font-medium">לא הגיע/ה</th>
-              </tr>
-            </thead>
-            <tbody>
-              {clients.map((client) => (
-                <tr key={client.id} className="[&:last-child>td]:border-b-0">
-                  <td className="border-border bg-card sticky start-0 z-10 w-32 border-b p-2 text-start font-medium">
-                    {client.fullName}
-                  </td>
-                  <td className="num border-border snap-start border-b p-2 text-start">{client.phone ?? "—"}</td>
-                  <td className="num border-border snap-start truncate border-b p-2 text-start">{client.email ?? "—"}</td>
-                  <td className="num border-border snap-start border-b p-2 text-center">{client.totalBookings}</td>
-                  <td className="border-border snap-start border-b p-2 text-center">
-                    {client.noShowCount > 0 ? (
-                      <span className={statusBadgeClass("danger")}>{client.noShowCount}</span>
-                    ) : (
-                      <span className="text-muted-foreground">0</span>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {clients.map((client) => {
+            const lastVisit = client.bookings[0]?.session.startsAt ?? null;
+            return (
+              <Card key={client.id} className="gap-4 py-5">
+                <CardContent className="flex flex-col gap-4">
+                  <div className="flex items-center gap-3">
+                    <Avatar name={client.fullName} />
+                    <div className="flex min-w-0 flex-col text-start">
+                      <span className="truncate font-medium">{client.fullName}</span>
+                      <span className="num text-muted-foreground truncate text-xs">
+                        {client.phone ?? client.email ?? "—"}
+                      </span>
+                    </div>
+                    {client.noShowCount > 0 && (
+                      <span className={statusBadgeClass("danger") + " ms-auto"}>
+                        {client.noShowCount} לא הגיע/ה
+                      </span>
                     )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+
+                  <div className="border-border grid grid-cols-3 gap-2 border-t pt-3 text-center">
+                    <Stat label="תורים" value={String(client.totalBookings)} />
+                    <Stat
+                      label="ביקור אחרון"
+                      value={
+                        lastVisit
+                          ? formatInTimeZone(lastVisit, therapist.timezone, "d.M.yy")
+                          : "—"
+                      }
+                    />
+                    <Stat
+                      label="מאז"
+                      value={formatInTimeZone(client.createdAt, therapist.timezone, "M/yy")}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -83,5 +99,39 @@ export default async function ClientsPage() {
         </CardContent>
       </Card>
     </main>
+  );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="num text-sm font-medium">{value}</span>
+      <span className="text-muted-foreground text-[11px] leading-tight">{label}</span>
+    </div>
+  );
+}
+
+// Four warm tints from the system's own ramps, picked by name so a client keeps
+// the same colour on every visit to the page. Decorative only — nothing about
+// the client is encoded here, so it never has to survive a colour-blind reading.
+const AVATAR_TINTS = [
+  "bg-st-booked-bg text-st-booked",
+  "bg-st-open-bg text-st-open",
+  "bg-secondary text-primary-strong",
+  "bg-st-blocked-bg text-foreground/70",
+];
+
+function Avatar({ name }: { name: string }) {
+  const seed = [...name].reduce((sum, char) => sum + char.codePointAt(0)!, 0);
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "flex size-11 shrink-0 items-center justify-center rounded-full text-base font-medium",
+        AVATAR_TINTS[seed % AVATAR_TINTS.length]
+      )}
+    >
+      {[...name.trim()][0] ?? "?"}
+    </span>
   );
 }

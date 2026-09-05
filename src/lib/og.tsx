@@ -13,14 +13,13 @@ export const OG_SIZE = { width: 1200, height: 630 };
 export const OG_CONTENT_TYPE = "image/png";
 
 export const COLORS = {
-  background: "#faf8f5",
-  foreground: "#2c2420",
-  primary: "#7e4230",
-  accent: "#ce9127",
+  background: "#f5ead8",
+  foreground: "#201e1d",
+  primary: "#c67139",
+  accent: "#c79322",
   muted: "#6b5f57",
-  border: "#e7e0da",
+  border: "#e0d2b8",
 };
-
 /**
  * Satori can't reach the CSS font stack the app uses, so the faces are read off
  * disk and handed over as buffers. They must be TTF/OTF — satori rejects the
@@ -70,7 +69,7 @@ export function Backdrop() {
           width: 900,
           height: 900,
           borderRadius: 999,
-          background: "#f4e7de",
+          background: "#eeddc0",
         }}
       />
       <div
@@ -81,7 +80,7 @@ export function Backdrop() {
           width: 700,
           height: 700,
           borderRadius: 999,
-          background: "#efdccf",
+          background: "#e7d2af",
         }}
       />
     </div>

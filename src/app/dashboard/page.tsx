@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSchedule } from "./dashboard-schedule";
+import { WeekInsights } from "./week-insights";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
@@ -99,6 +100,15 @@ export default async function DashboardPage() {
           clientName: s.booking?.clientNameSnapshot ?? null,
           clientPhone: s.booking?.clientPhoneSnapshot ?? null,
           blockedNote: s.blockedNote,
+        }))}
+      />
+
+      <WeekInsights
+        timezone={therapist.timezone}
+        sessions={weekSessions.map((s) => ({
+          startsAt: s.startsAt.toISOString(),
+          endsAt: s.endsAt.toISOString(),
+          status: s.status,
         }))}
       />
 
