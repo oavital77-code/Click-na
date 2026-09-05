@@ -360,6 +360,22 @@ model Integration {
   @@map("integrations")
 }
 
+// Fixed-window request counter for the public, unauthenticated endpoints.
+//
+// Postgres rather than a KV store: this app already depends on it, and adding a
+// second service to hold four-minute-old integers is not worth an account, a
+// key and another thing that can be down. A window is baked into the key, so a
+// hit is one upsert and expiry is a delete of anything older.
+model RateLimit {
+  // "<scope>:<identifier>:<window index>"
+  key         String   @id @db.VarChar(200)
+  windowStart DateTime @map("window_start") @db.Timestamptz
+  count       Int      @default(0)
+
+  @@index([windowStart])
+  @@map("rate_limits")
+}
+
 model AuditLog {
   id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   therapistId String         @map("therapist_id") @db.Uuid

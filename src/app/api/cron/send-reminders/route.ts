@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/notifications";
+import { pruneRateLimits } from "@/lib/rate-limit";
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -15,5 +16,11 @@ export async function GET(request: NextRequest) {
   }
 
   const summary = await sendDueReminders();
-  return NextResponse.json(summary);
+
+  // Rate-limit windows are only useful until they close. Swept here rather than
+  // on a schedule of their own: the rows are tiny and nothing depends on them
+  // disappearing promptly.
+  const prunedRateLimits = await pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000));
+
+  return NextResponse.json({ ...summary, prunedRateLimits });
 }

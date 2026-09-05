@@ -79,3 +79,47 @@ node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 ```
 
 בלעדיו התוספים שדורשים חשבון מסרבים לשמור פרטים; סנכרון היומן עובד גם בלי. החלפת המפתח הופכת את כל הפרטים השמורים לבלתי קריאים, וכל מטפל יצטרך להזין אותם מחדש.
+
+
+## אבטחה
+
+### כותרות אבטחה ו-CSP
+
+כל תגובה נושאת HSTS, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy` ו-`Permissions-Policy` (מוגדרות ב-`next.config.ts`).
+
+ה-Content-Security-Policy נוצר בנפרד, ב-`src/proxy.ts`, דרך `clerkMiddleware`. הסיבה: הוא משתמש ב-nonce שנוצר מחדש בכל בקשה, ורשימת המקורות ש-Clerk צריך היא של Clerk לתחזק — למשל מסגרת ה-Turnstile שהגנת הבוטים שלה טוענת, שמדיניות שנכתבת ביד הייתה שוכחת ושוברת בשקט את ההרשמה.
+
+**המשמעות:** כל עמוד באפליקציה נטען דינמית. עמוד שנבנה מראש לא יכול לשאת nonce שנוצר בכל בקשה, והסקריפטים שלו היו נחסמים — בפרודקשן בלבד. לכן `/`, `/terms`, `/privacy` ו-`/cookies` מסומנים `force-dynamic`.
+
+### הרשאות בבסיס הנתונים (RLS)
+
+RLS מופעל על כל הטבלאות, **בלי מדיניות**. זה נשמע כמו טעות והוא לא:
+
+Supabase חושפת כל טבלה דרך PostgREST לתפקידי `anon` ו-`authenticated`. בלי RLS, מי שמחזיק במפתח הפומבי קורא וכותב כל שורה. המדיניות המקובלת מבוססת על `auth.jwt() ->> 'sub'`, אבל היא לא מתאימה כאן: האפליקציה לא משתמשת ב-Supabase Auth ולא בלקוח של Supabase כלל — היא ניגשת ל-Postgres ישירות דרך Prisma כבעלת הטבלאות, וההרשאות נאכפות בקוד לפי `therapistId` שנגזר מהסשן המאומת של Clerk.
+
+RLS פעיל בלי מדיניות = דחייה מוחלטת לתפקידים האלה, ושקוף לבעלת הטבלאות. אומת: תפקיד עם הרשאות `SELECT/INSERT/UPDATE/DELETE` מלאות רואה אפס שורות ולא מצליח לכתוב.
+
+לביטול: `ALTER TABLE "<שם>" DISABLE ROW LEVEL SECURITY;`
+
+### הגבלת קצב
+
+נקודות הקצה הציבוריות מוגבלות דרך טבלת `rate_limits` ב-Postgres (`src/lib/rate-limit.ts`) — בלי שירות חיצוני נוסף:
+
+| נתיב | תקרה |
+| --- | --- |
+| `POST /api/public/bookings` | 10 לשעה לכתובת IP |
+| `POST /api/public/sessions/[id]/hold` | 30 לעשר דקות לכתובת IP |
+
+חלונות שפג תוקפם נמחקים בתוך ה-cron של התזכורות.
+
+### DNS לדואר יוצא
+
+רלוונטי כשמחברים דומיין משלך ל-Resend. עד אז השליחה היא מדומיין הבדיקות של Resend ואין מה להגדיר.
+
+```
+SPF    TXT @      v=spf1 include:amazonses.com include:resend.com ~all
+DKIM   CNAME      הרשומות ש-Resend מנפיקה עבור הדומיין
+DMARC  TXT _dmarc v=DMARC1; p=quarantine; pct=100; rua=mailto:dmarc-reports@<הדומיין שלך>
+```
+
+מומלץ להתחיל ב-`p=none`, לקרוא את הדוחות שבועיים-שלושה, ורק אז לעבור ל-`p=quarantine`. מעבר ישיר עלול להעיף לספאם דואר לגיטימי שנשלח ממקור שלא נכלל ב-SPF.
