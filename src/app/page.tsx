@@ -5,6 +5,12 @@ import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/site-footer";
 import { BrandMark } from "@/components/brand-mark";
 
+// The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
+// build time cannot carry it — its scripts would be blocked in production only.
+// Every other route in this app is already dynamic; these four were the
+// exceptions.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Cleana+ — scheduling for independent practitioners",
   description:

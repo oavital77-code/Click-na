@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest, after } from "next/server";
 import { z } from "zod";
 import { createBooking } from "@/lib/bookings";
 import { sendBookingCreatedNotifications } from "@/lib/notifications";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { tooManyRequests } from "@/lib/http";
 
 const bookingSchema = z.object({
   sessionId: z.string().uuid(),
@@ -18,6 +20,17 @@ const STATUS_BY_ERROR: Record<string, number> = {
 };
 
 export async function POST(request: NextRequest) {
+  // Anyone on the internet can reach this, and every accepted call writes rows
+  // and sends two emails. Ten an hour from one address is far above what a real
+  // client does and far below what makes spamming worthwhile.
+  const limit = await checkRateLimit({
+    scope: "booking",
+    identifier: clientIp(request.headers),
+    limit: 10,
+    windowMs: 60 * 60 * 1000,
+  });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
+
   const parsed = bookingSchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });

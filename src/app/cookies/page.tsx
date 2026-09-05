@@ -2,6 +2,12 @@ import type { Metadata } from "next";
 import { LegalDraftNotice } from "@/components/legal-draft-notice";
 import { SiteFooter } from "@/components/site-footer";
 
+// The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
+// build time cannot carry it — its scripts would be blocked in production only.
+// Every other route in this app is already dynamic; these four were the
+// exceptions.
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "מדיניות עוגיות — Cleana+" };
 
 export default function CookiesPage() {
