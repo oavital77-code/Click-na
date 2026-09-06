@@ -20,7 +20,10 @@ export default async function DashboardLayout({
     <I18nProvider locale={locale}>
       <div dir={dirFor(locale)} className="flex flex-1 flex-col md:flex-row">
         <DashboardNav />
-        <div className="flex flex-1 flex-col">{children}</div>
+        {/* min-w-0: a flex item defaults to min-width:auto, so the week table
+            (1084px) would widen this column and scroll the whole page sideways
+            instead of scrolling inside its own container. */}
+        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
       </div>
     </I18nProvider>
   );
