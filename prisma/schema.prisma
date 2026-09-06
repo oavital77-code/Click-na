@@ -72,10 +72,15 @@ enum BookingStatus {
 }
 
 enum NotificationType {
+  // About one booking.
   confirmation
   reminder
   cancellation
   reschedule
+  // About the therapist's own account, with no booking behind them.
+  welcome
+  onboarding_complete
+  subscription
 }
 
 enum NotificationChannel {
@@ -150,6 +155,7 @@ model Therapist {
   auditLogs         AuditLog[]
   slugRedirects     SlugRedirect[]
   integrations      Integration[]
+  notifications     Notification[]
 
   @@map("therapists")
 }
@@ -306,9 +312,16 @@ model Booking {
   @@map("bookings")
 }
 
+// Every message the system sends, on any channel, with what happened to it.
+// One log for booking mail and account mail alike, so a failed send is a row
+// somebody can find rather than a line in a log nobody reads.
 model Notification {
   id           String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  bookingId    String              @map("booking_id") @db.Uuid
+  // Always known — account mail has no booking, but it always has a therapist.
+  therapistId  String              @map("therapist_id") @db.Uuid
+  // Null for account mail: a welcome or a subscription notice is about the
+  // therapist, not about an appointment.
+  bookingId    String?             @map("booking_id") @db.Uuid
   type         NotificationType
   channel      NotificationChannel
   recipient    String              @db.VarChar(255)
@@ -318,9 +331,11 @@ model Notification {
   attempts     Int                 @default(0)
   errorMessage String?
 
-  booking Booking @relation(fields: [bookingId], references: [id])
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+  booking   Booking?  @relation(fields: [bookingId], references: [id])
 
   @@index([bookingId])
+  @@index([therapistId, status])
   @@index([status, scheduledFor])
   @@map("notifications")
 }

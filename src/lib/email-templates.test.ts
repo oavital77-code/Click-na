@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  welcomeEmail,
   confirmationEmailForClient,
   newBookingEmailForTherapist,
   reminderEmailForClient,
@@ -96,5 +97,17 @@ describe("cancellationEmailForClient", () => {
       bookingPageUrl: "https://cleana.example/book/lior",
     });
     expect(html).toContain("https://cleana.example/book/lior");
+  });
+});
+
+describe("the shared footer", () => {
+  // The name and the plus are separate runs, so an RTL paragraph reorders them
+  // and the footer reads "+Cleana". Every email in the system carries this.
+  it("keeps the wordmark from reversing inside the Hebrew footer", () => {
+    const { html } = welcomeEmail({
+      therapistFullName: "אור אביטל",
+      onboardingUrl: "https://example.com/dashboard/onboarding",
+    });
+    expect(html).toContain('<span dir="ltr">Cleana+</span>');
   });
 });

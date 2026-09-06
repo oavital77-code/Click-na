@@ -23,7 +23,8 @@ function resolveLocation(settings: { locationAddress: string | null; onlineMeeti
 }
 
 async function recordNotification(input: {
-  bookingId: string;
+  therapistId: string;
+  bookingId?: string;
   type: NotificationType;
   recipient: string;
   channel?: NotificationChannel;
@@ -31,6 +32,7 @@ async function recordNotification(input: {
 }) {
   const notification = await prisma.notification.create({
     data: {
+      therapistId: input.therapistId,
       bookingId: input.bookingId,
       type: input.type,
       channel: input.channel ?? "email",
@@ -90,6 +92,7 @@ async function sendWhatsAppToClient(
   if (!credentials) return;
 
   await recordNotification({
+    therapistId: booking.therapistId,
     bookingId: booking.id,
     type,
     channel: "whatsapp",
@@ -115,6 +118,7 @@ async function scheduleReminders(booking: BookingWithContext) {
   if (settings.sendEmailReminder && booking.clientEmailSnapshot) {
     await prisma.notification.create({
       data: {
+        therapistId: booking.therapistId,
         bookingId: booking.id,
         type: "reminder",
         channel: "email",
@@ -133,6 +137,7 @@ async function scheduleReminders(booking: BookingWithContext) {
     if (connected) {
       await prisma.notification.create({
         data: {
+          therapistId: booking.therapistId,
           bookingId: booking.id,
           type: "reminder",
           channel: "whatsapp",
@@ -220,6 +225,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
       location,
     });
     await recordNotification({
+      therapistId: therapist.id,
       bookingId,
       type: "confirmation",
       recipient: booking.clientEmailSnapshot,
@@ -241,6 +247,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
     timezone: therapist.timezone,
   });
   await recordNotification({
+    therapistId: therapist.id,
     bookingId,
     type: "confirmation",
     recipient: therapist.email,
@@ -288,6 +295,7 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
       timezone: therapist.timezone,
     });
     await recordNotification({
+      therapistId: therapist.id,
       bookingId,
       type: "cancellation",
       recipient: therapist.email,
@@ -305,6 +313,7 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
       bookingPageUrl: `${getAppUrl()}/book/${therapist.slug}`,
     });
     await recordNotification({
+      therapistId: therapist.id,
       bookingId,
       type: "cancellation",
       recipient: booking.clientEmailSnapshot,
@@ -338,6 +347,7 @@ export async function sendBookingRescheduledNotifications(bookingId: string, old
     timezone: therapist.timezone,
   });
   await recordNotification({
+    therapistId: therapist.id,
     bookingId,
     type: "reschedule",
     recipient: therapist.email,

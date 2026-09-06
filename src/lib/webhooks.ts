@@ -13,7 +13,12 @@ export type ClerkUserCreatedData = {
   last_name: string | null;
 };
 
-export async function handleUserCreated(data: ClerkUserCreatedData) {
+/**
+ * Returns the therapist's id on a real creation, and null when the delivery was
+ * a duplicate. The caller uses that to decide whether to send a welcome — Clerk
+ * retries webhooks, and a second delivery must not mail the same person twice.
+ */
+export async function handleUserCreated(data: ClerkUserCreatedData): Promise<string | null> {
   const primaryEmail =
     data.email_addresses.find((e) => e.id === data.primary_email_address_id)?.email_address ??
     data.email_addresses[0]?.email_address;
@@ -28,7 +33,7 @@ export async function handleUserCreated(data: ClerkUserCreatedData) {
 
   for (let attempt = 0; attempt < MAX_SLUG_ATTEMPTS; attempt++) {
     try {
-      await prisma.therapist.create({
+      const created = await prisma.therapist.create({
         data: {
           clerkUserId: data.id,
           email: primaryEmail,
@@ -38,7 +43,7 @@ export async function handleUserCreated(data: ClerkUserCreatedData) {
           settings: { create: {} },
         },
       });
-      return;
+      return created.id;
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
         // A duplicate webhook delivery for the same Clerk user can collide on email or
@@ -48,7 +53,7 @@ export async function handleUserCreated(data: ClerkUserCreatedData) {
           where: { clerkUserId: data.id },
           select: { id: true },
         });
-        if (existing) return; // duplicate webhook delivery — idempotent no-op
+        if (existing) return null; // duplicate webhook delivery — idempotent no-op
         if (isUniqueViolation(error, "slug")) continue; // collision on the random fallback slug — retry
       }
       throw error;

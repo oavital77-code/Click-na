@@ -189,6 +189,7 @@ describe("notifications (against a live database)", () => {
       const booking = await makeBookingFor(therapistId, 48);
       await prisma.notification.create({
         data: {
+          therapistId,
           bookingId: booking.id,
           type: "reminder",
           channel: "email",
@@ -210,6 +211,7 @@ describe("notifications (against a live database)", () => {
       const booking = await makeBookingFor(therapistId, 48);
       await prisma.notification.create({
         data: {
+          therapistId,
           bookingId: booking.id,
           type: "reminder",
           channel: "email",
@@ -231,6 +233,7 @@ describe("notifications (against a live database)", () => {
       const booking = await makeBookingFor(therapistId, 48);
       await prisma.notification.create({
         data: {
+          therapistId,
           bookingId: booking.id,
           type: "reminder",
           channel: "email",
