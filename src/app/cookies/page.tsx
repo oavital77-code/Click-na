@@ -1,44 +1,39 @@
 import type { Metadata } from "next";
-import { LegalDraftNotice } from "@/components/legal-draft-notice";
-import { SiteFooter } from "@/components/site-footer";
+import { LegalPage } from "@/components/legal-page";
 
 // The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
 // build time cannot carry it — its scripts would be blocked in production only.
-// Every other route in this app is already dynamic; these four were the
-// exceptions.
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "מדיניות עוגיות — Cleana+" };
 
+// A fixed date, not new Date() — see the same note in src/app/terms/page.tsx.
+const LAST_UPDATED = "06/09/2026";
+
+const SECTIONS = [
+  {
+    title: "1. אילו עוגיות בשימוש",
+    body: [
+      "Cleana+ משתמשת אך ורק בעוגיות הכרחיות — הנדרשות להתחברות ולאימות של המטפל/ת (שמירת מצב ההתחברות בין דפים, ומזהי session המנוהלים על ידי ספק האימות Clerk). עוגיות אלה חיוניות לתפקוד הבסיסי של השירות ולא ניתן לכבות אותן.",
+      "דף ההזמנה הציבורי, שבו לקוחות מזמינים תור, אינו דורש התחברות ואינו מציב עוגיות מעקב.",
+      "אין שימוש בעוגיות פרסום, מעקב שיווקי, או ניתוח סטטיסטי של גולשים. אם וכאשר יתווספו כלים כאלה, מדיניות זו תעודכן ותתבקש הסכמה כנדרש בדין.",
+    ],
+  },
+  {
+    title: "2. ניהול עוגיות",
+    body: [
+      "ניתן לחסום או למחוק עוגיות דרך הגדרות הדפדפן. חסימת העוגיות ההכרחיות תמנע התחברות לחשבון המטפל/ת, אך לא תשפיע על יכולת הלקוחות להזמין תור.",
+    ],
+  },
+];
+
 export default function CookiesPage() {
   return (
-    <>
-      <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-5 py-12 md:px-8">
-        <h1 className="text-center text-3xl font-bold md:text-start">מדיניות עוגיות</h1>
-        <LegalDraftNotice />
-
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">אילו עוגיות אנחנו משתמשים בהן</h2>
-          <p>
-            כרגע Cleana+ משתמשת אך ורק בעוגיות <strong>חיוניות</strong> — הנדרשות לצורך התחברות
-            ואימות משתמש (למשל שמירת מצב ההתחברות שלך בין דפים). עוגיות אלה חיוניות לתפקוד
-            הבסיסי של האתר ולא ניתן לכבות אותן.
-          </p>
-          <p>
-            אנחנו לא משתמשים כרגע בעוגיות פרסום, מעקב שיווקי, או ניתוח סטטיסטי של גולשים. אם
-            וכאשר נוסיף כלים כאלה, נעדכן מדיניות זו ונבקש הסכמה כנדרש בחוק.
-          </p>
-        </section>
-
-        <section className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">ניהול עוגיות</h2>
-          <p>
-            ניתן לחסום או למחוק עוגיות דרך הגדרות הדפדפן, אך שים לב שחסימת עוגיות חיוניות תמנע
-            התחברות למערכת.
-          </p>
-        </section>
-      </main>
-      <SiteFooter />
-    </>
+    <LegalPage
+      title="מדיניות עוגיות"
+      lastUpdated={LAST_UPDATED}
+      sections={SECTIONS}
+      related={{ href: "/privacy", label: "מדיניות הפרטיות" }}
+    />
   );
 }
