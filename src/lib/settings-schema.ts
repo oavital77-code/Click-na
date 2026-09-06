@@ -1,4 +1,18 @@
 import { z } from "zod";
+
+/**
+ * A URL a therapist types in and the app later renders as a link or an image
+ * source. `.url()` alone accepts any scheme — `javascript:` and `data:` parse as
+ * valid URLs — so the scheme is pinned to http(s): a meeting link or a logo is
+ * never anything else, and a stored `javascript:` URL is one careless `<a href>`
+ * away from running in a client's browser.
+ */
+const httpUrl = z
+  .string()
+  .trim()
+  .url("קישור לא תקין")
+  .max(500)
+  .refine((value) => /^https?:\/\//i.test(value), "הקישור חייב להתחיל ב-http:// או https://");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 import { PROFESSION_TYPES, LOCATION_TYPES, DURATION_OPTIONS } from "@/lib/onboarding-schema";
 
@@ -31,7 +45,7 @@ export const settingsSchema = z
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
     locationNotes: z.string().trim().max(500).optional(),
-    onlineMeetingUrl: z.string().trim().url("קישור לא תקין").max(500).optional().or(z.literal("")),
+    onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
     cancellationPolicyHours: timeUnitSchema.max(24 * 30),
     cancellationPolicyText: z.string().trim().max(1000).optional(),
     requirePhone: z.boolean(),
@@ -46,7 +60,7 @@ export const settingsSchema = z
       .regex(/^#[0-9a-fA-F]{6}$/, "צבע לא תקין")
       .optional()
       .or(z.literal("")),
-    brandLogoUrl: z.string().trim().url("קישור לא תקין").max(500).optional().or(z.literal("")),
+    brandLogoUrl: httpUrl.optional().or(z.literal("")),
     bookingPageHeadline: z.string().trim().max(255).optional(),
     bookingPageDescription: z.string().trim().max(1000).optional(),
   })

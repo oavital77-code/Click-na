@@ -63,6 +63,34 @@ describe("settingsSchema", () => {
     ).toBe(false);
   });
 
+  // `.url()` alone accepts any scheme, and a stored javascript: URL is one
+  // <a href> away from running in a client's browser.
+  it.each(["javascript:alert(1)", "data:text/html,hi", "ftp://x.example/file", "vbscript:x"])(
+    "rejects a non-http(s) meeting url: %s",
+    (onlineMeetingUrl) => {
+      expect(
+        settingsSchema.safeParse({ ...valid, locationType: "online", locationAddress: undefined, onlineMeetingUrl })
+          .success
+      ).toBe(false);
+    }
+  );
+
+  it("accepts an https meeting url and an https logo url", () => {
+    expect(
+      settingsSchema.safeParse({
+        ...valid,
+        locationType: "online",
+        locationAddress: undefined,
+        onlineMeetingUrl: "https://zoom.us/j/123",
+        brandLogoUrl: "https://cdn.example/logo.png",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a javascript: logo url", () => {
+    expect(settingsSchema.safeParse({ ...valid, brandLogoUrl: "javascript:alert(1)" }).success).toBe(false);
+  });
+
   it("requires an online meeting url for online location", () => {
     expect(
       settingsSchema.safeParse({

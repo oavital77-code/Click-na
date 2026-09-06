@@ -1,4 +1,18 @@
 import { z } from "zod";
+
+/**
+ * A URL a therapist types in and the app later renders as a link or an image
+ * source. `.url()` alone accepts any scheme — `javascript:` and `data:` parse as
+ * valid URLs — so the scheme is pinned to http(s): a meeting link or a logo is
+ * never anything else, and a stored `javascript:` URL is one careless `<a href>`
+ * away from running in a client's browser.
+ */
+const httpUrl = z
+  .string()
+  .trim()
+  .url("קישור לא תקין")
+  .max(500)
+  .refine((value) => /^https?:\/\//i.test(value), "הקישור חייב להתחיל ב-http:// או https://");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 
 export const PROFESSION_TYPES = [
@@ -34,7 +48,7 @@ export const onboardingSchema = z
       .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "משך לא תקין"),
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
-    onlineMeetingUrl: z.string().trim().url("קישור לא תקין").max(500).optional().or(z.literal("")),
+    onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
     availability: z
       .object({
         days: z.array(z.number().int().min(0).max(6)).min(1, "בחר לפחות יום אחד"),

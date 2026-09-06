@@ -1,6 +1,20 @@
+import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/notifications";
 import { pruneRateLimits } from "@/lib/rate-limit";
+
+/**
+ * Constant-time check of the bearer header. Both sides go through SHA-256 first
+ * so timingSafeEqual always compares equal-length buffers — otherwise the
+ * secret's length would leak through the early length mismatch, and a plain
+ * `!==` leaks its prefix byte by byte through response timing.
+ */
+function isAuthorized(header: string | null, secret: string): boolean {
+  if (!header) return false;
+  const provided = createHash("sha256").update(header).digest();
+  const expected = createHash("sha256").update(`Bearer ${secret}`).digest();
+  return timingSafeEqual(provided, expected);
+}
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -11,7 +25,7 @@ export async function GET(request: NextRequest) {
     if (process.env.NODE_ENV === "production") {
       return NextResponse.json({ error: "cron_secret_not_configured" }, { status: 503 });
     }
-  } else if (request.headers.get("authorization") !== `Bearer ${secret}`) {
+  } else if (!isAuthorized(request.headers.get("authorization"), secret)) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 

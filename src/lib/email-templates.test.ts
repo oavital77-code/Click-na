@@ -111,3 +111,47 @@ describe("the shared footer", () => {
     expect(html).toContain('<span dir="ltr">Cleana+</span>');
   });
 });
+
+describe("HTML escaping", () => {
+  // A client types their name into the public booking form; it lands in the
+  // therapist's inbox. Without escaping, a name like this is a live link.
+  const hostileName = '<a href="https://evil.example">לחצו כאן</a>';
+
+  it("escapes a client name before it reaches the therapist's inbox", () => {
+    const { html } = newBookingEmailForTherapist({
+      therapistFullName: "ליאור כהן",
+      clientFullName: hostileName,
+      startsAt,
+      endsAt,
+      timezone,
+    });
+    expect(html).not.toContain("<a href=\"https://evil.example\">");
+    expect(html).toContain("&lt;a href=&quot;https://evil.example&quot;&gt;");
+  });
+
+  it("escapes therapist-controlled text sent to clients", () => {
+    const { html } = confirmationEmailForClient({
+      clientFullName: "דנה לוי",
+      therapistFullName: "<img src=x onerror=alert(1)>",
+      startsAt,
+      endsAt,
+      timezone,
+      location: 'רוטשילד 12 <script>alert("x")</script>',
+      manageUrl: "https://cleana.example/book/lior/manage/tok123",
+    });
+    expect(html).not.toContain("<img src=x");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("leaves ordinary Hebrew names untouched", () => {
+    const { html } = welcomeEmail({
+      therapistFullName: "ד\"ר יעל בן-דוד",
+      onboardingUrl: "https://cleana.example/dashboard/onboarding",
+    });
+    // The quote is escaped as an entity, which every mail client renders back
+    // as the character; the rest of the name is byte-identical.
+    expect(html).toContain("ד&quot;ר יעל בן-דוד");
+  });
+});
+

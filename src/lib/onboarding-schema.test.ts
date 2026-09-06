@@ -55,6 +55,20 @@ describe("onboardingSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("rejects a javascript: meeting url even when location type is online", () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: "javascript:alert(1)" })
+    );
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts an https meeting url", () => {
+    const result = onboardingSchema.safeParse(
+      validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: "https://meet.google.com/abc-defg-hij" })
+    );
+    expect(result.success).toBe(true);
+  });
+
   it("requires an online meeting url when location type is online", () => {
     const result = onboardingSchema.safeParse(
       validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: undefined })
