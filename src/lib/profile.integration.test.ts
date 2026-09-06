@@ -42,6 +42,7 @@ describe("profile / slug redirects (against a live database)", () => {
       fullName: "שם מעודכן",
       phone: "0501234567",
       professionType: "coach",
+      locale: "he",
       slug: "profile-integration-test",
     });
     expect(result.ok).toBe(true);
@@ -55,6 +56,7 @@ describe("profile / slug redirects (against a live database)", () => {
       fullName: "שם מעודכן",
       phone: "0501234567",
       professionType: "coach",
+      locale: "he",
       slug: "profile-integration-new",
     });
     expect(result.ok).toBe(true);
@@ -84,6 +86,7 @@ describe("profile / slug redirects (against a live database)", () => {
       fullName: "שם מעודכן",
       phone: "0501234567",
       professionType: "coach",
+      locale: "he",
       slug: "profile-integration-third",
     });
     expect(result).toMatchObject({ ok: false, error: "SLUG_CHANGE_TOO_SOON" });

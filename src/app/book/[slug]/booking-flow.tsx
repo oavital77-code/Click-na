@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
 // SVG icons, never the ‹ › punctuation: those are Unicode-mirrored characters,
 // so an RTL run flips the glyph and the arrows end up pointing inward.
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -11,7 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
+import { fmt } from "@/i18n/dates";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
 
 type Slot = { id: string; startsAt: string; endsAt: string };
@@ -27,13 +27,10 @@ type Props = {
   location: { address: string | null; onlineMeetingUrl: string | null };
 };
 
-const ERROR_MESSAGES: Record<string, string> = {
-  SLOT_ALREADY_BOOKED: "המועד שבחרת כבר נתפס. אנא בחר מועד אחר.",
-  SLOT_ON_HOLD: "מישהו אחר באמצע הזמנת המועד הזה. נסה מועד אחר.",
-  BOOKING_TOO_SOON: "המועד קרוב מדי לזמן הנוכחי.",
-};
-
 export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Props) {
+  const { m, locale, dir } = useI18n();
+  const b = m.book;
+  const ERROR_MESSAGES: Record<string, string> = b.errors;
   const [step, setStep] = useState<"date" | "time" | "form" | "confirmed">("date");
   // Kept with the range it was fetched for, so switching months derives "still
   // loading" instead of clearing state inside the effect.
@@ -100,7 +97,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     const res = await fetch(`/api/public/sessions/${slot.id}/hold`, { method: "POST" });
     const data = await res.json();
     if (!res.ok) {
-      setFormError(ERROR_MESSAGES[data.error] ?? "המועד כבר לא זמין, בחר מועד אחר");
+      setFormError(ERROR_MESSAGES[data.error] ?? b.errors.slotGone);
       return;
     }
     setSelectedSlot(slot);
@@ -120,9 +117,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
       });
       const data = await res.json();
       if (!res.ok) {
-        setFormError(
-          ERROR_MESSAGES[data.error] ?? "אירעה שגיאה, נסה שוב"
-        );
+        setFormError(ERROR_MESSAGES[data.error] ?? m.common.genericError);
         if (data.error === "SLOT_ALREADY_BOOKED") {
           setStep("time");
           setSelectedSlot(null);
@@ -133,14 +128,14 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
       setManageToken(data.booking.manageToken);
       setStep("confirmed");
     } catch {
-      setFormError("שגיאת רשת, נסה שוב");
+      setFormError(m.common.networkError);
     } finally {
       setSubmitting(false);
     }
   }
 
   if (loadError) {
-    return <p className="text-destructive text-center text-sm">שגיאה בטעינת הזמנים. נסה לרענן.</p>;
+    return <p className="text-destructive text-center text-sm">{b.errors.loadTimes}</p>;
   }
 
   if (step === "confirmed" && selectedSlot) {
@@ -148,12 +143,11 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
       <Card>
         <CardContent className="flex flex-col items-center gap-3 text-center">
           <p className="text-3xl">✓</p>
-          <p className="text-lg font-semibold">התור נקבע!</p>
+          <p className="text-lg font-semibold">{b.confirmed}</p>
           <p>
-            {formatInTimeZone(new Date(selectedSlot.startsAt), timezone, "EEEE, d.M.yyyy", { locale: he })}
+            {fmt(selectedSlot.startsAt, timezone, locale, "weekdayDate")}
             <br />
-            {formatInTimeZone(new Date(selectedSlot.startsAt), timezone, "HH:mm")}–
-            {formatInTimeZone(new Date(selectedSlot.endsAt), timezone, "HH:mm")}
+            {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
           </p>
           {manageToken && (
             <div className="flex flex-wrap items-center justify-center gap-4">
@@ -161,13 +155,13 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
                 href={`/api/public/bookings/manage/${manageToken}/ics`}
                 className="text-primary text-sm underline underline-offset-4"
               >
-                הוסף ליומן
+                {b.addToCalendar}
               </a>
               <a
                 href={`/book/${slug}/manage/${manageToken}`}
                 className="text-primary text-sm underline underline-offset-4"
               >
-                שנה / בטל תור
+                {b.changeOrCancel}
               </a>
             </div>
           )}
@@ -182,19 +176,17 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
       <Card>
         <CardContent className="flex flex-col gap-4">
           <p className="text-sm">
-            {formatInTimeZone(new Date(selectedSlot.startsAt), timezone, "EEEE, d.M", { locale: he })} ·{" "}
-            {formatInTimeZone(new Date(selectedSlot.startsAt), timezone, "HH:mm")}–
-            {formatInTimeZone(new Date(selectedSlot.endsAt), timezone, "HH:mm")}
+            {fmt(selectedSlot.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
+            {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
           </p>
           {secondsLeft !== null && !expired && (
             <p className="text-muted-foreground text-xs">
-              המועד שמור לך למשך {Math.floor(secondsLeft / 60)}:
-              {String(secondsLeft % 60).padStart(2, "0")} דקות
+              {b.heldFor(`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`)}
             </p>
           )}
           {expired ? (
             <div className="flex flex-col gap-2">
-              <p className="text-destructive text-sm">הזמן לתפיסת המועד פג. בחר מועד שוב.</p>
+              <p className="text-destructive text-sm">{b.holdExpired}</p>
               <Button
                 type="button"
                 variant="outline"
@@ -204,25 +196,25 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
                   setHoldExpiresAt(null);
                 }}
               >
-                בחר מועד אחר
+                {b.pickAnother}
               </Button>
             </div>
           ) : (
             <>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="fullName">שם מלא</Label>
+                <Label htmlFor="fullName">{b.fullName}</Label>
                 <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="phone">טלפון{requirePhone && " *"}</Label>
+                <Label htmlFor="phone">{b.phone}{requirePhone && " *"}</Label>
                 <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">אימייל</Label>
+                <Label htmlFor="email">{b.email}</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="note">הערה (אופציונלי)</Label>
+                <Label htmlFor="note">{b.note}</Label>
                 <Input id="note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={200} />
               </div>
               {formError && <p className="text-destructive text-sm">{formError}</p>}
@@ -236,7 +228,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
                 }
                 onClick={submitBooking}
               >
-                {submitting ? "מאשר..." : "אישור הזמנה"}
+                {submitting ? b.confirming : b.confirmBooking}
               </Button>
             </>
           )}
@@ -251,7 +243,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     return (
       <div className="flex flex-col gap-4">
         <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setStep("date")}>
-          → בחר תאריך אחר
+          {dir === "rtl" ? "→" : "←"} {b.pickAnotherDate}
         </Button>
         {formError && <p className="text-destructive text-sm">{formError}</p>}
         <div className="grid grid-cols-3 gap-2">
@@ -261,7 +253,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
             </Button>
           ))}
         </div>
-        <p className="text-muted-foreground text-xs">השעות מוצגות לפי אזור הזמן של המטפל</p>
+        <p className="text-muted-foreground text-xs">{b.timezoneNote}</p>
       </div>
     );
   }
@@ -280,12 +272,12 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
           size="sm"
           disabled={currentMonth <= thisMonth.slice(0, 7)}
           onClick={() => setMonthAnchor((m) => addMonthsUtc(m, -1))}
-          aria-label="החודש הקודם"
+          aria-label={b.prevMonth}
         >
-          <ChevronRight className="size-4" />
+          {dir === "rtl" ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
         </Button>
         <span className="text-sm font-medium">
-          {MONTH_LABELS[Number(monthAnchor.slice(5, 7)) - 1]} {monthAnchor.slice(0, 4)}
+          {m.labels.months[Number(monthAnchor.slice(5, 7)) - 1]} {monthAnchor.slice(0, 4)}
         </span>
         <Button
           type="button"
@@ -293,15 +285,15 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
           size="sm"
           disabled={currentMonth >= lastBookableMonth.slice(0, 7)}
           onClick={() => setMonthAnchor((m) => addMonthsUtc(m, 1))}
-          aria-label="החודש הבא"
+          aria-label={b.nextMonth}
         >
-          <ChevronLeft className="size-4" />
+          {dir === "rtl" ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
         </Button>
       </div>
 
       <div className="border-border bg-card rounded-lg border p-2">
         <div className="grid grid-cols-7 gap-1 text-center">
-          {DAY_LABELS_SHORT.map((label) => (
+          {m.labels.daysShort.map((label) => (
             <div key={label} className="text-muted-foreground py-1 text-xs font-medium">
               {label}
             </div>
@@ -339,11 +331,11 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
       </div>
 
       {!days ? (
-        <p className="text-muted-foreground text-center text-xs">טוען זמנים פנויים...</p>
+        <p className="text-muted-foreground text-center text-xs">{b.loadingTimes}</p>
       ) : slotsByDate.size === 0 ? (
-        <p className="text-muted-foreground text-center text-xs">אין זמנים פנויים בחודש זה</p>
+        <p className="text-muted-foreground text-center text-xs">{b.noTimesThisMonth}</p>
       ) : (
-        <p className="text-muted-foreground text-center text-xs">בחרו יום מסומן כדי לראות שעות פנויות</p>
+        <p className="text-muted-foreground text-center text-xs">{b.pickMarkedDay}</p>
       )}
     </div>
   );

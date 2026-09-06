@@ -8,6 +8,7 @@ import {
   welcomeEmail,
 } from "@/lib/email-templates";
 import type { NotificationType } from "@/generated/prisma/client";
+import { DEFAULT_LOCALE, toLocale } from "@/i18n";
 
 /**
  * Mail about the therapist's own account, as distinct from the booking mail in
@@ -56,6 +57,7 @@ export async function sendWelcomeEmail(therapistId: string) {
   if (!therapist) return;
 
   const { subject, html } = welcomeEmail({
+    locale: toLocale(therapist.locale),
     therapistFullName: therapist.fullName,
     onboardingUrl: `${appUrl()}/dashboard/onboarding`,
   });
@@ -73,6 +75,7 @@ export async function sendOnboardingCompleteEmail(therapistId: string) {
   if (!therapist) return;
 
   const { subject, html } = onboardingCompleteEmail({
+    locale: toLocale(therapist.locale),
     therapistFullName: therapist.fullName,
     bookingUrl: `${appUrl()}/book/${therapist.slug}`,
     dashboardUrl: `${appUrl()}/dashboard`,
@@ -99,6 +102,7 @@ export async function sendSubscriptionEmail(therapistId: string, change: Subscri
   if (!therapist) return;
 
   const { subject, html } = subscriptionEmail({
+    locale: toLocale(therapist.locale),
     therapistFullName: therapist.fullName,
     tierLabel: change.tierLabel,
     status: change.status,
@@ -125,7 +129,9 @@ export async function sendSignupAlert(therapistId: string) {
   const therapist = await prisma.therapist.findUnique({ where: { id: therapistId } });
   if (!therapist) return;
 
+  // Internal mail to the operator: the product default, not the therapist's pick.
   const { subject, html } = signupAlertEmail({
+    locale: DEFAULT_LOCALE,
     therapistFullName: therapist.fullName,
     therapistEmail: therapist.email,
     signedUpAt: therapist.createdAt,

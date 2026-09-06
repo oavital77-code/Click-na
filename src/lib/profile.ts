@@ -76,6 +76,7 @@ export async function updateProfile(
           fullName: input.fullName,
           phone: input.phone,
           professionType: input.professionType,
+          locale: input.locale,
           slug: input.slug,
           ...(changingSlug ? { slugChangedAt: new Date() } : {}),
         },

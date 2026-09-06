@@ -28,7 +28,7 @@ import {
   onboardingSchema,
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
-import { PROFESSION_LABELS, LOCATION_LABELS, DAY_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
 
 type SlugCheckStatus = "idle" | "checking" | "available" | "unavailable";
 
@@ -40,6 +40,7 @@ type Props = {
 
 export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }: Props) {
   const router = useRouter();
+  const { m, issue } = useI18n();
   const [step, setStep] = useState(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -120,7 +121,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
 
     const parsed = onboardingSchema.safeParse(payload);
     if (!parsed.success) {
-      setSubmitError(parsed.error.issues[0]?.message ?? "יש לתקן את הטופס");
+      setSubmitError(issue(parsed.error.issues[0]?.message));
       return;
     }
 
@@ -134,7 +135,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         setSubmitError(
-          data.error === "slug_taken" ? "הכתובת הזו נתפסה בינתיים, בחר אחרת" : "שגיאה בשמירה"
+          data.error === "slug_taken" ? m.onboarding.slugTakenMeanwhile : m.onboarding.saveError
         );
         setSubmitting(false);
         return;
@@ -142,7 +143,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
       router.push("/dashboard");
       router.refresh();
     } catch {
-      setSubmitError("שגיאת רשת, נסה שוב");
+      setSubmitError(m.common.networkError);
       setSubmitting(false);
     }
   }
@@ -150,33 +151,33 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
   return (
     <Card>
       <CardHeader>
-        <CardTitle>בואו נכיר</CardTitle>
-        <CardDescription>שלב {step} מתוך 4</CardDescription>
+        <CardTitle>{m.onboarding.title}</CardTitle>
+        <CardDescription>{m.onboarding.step(step, 4)}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-6">
         {step === 1 && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="fullName">שם מלא</Label>
+              <Label htmlFor="fullName">{m.settings.fullName}</Label>
               <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="phone">טלפון</Label>
+              <Label htmlFor="phone">{m.settings.phone}</Label>
               <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="professionType">תחום עיסוק</Label>
+              <Label htmlFor="professionType">{m.settings.profession}</Label>
               <Select
                 value={professionType}
                 onValueChange={(v) => setProfessionType(v as (typeof PROFESSION_TYPES)[number])}
               >
                 <SelectTrigger id="professionType">
-                  <SelectValue placeholder="בחר תחום" />
+                  <SelectValue placeholder={m.settings.pickProfession} />
                 </SelectTrigger>
                 <SelectContent>
                   {PROFESSION_TYPES.map((p) => (
                     <SelectItem key={p} value={p}>
-                      {PROFESSION_LABELS[p]}
+                      {m.labels.profession[p]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -187,7 +188,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
 
         {step === 2 && (
           <div className="flex flex-col gap-2">
-            <Label htmlFor="slug">הכתובת שלך</Label>
+            <Label htmlFor="slug">{m.settings.yourAddress}</Label>
             <div className="text-muted-foreground flex items-center gap-1 text-sm">
               <span>{bookingLinkPrefix()}</span>
               <Input
@@ -199,18 +200,18 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
               />
             </div>
             {slugStatus === "checking" && (
-              <p className="text-muted-foreground text-sm">בודק זמינות...</p>
+              <p className="text-muted-foreground text-sm">{m.onboarding.checking}</p>
             )}
             {slugStatus === "available" && (
-              <p className="text-sm text-green-600">הכתובת פנויה ✓</p>
+              <p className="text-sm text-green-600">{m.onboarding.available}</p>
             )}
             {slugStatus === "unavailable" && (
               <p className="text-destructive text-sm">
                 {slugReason === "reserved"
-                  ? "כתובת זו שמורה"
+                  ? m.validation.slugReserved
                   : slugReason === "format"
-                    ? "3-40 תווים: אותיות לטיניות קטנות, ספרות ומקפים בלבד"
-                    : "הכתובת הזו כבר תפוסה"}
+                    ? m.validation.slugFormat
+                    : m.settings.slugTaken}
               </p>
             )}
           </div>
@@ -219,7 +220,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
         {step === 3 && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="duration">משך טיפול</Label>
+              <Label htmlFor="duration">{m.onboarding.duration}</Label>
               <Select
                 value={String(defaultDurationMinutes)}
                 onValueChange={(v) => setDefaultDurationMinutes(Number(v))}
@@ -230,25 +231,25 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                 <SelectContent>
                   {DURATION_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d} דקות
+                      {m.common.minutes(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="locationType">מיקום</Label>
+              <Label htmlFor="locationType">{m.onboarding.location}</Label>
               <Select
                 value={locationType}
                 onValueChange={(v) => setLocationType(v as (typeof LOCATION_TYPES)[number])}
               >
                 <SelectTrigger id="locationType">
-                  <SelectValue placeholder="בחר מיקום" />
+                  <SelectValue placeholder={m.onboarding.pickLocation} />
                 </SelectTrigger>
                 <SelectContent>
                   {LOCATION_TYPES.map((l) => (
                     <SelectItem key={l} value={l}>
-                      {LOCATION_LABELS[l]}
+                      {m.labels.location[l]}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -258,7 +259,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
               locationType === "client_home" ||
               locationType === "hybrid") && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="locationAddress">כתובת</Label>
+                <Label htmlFor="locationAddress">{m.settings.address}</Label>
                 <Input
                   id="locationAddress"
                   value={locationAddress}
@@ -268,7 +269,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
             )}
             {(locationType === "online" || locationType === "hybrid") && (
               <div className="flex flex-col gap-2">
-                <Label htmlFor="onlineMeetingUrl">קישור למפגש מקוון</Label>
+                <Label htmlFor="onlineMeetingUrl">{m.settings.meetingUrl}</Label>
                 <Input
                   id="onlineMeetingUrl"
                   dir="ltr"
@@ -283,9 +284,9 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
         {step === 4 && (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label>מתי אתה פנוי?</Label>
+              <Label>{m.onboarding.whenFree}</Label>
               <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-                {DAY_LABELS.map((label, day) => (
+                {m.labels.days.map((label, day) => (
                   <button
                     key={day}
                     type="button"
@@ -304,7 +305,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-1 flex-col gap-2">
-                <Label htmlFor="startTime">משעה</Label>
+                <Label htmlFor="startTime">{m.onboarding.from}</Label>
                 <Input
                   id="startTime"
                   type="time"
@@ -313,7 +314,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                 />
               </div>
               <div className="flex flex-1 flex-col gap-2">
-                <Label htmlFor="endTime">עד שעה</Label>
+                <Label htmlFor="endTime">{m.onboarding.to}</Label>
                 <Input
                   id="endTime"
                   type="time"
@@ -335,7 +336,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
             disabled={step === 1}
             onClick={() => setStep((s) => s - 1)}
           >
-            הקודם
+            {m.onboarding.prev}
           </Button>
           {step < 4 ? (
             <Button
@@ -348,11 +349,11 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
               }
               onClick={() => setStep((s) => s + 1)}
             >
-              הבא
+              {m.common.next}
             </Button>
           ) : (
             <Button type="button" className="w-full md:w-auto" disabled={days.length === 0 || submitting} onClick={handleSubmit}>
-              {submitting ? "שומר..." : "סיום"}
+              {submitting ? m.common.saving : m.onboarding.finish}
             </Button>
           )}
         </div>

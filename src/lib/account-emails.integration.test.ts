@@ -20,6 +20,7 @@ describe("account emails (against a live database)", () => {
       data: {
         email: `account-${Date.now()}-${Math.random()}@example.com`,
         fullName: "אור אביטל",
+        locale: "he",
         slug: `acct-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         subscription: { create: {} },
         settings: { create: {} },

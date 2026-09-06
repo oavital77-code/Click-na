@@ -1,12 +1,6 @@
 import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
-
-function formatSessionRange(startsAt: Date, endsAt: Date, timezone: string) {
-  const day = formatInTimeZone(startsAt, timezone, "EEEE, d.M.yyyy", { locale: he });
-  const startTime = formatInTimeZone(startsAt, timezone, "HH:mm");
-  const endTime = formatInTimeZone(endsAt, timezone, "HH:mm");
-  return `${day}, ${startTime}–${endTime}`;
-}
+import { getMessages, type Locale, dateFnsLocale, DATE_PATTERNS } from "@/i18n";
+import { fmtRange } from "@/i18n/dates";
 
 /**
  * HTML-escapes a string before it is interpolated into a template.
@@ -28,21 +22,40 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function wrap(bodyHtml: string) {
+/** "6.9.2026" / "6 Sept 2026" — the short date a cancellation names. */
+function day(date: Date, timezone: string, locale: Locale) {
+  return formatInTimeZone(date, timezone, DATE_PATTERNS[locale].date, { locale: dateFnsLocale(locale) });
+}
+
+function dateTime(date: Date, timezone: string, locale: Locale) {
+  return formatInTimeZone(date, timezone, DATE_PATTERNS[locale].dateTime, { locale: dateFnsLocale(locale) });
+}
+
+/**
+ * Every email is written in the therapist's language — the client is their
+ * client, and the practice speaks one language to everyone. `lang` and `dir`
+ * follow, so a mail client lays the Hebrew out right-to-left and the English
+ * left-to-right.
+ */
+function wrap(locale: Locale, bodyHtml: string) {
+  const m = getMessages(locale);
+  const dir = locale === "he" ? "rtl" : "ltr";
   return `<!doctype html>
-<html lang="he" dir="rtl">
+<html lang="${locale}" dir="${dir}">
   <body style="margin:0;padding:24px;background:#f6f5f3;font-family:Arial,Helvetica,sans-serif;color:#1f1f1f;">
     <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px;">
       ${bodyHtml}
       <!-- dir="ltr" on the wordmark: the name and the plus are separate runs, so
            an RTL paragraph reorders them and the footer reads "+Cleana". -->
-      <p style="margin-top:32px;font-size:12px;color:#8a8a8a;">נשלח באמצעות <span dir="ltr">Cleana+</span></p>
+      <p style="margin-top:32px;font-size:12px;color:#8a8a8a;">${m.messages.footer} <span dir="ltr">Cleana+</span></p>
     </div>
   </body>
 </html>`;
 }
 
-export type ConfirmationEmailInput = {
+type Localized = { locale: Locale };
+
+export type ConfirmationEmailInput = Localized & {
   clientFullName: string;
   therapistFullName: string;
   startsAt: Date;
@@ -53,23 +66,24 @@ export type ConfirmationEmailInput = {
 };
 
 export function confirmationEmailForClient(input: ConfirmationEmailInput) {
-  const when = formatSessionRange(input.startsAt, input.endsAt, input.timezone);
+  const m = getMessages(input.locale).messages;
+  const when = fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale);
   return {
-    subject: `אישור תור אצל ${input.therapistFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">שלום ${esc(input.clientFullName)},</h1>
-      <p style="font-size:15px;line-height:1.6;">התור שלך אצל ${esc(input.therapistFullName)} אושר:</p>
+    subject: m.confirmation.subject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.hello(input.clientFullName))}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.confirmation.lead(input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
-      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">מיקום: ${esc(input.location)}</p>` : ""}
+      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
-        קובץ הזמנה ליומן מצורף להודעה זו.
-        לצפייה בפרטי התור או לביטול, <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">היכנסו לניהול ההזמנה</a>.
+        ${m.confirmation.icsAttached}
+        ${m.confirmation.manageLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.confirmation.manageLink}</a>.
       </p>
     `),
   };
 }
 
-export type TherapistNewBookingEmailInput = {
+export type TherapistNewBookingEmailInput = Localized & {
   therapistFullName: string;
   clientFullName: string;
   startsAt: Date;
@@ -78,18 +92,19 @@ export type TherapistNewBookingEmailInput = {
 };
 
 export function newBookingEmailForTherapist(input: TherapistNewBookingEmailInput) {
-  const when = formatSessionRange(input.startsAt, input.endsAt, input.timezone);
+  const m = getMessages(input.locale).messages;
+  const when = fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale);
   return {
-    subject: `הזמנה חדשה: ${input.clientFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">הזמנה חדשה</h1>
-      <p style="font-size:15px;line-height:1.6;">${esc(input.clientFullName)} קבע/ה תור אצלך:</p>
+    subject: m.newBooking.subject(input.clientFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.newBooking.title}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.newBooking.lead(input.clientFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
     `),
   };
 }
 
-export type ReminderEmailInput = {
+export type ReminderEmailInput = Localized & {
   clientFullName: string;
   therapistFullName: string;
   startsAt: Date;
@@ -100,22 +115,23 @@ export type ReminderEmailInput = {
 };
 
 export function reminderEmailForClient(input: ReminderEmailInput) {
-  const when = formatSessionRange(input.startsAt, input.endsAt, input.timezone);
+  const m = getMessages(input.locale).messages;
+  const when = fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale);
   return {
-    subject: `תזכורת: תור אצל ${input.therapistFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">תזכורת לתור</h1>
-      <p style="font-size:15px;line-height:1.6;">שלום ${esc(input.clientFullName)}, מזכירים לך על התור אצל ${esc(input.therapistFullName)}:</p>
+    subject: m.reminder.subject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.reminder.title}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.reminder.lead(input.clientFullName, input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
-      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">מיקום: ${esc(input.location)}</p>` : ""}
+      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
-        צריכים לבטל? <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">היכנסו לניהול ההזמנה</a>.
+        ${m.reminder.cancelLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.reminder.manageLink}</a>.
       </p>
     `),
   };
 }
 
-export type ClientCanceledEmailInput = {
+export type ClientCanceledEmailInput = Localized & {
   therapistFullName: string;
   clientFullName: string;
   startsAt: Date;
@@ -123,17 +139,17 @@ export type ClientCanceledEmailInput = {
 };
 
 export function cancellationEmailForTherapist(input: ClientCanceledEmailInput) {
-  const day = formatInTimeZone(input.startsAt, input.timezone, "d.M.yyyy", { locale: he });
+  const m = getMessages(input.locale).messages;
   return {
-    subject: `ביטול תור: ${input.clientFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">תור בוטל</h1>
-      <p style="font-size:15px;line-height:1.6;">${esc(input.clientFullName)} ביטל/ה את התור שנקבע ל-${day}.</p>
+    subject: m.canceledByClient.subject(input.clientFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.canceledByClient.title}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.canceledByClient.lead(input.clientFullName, day(input.startsAt, input.timezone, input.locale)))}</p>
     `),
   };
 }
 
-export type TherapistCanceledEmailInput = {
+export type TherapistCanceledEmailInput = Localized & {
   clientFullName: string;
   therapistFullName: string;
   startsAt: Date;
@@ -142,20 +158,20 @@ export type TherapistCanceledEmailInput = {
 };
 
 export function cancellationEmailForClient(input: TherapistCanceledEmailInput) {
-  const day = formatInTimeZone(input.startsAt, input.timezone, "d.M.yyyy", { locale: he });
+  const m = getMessages(input.locale).messages;
   return {
-    subject: `התור אצל ${input.therapistFullName} בוטל`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">התור בוטל</h1>
-      <p style="font-size:15px;line-height:1.6;">שלום ${esc(input.clientFullName)}, התור שלך אצל ${esc(input.therapistFullName)} ב-${day} בוטל על ידי המטפל/ת.</p>
+    subject: m.canceledByTherapist.subject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.canceledByTherapist.title}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.canceledByTherapist.lead(input.clientFullName, input.therapistFullName, day(input.startsAt, input.timezone, input.locale)))}</p>
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
-        רוצים לקבוע תור חדש? <a href="${esc(input.bookingPageUrl)}" style="color:#1f6feb;">היכנסו לדף ההזמנות</a>.
+        ${m.canceledByTherapist.rebookLine} <a href="${esc(input.bookingPageUrl)}" style="color:#1f6feb;">${m.canceledByTherapist.rebookLink}</a>.
       </p>
     `),
   };
 }
 
-export type RescheduledEmailInput = {
+export type RescheduledEmailInput = Localized & {
   therapistFullName: string;
   clientFullName: string;
   oldStartsAt: Date;
@@ -164,77 +180,69 @@ export type RescheduledEmailInput = {
 };
 
 export function rescheduledEmailForTherapist(input: RescheduledEmailInput) {
-  const oldWhen = formatInTimeZone(input.oldStartsAt, input.timezone, "d.M.yyyy, HH:mm", { locale: he });
-  const newWhen = formatInTimeZone(input.newStartsAt, input.timezone, "d.M.yyyy, HH:mm", { locale: he });
+  const m = getMessages(input.locale).messages;
   return {
-    subject: `שינוי מועד: ${input.clientFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">מועד תור שונה</h1>
-      <p style="font-size:15px;line-height:1.6;">${esc(input.clientFullName)} העביר/ה את התור:</p>
-      <p style="font-size:14px;color:#8a8a8a;text-decoration:line-through;margin:12px 0 4px;">${oldWhen}</p>
-      <p style="font-size:16px;font-weight:bold;margin:0;">${newWhen}</p>
+    subject: m.rescheduled.subject(input.clientFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.rescheduled.title}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.rescheduled.lead(input.clientFullName))}</p>
+      <p style="font-size:14px;color:#8a8a8a;text-decoration:line-through;margin:12px 0 4px;">${dateTime(input.oldStartsAt, input.timezone, input.locale)}</p>
+      <p style="font-size:16px;font-weight:bold;margin:0;">${dateTime(input.newStartsAt, input.timezone, input.locale)}</p>
     `),
   };
 }
-
 
 /* ------------------------------------------------------------------------
  * Account mail — about the therapist's own account, not about a booking.
  * ---------------------------------------------------------------------- */
 
-export type WelcomeEmailInput = {
+export type WelcomeEmailInput = Localized & {
   therapistFullName: string;
   onboardingUrl: string;
 };
 
 export function welcomeEmail(input: WelcomeEmailInput) {
+  const m = getMessages(input.locale).messages;
   return {
-    subject: "ברוך הבא ל-Cleana+",
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">שלום ${esc(input.therapistFullName)},</h1>
-      <p style="font-size:15px;line-height:1.6;">
-        החשבון שלך נפתח. נשאר צעד אחד: להגדיר את שעות העבודה ולבחור את הכתובת האישית שלך —
-        זה לוקח כמה דקות, ומהרגע שסיימת אפשר לשלוח את הקישור ללקוחות.
-      </p>
+    subject: m.welcome.subject,
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.hello(input.therapistFullName))}</h1>
+      <p style="font-size:15px;line-height:1.6;">${m.welcome.body1}</p>
       <p style="margin:24px 0;">
         <a href="${esc(input.onboardingUrl)}" style="background:#c67139;color:#f9f4ed;padding:12px 22px;border-radius:999px;text-decoration:none;font-size:15px;display:inline-block;">
-          להשלמת ההגדרה
+          ${m.welcome.cta}
         </a>
       </p>
-      <p style="font-size:14px;line-height:1.6;color:#6d6154;">
-        לא צריך להתקין כלום, ולא צריך שהלקוחות שלך ייפתחו חשבון. הם פשוט פותחים את הקישור
-        ובוחרים שעה.
-      </p>
+      <p style="font-size:14px;line-height:1.6;color:#6d6154;">${m.welcome.body2}</p>
     `),
   };
 }
 
-export type OnboardingCompleteEmailInput = {
+export type OnboardingCompleteEmailInput = Localized & {
   therapistFullName: string;
   bookingUrl: string;
   dashboardUrl: string;
 };
 
 export function onboardingCompleteEmail(input: OnboardingCompleteEmailInput) {
+  const m = getMessages(input.locale).messages;
   return {
-    subject: "הקישור שלך פעיל",
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">${esc(input.therapistFullName)}, הכול מוכן.</h1>
-      <p style="font-size:15px;line-height:1.6;">זו הכתובת האישית שלך. אפשר לשלוח אותה ללקוחות כבר עכשיו:</p>
+    subject: m.onboardingComplete.subject,
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.onboardingComplete.title(input.therapistFullName))}</h1>
+      <p style="font-size:15px;line-height:1.6;">${m.onboardingComplete.lead}</p>
       <p style="margin:16px 0;">
         <a href="${esc(input.bookingUrl)}" style="font-size:16px;font-weight:bold;color:#8c491a;word-break:break-all;">${esc(input.bookingUrl)}</a>
       </p>
-      <p style="font-size:14px;line-height:1.6;color:#6d6154;">
-        מי שפותח אותה רואה רק את השעות שפתחת. תור שנסגר נעלם מהרשימה מיד, ואתה מקבל על כך מייל.
-      </p>
+      <p style="font-size:14px;line-height:1.6;color:#6d6154;">${m.onboardingComplete.body}</p>
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
-        <a href="${esc(input.dashboardUrl)}" style="color:#8c491a;">למעבר ליומן שלך</a>
+        <a href="${esc(input.dashboardUrl)}" style="color:#8c491a;">${m.onboardingComplete.dashboardLink}</a>
       </p>
     `),
   };
 }
 
-export type SubscriptionEmailInput = {
+export type SubscriptionEmailInput = Localized & {
   therapistFullName: string;
   /** Shown as-is — "Pro", "Basic". */
   tierLabel: string;
@@ -246,46 +254,45 @@ export type SubscriptionEmailInput = {
 };
 
 export function subscriptionEmail(input: SubscriptionEmailInput) {
-  const until = input.periodEnd
-    ? formatInTimeZone(input.periodEnd, input.timezone, "d.M.yyyy")
-    : null;
+  const m = getMessages(input.locale).messages.subscription;
+  const until = input.periodEnd ? day(input.periodEnd, input.timezone, input.locale) : null;
+  const tier = esc(input.tierLabel);
 
   const body: Record<SubscriptionEmailInput["status"], { subject: string; lead: string; note: string }> = {
     active: {
-      subject: `המנוי שלך פעיל — ${input.tierLabel}`,
-      lead: `המנוי שלך במסלול ${esc(input.tierLabel)} פעיל.`,
-      note: until ? `התקופה הנוכחית בתוקף עד ${until}.` : "",
+      subject: m.activeSubject(input.tierLabel),
+      lead: m.activeLead(tier),
+      note: until ? m.activeNote(until) : "",
     },
     canceled: {
-      subject: "המנוי שלך בוטל",
-      lead: "המנוי שלך בוטל, ולא תחויב יותר.",
-      note: until
-        ? `היומן והקישור שלך ממשיכים לעבוד עד ${until}.`
-        : "היומן והקישור שלך ממשיכים לעבוד עד סוף התקופה ששולמה.",
+      subject: m.canceledSubject,
+      lead: m.canceledLead,
+      note: until ? m.canceledNoteUntil(until) : m.canceledNote,
     },
     past_due: {
-      subject: "התשלום לא עבר",
-      lead: "לא הצלחנו לחייב את אמצעי התשלום שבחשבון.",
-      note: "היומן והקישור ממשיכים לעבוד בינתיים. עדכון אמצעי תשלום יסגור את זה.",
+      subject: m.pastDueSubject,
+      lead: m.pastDueLead,
+      note: m.pastDueNote,
     },
   };
 
   const { subject, lead, note } = body[input.status];
+  const hello = getMessages(input.locale).messages.hello(input.therapistFullName);
 
   return {
     subject,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">שלום ${esc(input.therapistFullName)},</h1>
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(hello)}</h1>
       <p style="font-size:15px;line-height:1.6;">${lead}</p>
       ${note ? `<p style="font-size:14px;line-height:1.6;color:#6d6154;">${note}</p>` : ""}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
-        <a href="${esc(input.dashboardUrl)}" style="color:#8c491a;">לאזור האישי</a>
+        <a href="${esc(input.dashboardUrl)}" style="color:#8c491a;">${m.dashboardLink}</a>
       </p>
     `),
   };
 }
 
-export type SignupAlertEmailInput = {
+export type SignupAlertEmailInput = Localized & {
   therapistFullName: string;
   therapistEmail: string;
   signedUpAt: Date;
@@ -294,11 +301,12 @@ export type SignupAlertEmailInput = {
 
 /** Internal — goes to the operator of Cleana+, not to a therapist. */
 export function signupAlertEmail(input: SignupAlertEmailInput) {
-  const when = formatInTimeZone(input.signedUpAt, input.timezone, "d.M.yyyy HH:mm");
+  const m = getMessages(input.locale).messages.signupAlert;
+  const when = dateTime(input.signedUpAt, input.timezone, input.locale);
   return {
-    subject: `נרשם משתמש חדש: ${input.therapistFullName}`,
-    html: wrap(`
-      <h1 style="font-size:20px;margin:0 0 16px;">משתמש חדש</h1>
+    subject: m.subject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.title}</h1>
       <p style="font-size:15px;line-height:1.8;">
         <strong>${esc(input.therapistFullName)}</strong><br/>
         <span style="color:#6d6154;">${esc(input.therapistEmail)}</span><br/>

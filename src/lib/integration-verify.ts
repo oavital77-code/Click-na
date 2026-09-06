@@ -1,4 +1,5 @@
 import type { AnyCredentials, IntegrationProvider } from "@/lib/integration-providers";
+import { DEFAULT_LOCALE, getMessages, type Locale } from "@/i18n";
 
 /**
  * "Connected" has to mean the credentials actually work. Saving whatever was
@@ -18,28 +19,30 @@ async function request(url: string, init: RequestInit) {
   return fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) });
 }
 
-function networkError(err: unknown): string {
-  if (err instanceof Error && err.name === "TimeoutError") return "השירות לא הגיב בזמן. נסה שוב.";
-  return "לא הצלחנו להגיע לשירות. בדוק את החיבור ונסה שוב.";
+function networkError(err: unknown, locale: Locale): string {
+  const m = getMessages(locale).integrations.errors;
+  if (err instanceof Error && err.name === "TimeoutError") return m.timeout;
+  return m.unreachable;
 }
 
-async function verifyTwilio(creds: AnyCredentials): Promise<VerifyResult> {
+async function verifyTwilio(creds: AnyCredentials, locale: Locale): Promise<VerifyResult> {
+  const m = getMessages(locale).integrations.errors;
   try {
     const res = await request(
       `https://api.twilio.com/2010-04-01/Accounts/${encodeURIComponent(creds.accountSid)}.json`,
       { headers: { Authorization: basicAuth(creds.accountSid, creds.authToken) } }
     );
 
-    if (res.status === 401) return { ok: false, error: "ה-Account SID או ה-Auth Token שגויים." };
-    if (!res.ok) return { ok: false, error: `Twilio החזירה שגיאה (${res.status}).` };
+    if (res.status === 401) return { ok: false, error: m.twilioBadCredentials };
+    if (!res.ok) return { ok: false, error: m.twilioError(res.status) };
 
     const body = (await res.json()) as { friendly_name?: string; status?: string };
     if (body.status && body.status !== "active") {
-      return { ok: false, error: `חשבון ה-Twilio אינו פעיל (${body.status}).` };
+      return { ok: false, error: m.twilioInactive(body.status) };
     }
     return { ok: true, accountLabel: body.friendly_name || creds.accountSid };
   } catch (err) {
-    return { ok: false, error: networkError(err) };
+    return { ok: false, error: networkError(err, locale) };
   }
 }
 
@@ -47,9 +50,10 @@ async function verifyTwilio(creds: AnyCredentials): Promise<VerifyResult> {
  * Server-to-Server OAuth: the token is minted per call from the account
  * credentials, so there is no refresh token to store or expire.
  */
-export async function zoomAccessToken(creds: AnyCredentials): Promise<
+export async function zoomAccessToken(creds: AnyCredentials, locale: Locale = DEFAULT_LOCALE): Promise<
   { ok: true; token: string } | { ok: false; error: string }
 > {
+  const m = getMessages(locale).integrations.errors;
   try {
     const res = await request(
       `https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(creds.accountId)}`,
@@ -57,21 +61,22 @@ export async function zoomAccessToken(creds: AnyCredentials): Promise<
     );
 
     if (!res.ok) {
-      if (res.status === 401) return { ok: false, error: "ה-Client ID או ה-Client Secret שגויים." };
-      if (res.status === 400) return { ok: false, error: "ה-Account ID אינו תואם לאפליקציה הזו." };
-      return { ok: false, error: `Zoom החזירה שגיאה (${res.status}).` };
+      if (res.status === 401) return { ok: false, error: m.zoomBadCredentials };
+      if (res.status === 400) return { ok: false, error: m.zoomAccountMismatch };
+      return { ok: false, error: m.zoomError(res.status) };
     }
 
     const body = (await res.json()) as { access_token?: string };
-    if (!body.access_token) return { ok: false, error: "Zoom לא החזירה טוקן." };
+    if (!body.access_token) return { ok: false, error: m.zoomNoToken };
     return { ok: true, token: body.access_token };
   } catch (err) {
-    return { ok: false, error: networkError(err) };
+    return { ok: false, error: networkError(err, locale) };
   }
 }
 
-async function verifyZoom(creds: AnyCredentials): Promise<VerifyResult> {
-  const token = await zoomAccessToken(creds);
+async function verifyZoom(creds: AnyCredentials, locale: Locale): Promise<VerifyResult> {
+  const m = getMessages(locale).integrations.errors;
+  const token = await zoomAccessToken(creds, locale);
   if (!token.ok) return { ok: false, error: token.error };
 
   try {
@@ -82,18 +87,18 @@ async function verifyZoom(creds: AnyCredentials): Promise<VerifyResult> {
     // The token minted fine but the app lacks meeting:write — connecting would
     // succeed and then every booking would fail to get a link.
     if (res.status === 403) {
-      return { ok: false, error: "לאפליקציה חסרה ההרשאה meeting:write:admin ב-Zoom." };
+      return { ok: false, error: m.zoomMissingScope };
     }
-    if (!res.ok) return { ok: false, error: `Zoom החזירה שגיאה (${res.status}).` };
+    if (!res.ok) return { ok: false, error: m.zoomError(res.status) };
 
     const body = (await res.json()) as { email?: string; display_name?: string };
     return { ok: true, accountLabel: body.email || body.display_name || "Zoom" };
   } catch (err) {
-    return { ok: false, error: networkError(err) };
+    return { ok: false, error: networkError(err, locale) };
   }
 }
 
-const VERIFIERS: Record<IntegrationProvider, (creds: AnyCredentials) => Promise<VerifyResult>> = {
+const VERIFIERS: Record<IntegrationProvider, (creds: AnyCredentials, locale: Locale) => Promise<VerifyResult>> = {
   // Nothing to verify: the feed is served by this app, from data it already has.
   calendar: async () => ({ ok: true, accountLabel: "" }),
   whatsapp: verifyTwilio,
@@ -102,7 +107,8 @@ const VERIFIERS: Record<IntegrationProvider, (creds: AnyCredentials) => Promise<
 
 export function verifyCredentials(
   provider: IntegrationProvider,
-  credentials: AnyCredentials
+  credentials: AnyCredentials,
+  locale: Locale = DEFAULT_LOCALE
 ): Promise<VerifyResult> {
-  return VERIFIERS[provider](credentials);
+  return VERIFIERS[provider](credentials, locale);
 }

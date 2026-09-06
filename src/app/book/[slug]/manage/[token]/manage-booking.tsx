@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { DAY_LABELS_SHORT } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
+import { fmt } from "@/i18n/dates";
 
 type Props = {
   token: string;
@@ -35,6 +35,8 @@ export function ManageBooking({
   therapistPhone,
   withinPolicyWindow,
 }: Props) {
+  const { m, locale, dir } = useI18n();
+  const g = m.manage;
   const [startsAt, setStartsAt] = useState(initialStartsAt);
   const [endsAt, setEndsAt] = useState(initialEndsAt);
   const [status, setStatus] = useState(initialStatus);
@@ -56,15 +58,13 @@ export function ManageBooking({
       const data = await res.json();
       if (!res.ok) {
         setError(
-          data.error === "CANCELLATION_WINDOW_PASSED"
-            ? "לא ניתן לבטל אונליין בטווח זה."
-            : "אירעה שגיאה, נסה שוב"
+          data.error === "CANCELLATION_WINDOW_PASSED" ? g.cancelWindowPassed : m.common.genericError
         );
         return;
       }
       setStatus("canceled_by_client");
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     } finally {
       setCanceling(false);
     }
@@ -85,7 +85,7 @@ export function ManageBooking({
       const data = await res.json();
       setDays(data.days);
     } catch {
-      setError("שגיאה בטעינת זמנים פנויים, נסה שוב");
+      setError(g.loadError);
     }
   }
 
@@ -102,10 +102,10 @@ export function ManageBooking({
       if (!res.ok) {
         setError(
           data.error === "SLOT_ALREADY_BOOKED"
-            ? "המועד הזה כבר נתפס, בחר מועד אחר"
+            ? g.slotTaken
             : data.error === "CANCELLATION_WINDOW_PASSED"
-              ? "לא ניתן לשנות מועד אונליין בטווח זה."
-              : "אירעה שגיאה, נסה שוב"
+              ? g.rescheduleWindowPassed
+              : m.common.genericError
         );
         return;
       }
@@ -114,7 +114,7 @@ export function ManageBooking({
       setMode("view");
       setSelectedDate(null);
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     } finally {
       setSubmittingSlot(null);
     }
@@ -127,14 +127,14 @@ export function ManageBooking({
     return (
       <Card>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-lg font-semibold">בחר/י מועד חדש</p>
+          <p className="text-lg font-semibold">{g.pickNewTime}</p>
           {error && <p className="text-destructive text-sm">{error}</p>}
           {!days ? (
-            <p className="text-muted-foreground text-sm">טוען זמנים פנויים...</p>
+            <p className="text-muted-foreground text-sm">{g.loadingTimes}</p>
           ) : day ? (
             <>
               <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setSelectedDate(null)}>
-                → בחר תאריך אחר
+                {dir === "rtl" ? "→" : "←"} {g.pickAnotherDate}
               </Button>
               <div className="grid grid-cols-3 gap-2">
                 {day.slots.map((slot) => (
@@ -153,7 +153,7 @@ export function ManageBooking({
               </div>
             </>
           ) : availableDates.length === 0 ? (
-            <p className="text-muted-foreground text-sm">אין זמנים פנויים בקרוב</p>
+            <p className="text-muted-foreground text-sm">{g.noTimesSoon}</p>
           ) : (
             <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-2">
               {days.map((d) => {
@@ -167,7 +167,7 @@ export function ManageBooking({
                     onClick={() => setSelectedDate(d.date)}
                     className="flex min-h-11 min-w-16 snap-start flex-col items-center gap-1 rounded-md border px-3 py-2 text-sm hover:bg-accent disabled:text-muted-foreground disabled:opacity-40"
                   >
-                    <span>{DAY_LABELS_SHORT[dow]}</span>
+                    <span>{m.labels.daysShort[dow]}</span>
                     <span className="num font-semibold">{d.date.slice(8, 10)}</span>
                   </button>
                 );
@@ -175,7 +175,7 @@ export function ManageBooking({
             </div>
           )}
           <Button type="button" variant="ghost" size="sm" className="w-full sm:w-fit" onClick={() => setMode("view")}>
-            ביטול
+            {m.common.cancel}
           </Button>
         </CardContent>
       </Card>
@@ -185,12 +185,11 @@ export function ManageBooking({
   return (
     <Card>
       <CardContent className="flex flex-col gap-3">
-        <p className="text-lg font-semibold">התור שלך אצל {therapistFullName}</p>
+        <p className="text-lg font-semibold">{g.yourAppointmentWith(therapistFullName)}</p>
         <p>
-          {formatInTimeZone(new Date(startsAt), timezone, "EEEE, d.M.yyyy", { locale: he })}
+          {fmt(startsAt, timezone, locale, "weekdayDate")}
           <br />
-          {formatInTimeZone(new Date(startsAt), timezone, "HH:mm")}–
-          {formatInTimeZone(new Date(endsAt), timezone, "HH:mm")}
+          {fmt(startsAt, timezone, locale, "time")}–{fmt(endsAt, timezone, locale, "time")}
         </p>
 
         {!isCanceled && (
@@ -198,26 +197,26 @@ export function ManageBooking({
             href={`/api/public/bookings/manage/${token}/ics`}
             className="text-primary inline-flex min-h-11 items-center justify-center text-sm underline underline-offset-4 md:min-h-0 md:w-fit"
           >
-            הוסף ליומן
+            {g.addToCalendar}
           </a>
         )}
 
         {isCanceled ? (
-          <p className="text-muted-foreground text-sm">התור בוטל.</p>
+          <p className="text-muted-foreground text-sm">{g.canceled}</p>
         ) : withinPolicyWindow ? (
           <p className="text-muted-foreground text-sm">
-            לא ניתן לבטל או לשנות מועד אונליין בטווח זה.
-            {therapistPhone && ` צור קשר עם ${therapistFullName}: ${therapistPhone}`}
+            {g.windowPassed}
+            {therapistPhone && ` ${g.contact(therapistFullName, therapistPhone)}`}
           </p>
         ) : (
           <>
             {error && <p className="text-destructive text-sm">{error}</p>}
             <div className="flex flex-wrap justify-center gap-2 md:justify-start">
               <Button type="button" variant="outline" onClick={startReschedule}>
-                שנה מועד
+                {g.reschedule}
               </Button>
               <Button type="button" variant="destructive" disabled={canceling} onClick={handleCancel}>
-                {canceling ? "מבטל..." : "בטל תור"}
+                {canceling ? g.canceling : g.cancel}
               </Button>
             </div>
           </>

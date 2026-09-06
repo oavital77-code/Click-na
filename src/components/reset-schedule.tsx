@@ -5,14 +5,15 @@ import { useRouter } from "next/navigation";
 import { Trash2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useI18n } from "@/i18n/client";
 
 type Scope = "slots" | "everything";
 
-/** Typed by hand for the destructive scope — a click alone is too cheap here. */
-const CONFIRM_WORD = "אפס";
-
 export function ResetSchedule({ scope }: { scope: Scope }) {
   const router = useRouter();
+  const { m } = useI18n();
+  /** Typed by hand for the destructive scope — a click alone is too cheap here. */
+  const CONFIRM_WORD = m.reset.confirmWord;
   const [confirming, setConfirming] = useState(false);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
@@ -30,19 +31,19 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError("האיפוס נכשל. נסה שוב.");
+        setError(m.reset.failed);
         return;
       }
       setDone(
         scope === "slots"
-          ? `נמחקו ${data.sessions} חלונות ו-${data.rules} כללים.`
-          : `נמחקו ${data.sessions} חלונות, ${data.bookings} תורים ו-${data.clients} לקוחות.`
+          ? m.reset.doneSlots(data.sessions, data.rules)
+          : m.reset.doneEverything(data.sessions, data.bookings, data.clients)
       );
       setConfirming(false);
       setTyped("");
       router.refresh();
     } catch {
-      setError("שגיאת רשת, נסה שוב.");
+      setError(m.common.networkError);
     } finally {
       setBusy(false);
     }
@@ -55,10 +56,10 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
         {error && <p className="text-destructive text-sm">{error}</p>}
         {confirming ? (
           <div className="flex flex-col items-center gap-2 sm:flex-row md:items-start">
-            <p className="text-sm">למחוק את כל החלונות הפנויים והחסומים?</p>
+            <p className="text-sm">{m.reset.slotsQuestion}</p>
             <div className="flex gap-2">
               <Button type="button" variant="destructive" size="sm" disabled={busy} onClick={run}>
-                {busy ? "מוחק..." : "כן, נקה"}
+                {busy ? m.reset.deleting : m.reset.yesClear}
               </Button>
               <Button
                 type="button"
@@ -67,19 +68,17 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
                 disabled={busy}
                 onClick={() => setConfirming(false)}
               >
-                ביטול
+                {m.common.cancel}
               </Button>
             </div>
           </div>
         ) : (
           <Button type="button" variant="outline" size="sm" onClick={() => setConfirming(true)}>
             <Trash2 className="size-4" />
-            נקה את כל החלונות
+            {m.reset.clearAll}
           </Button>
         )}
-        <p className="text-muted-foreground text-xs">
-          תורים שכבר הוזמנו לא יימחקו. גם הכללים החוזרים יוסרו, אחרת הם ימלאו את הלוח מחדש.
-        </p>
+        <p className="text-muted-foreground text-xs">{m.reset.slotsNote}</p>
       </div>
     );
   }
@@ -88,11 +87,10 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
     <div className="border-destructive/40 bg-destructive/5 flex flex-col gap-3 rounded-lg border p-4 text-center md:text-start">
       <div className="flex flex-col items-center gap-2 md:flex-row md:items-center">
         <TriangleAlert className="text-destructive size-5" />
-        <p className="font-medium">איפוס מלא של החשבון</p>
+        <p className="font-medium">{m.reset.fullTitle}</p>
       </div>
       <p className="text-muted-foreground text-sm">
-        מוחק את כל החלונות, כל התורים שנקבעו וכל רשומות הלקוחות. הפרופיל, ההגדרות והקישור הציבורי
-        שלך נשארים. <strong className="text-foreground">אין דרך לשחזר.</strong>
+        {m.reset.fullBody} <strong className="text-foreground">{m.reset.fullWarning}</strong>
       </p>
 
       {done && <p className="text-st-open text-sm">{done}</p>}
@@ -101,7 +99,7 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
       {confirming ? (
         <div className="flex flex-col gap-2">
           <label htmlFor="reset-confirm" className="text-sm">
-            כדי לאשר, הקלד <strong>{CONFIRM_WORD}</strong>
+            {m.reset.typeToConfirm} <strong>{CONFIRM_WORD}</strong>
           </label>
           <Input
             id="reset-confirm"
@@ -117,7 +115,7 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
               disabled={busy || typed.trim() !== CONFIRM_WORD}
               onClick={run}
             >
-              {busy ? "מאפס..." : "אפס הכול"}
+              {busy ? m.reset.resetting : m.reset.resetAll}
             </Button>
             <Button
               type="button"
@@ -128,7 +126,7 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
                 setTyped("");
               }}
             >
-              ביטול
+              {m.common.cancel}
             </Button>
           </div>
         </div>
@@ -136,7 +134,7 @@ export function ResetSchedule({ scope }: { scope: Scope }) {
         <div className="flex justify-center md:justify-start">
           <Button type="button" variant="destructive" onClick={() => setConfirming(true)}>
             <Trash2 className="size-4" />
-            אפס את החשבון
+            {m.reset.resetAccount}
           </Button>
         </div>
       )}

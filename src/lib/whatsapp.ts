@@ -1,3 +1,4 @@
+import { DEFAULT_LOCALE, getMessages, type Locale } from "@/i18n";
 import { toE164 } from "@/lib/phone";
 import type { AnyCredentials } from "@/lib/integration-providers";
 
@@ -18,7 +19,7 @@ const TIMEOUT_MS = 10_000;
  */
 export async function sendWhatsApp(
   credentials: AnyCredentials,
-  input: { to: string; body: string }
+  input: { to: string; body: string; locale?: Locale }
 ): Promise<SendWhatsAppResult> {
   const to = toE164(input.to);
   if (!to) return { ok: false, error: `Unusable phone number: ${input.to}` };
@@ -52,8 +53,7 @@ export async function sendWhatsApp(
     if (body?.code === 63016) {
       return {
         ok: false,
-        error:
-          "וואטסאפ חסמה הודעה חופשית ללקוח שלא כתב לך ב-24 השעות האחרונות. נדרשת תבנית מאושרת.",
+        error: getMessages(input.locale ?? DEFAULT_LOCALE).integrations.errors.whatsappWindow,
       };
     }
     return { ok: false, error: body?.message ?? `Twilio returned ${res.status}` };

@@ -15,6 +15,7 @@ const timezone = "Asia/Jerusalem";
 describe("confirmationEmailForClient", () => {
   it("includes the client name, therapist name, formatted time, and manage link", () => {
     const { subject, html } = confirmationEmailForClient({
+      locale: "he",
       clientFullName: "דנה לוי",
       therapistFullName: "ליאור כהן",
       startsAt,
@@ -33,6 +34,7 @@ describe("confirmationEmailForClient", () => {
 
   it("omits the location line when there is no location", () => {
     const { html } = confirmationEmailForClient({
+      locale: "he",
       clientFullName: "דנה לוי",
       therapistFullName: "ליאור כהן",
       startsAt,
@@ -48,6 +50,7 @@ describe("confirmationEmailForClient", () => {
 describe("newBookingEmailForTherapist", () => {
   it("names the client in the subject", () => {
     const { subject, html } = newBookingEmailForTherapist({
+      locale: "he",
       therapistFullName: "ליאור כהן",
       clientFullName: "דנה לוי",
       startsAt,
@@ -62,6 +65,7 @@ describe("newBookingEmailForTherapist", () => {
 describe("reminderEmailForClient", () => {
   it("includes a cancellation link", () => {
     const { html } = reminderEmailForClient({
+      locale: "he",
       clientFullName: "דנה לוי",
       therapistFullName: "ליאור כהן",
       startsAt,
@@ -77,6 +81,7 @@ describe("reminderEmailForClient", () => {
 describe("cancellationEmailForTherapist", () => {
   it("names the client who canceled", () => {
     const { subject, html } = cancellationEmailForTherapist({
+      locale: "he",
       therapistFullName: "ליאור כהן",
       clientFullName: "דנה לוי",
       startsAt,
@@ -90,6 +95,7 @@ describe("cancellationEmailForTherapist", () => {
 describe("cancellationEmailForClient", () => {
   it("links back to the booking page for rebooking", () => {
     const { html } = cancellationEmailForClient({
+      locale: "he",
       clientFullName: "דנה לוי",
       therapistFullName: "ליאור כהן",
       startsAt,
@@ -105,6 +111,7 @@ describe("the shared footer", () => {
   // and the footer reads "+Cleana". Every email in the system carries this.
   it("keeps the wordmark from reversing inside the Hebrew footer", () => {
     const { html } = welcomeEmail({
+      locale: "he",
       therapistFullName: "אור אביטל",
       onboardingUrl: "https://example.com/dashboard/onboarding",
     });
@@ -119,6 +126,7 @@ describe("HTML escaping", () => {
 
   it("escapes a client name before it reaches the therapist's inbox", () => {
     const { html } = newBookingEmailForTherapist({
+      locale: "he",
       therapistFullName: "ליאור כהן",
       clientFullName: hostileName,
       startsAt,
@@ -131,6 +139,7 @@ describe("HTML escaping", () => {
 
   it("escapes therapist-controlled text sent to clients", () => {
     const { html } = confirmationEmailForClient({
+      locale: "he",
       clientFullName: "דנה לוי",
       therapistFullName: "<img src=x onerror=alert(1)>",
       startsAt,
@@ -146,6 +155,7 @@ describe("HTML escaping", () => {
 
   it("leaves ordinary Hebrew names untouched", () => {
     const { html } = welcomeEmail({
+      locale: "he",
       therapistFullName: "ד\"ר יעל בן-דוד",
       onboardingUrl: "https://cleana.example/dashboard/onboarding",
     });
@@ -155,3 +165,37 @@ describe("HTML escaping", () => {
   });
 });
 
+describe("English", () => {
+  // The therapist picks the language; every message to their clients follows it.
+  it("writes the confirmation in English, left to right, with an English date", () => {
+    const { subject, html } = confirmationEmailForClient({
+      locale: "en",
+      clientFullName: "Dana Levi",
+      therapistFullName: "Lior Cohen",
+      startsAt,
+      endsAt,
+      timezone,
+      location: "12 Rothschild Blvd",
+      manageUrl: "https://cleana.example/book/lior/manage/tok123",
+    });
+    expect(subject).toBe("Appointment confirmed with Lior Cohen");
+    expect(html).toContain('dir="ltr"');
+    expect(html).toContain("Hello Dana Levi,");
+    expect(html).toContain("Tuesday, 1 September 2026, 10:00–10:50");
+    expect(html).toContain("Location: 12 Rothschild Blvd");
+    expect(html).toContain("Sent with <span dir=\"ltr\">Cleana+</span>");
+  });
+
+  it("keeps the Hebrew edition byte-for-byte where the therapist chose Hebrew", () => {
+    const { subject, html } = newBookingEmailForTherapist({
+      locale: "he",
+      therapistFullName: "ליאור כהן",
+      clientFullName: "דנה לוי",
+      startsAt,
+      endsAt,
+      timezone,
+    });
+    expect(subject).toBe("הזמנה חדשה: דנה לוי");
+    expect(html).toContain('dir="rtl"');
+  });
+});

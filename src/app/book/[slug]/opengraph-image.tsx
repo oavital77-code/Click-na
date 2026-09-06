@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/prisma";
-import { PROFESSION_LABELS } from "@/lib/labels";
+import { getMessages, toLocale, DEFAULT_LOCALE } from "@/i18n";
 import {
   Backdrop,
   COLORS,
@@ -11,7 +11,7 @@ import {
   loadFonts,
 } from "@/lib/og";
 
-export const alt = "קביעת תור";
+export const alt = getMessages(DEFAULT_LOCALE).og.bookingAlt;
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
@@ -23,10 +23,15 @@ export default async function Image({ params }: { params: Promise<{ slug: string
     include: { settings: true },
   });
 
-  const name = therapist?.settings?.bookingPageHeadline || therapist?.fullName || "קביעת תור";
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
+  // Hebrew hugs the right edge, English the left — the card reads in the
+  // therapist's language like everything else they send.
+  const edge = locale === "he" ? "flex-end" : "flex-start";
+  const name = therapist?.settings?.bookingPageHeadline || therapist?.fullName || m.og.bookingAlt;
   const subtitle = [
-    therapist?.professionType ? PROFESSION_LABELS[therapist.professionType] : null,
-    therapist?.settings ? `${therapist.settings.defaultDurationMinutes} דקות` : null,
+    therapist?.professionType ? m.labels.profession[therapist.professionType] : null,
+    therapist?.settings ? m.common.minutes(therapist.settings.defaultDurationMinutes) : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -40,7 +45,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          alignItems: "flex-end",
+          alignItems: edge,
           position: "relative",
           padding: 76,
           background: COLORS.background,
@@ -57,7 +62,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           style={{
             display: "flex",
             flexDirection: "column",
-            alignItems: "flex-end",
+            alignItems: edge,
             position: "relative",
             gap: 14,
           }}
@@ -90,7 +95,7 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           }}
         >
           {/* Rendered through Line for the same reordering as everything else. */}
-          <Line>קביעת תור אונליין</Line>
+          <Line>{m.og.bookingCta}</Line>
         </div>
       </div>
     ),

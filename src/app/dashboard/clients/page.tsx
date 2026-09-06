@@ -6,16 +6,17 @@ import { Card, CardContent } from "@/components/ui/card";
 import { statusBadgeClass } from "@/lib/status-badge";
 import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
+import { getMessages, toLocale, dateFnsLocale } from "@/i18n";
 
 export default async function ClientsPage() {
   const therapist = await getCurrentTherapist();
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -40,15 +41,13 @@ export default async function ClientsPage() {
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader
-        kicker="אנשים"
-        title="לקוחות"
-        meta="מי שקבע אצלך תור, וההיסטוריה שלו."
+        kicker={m.pages.clients.kicker}
+        title={m.pages.clients.title}
+        meta={m.pages.clients.meta}
       />
 
       {clients.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          עדיין אין לקוחות — הם ייווספו כאן אוטומטית ברגע שמישהו יזמין תור דרך הקישור שלך.
-        </p>
+        <p className="text-muted-foreground text-sm">{m.clients.empty}</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {clients.map((client) => {
@@ -66,24 +65,28 @@ export default async function ClientsPage() {
                     </div>
                     {client.noShowCount > 0 && (
                       <span className={statusBadgeClass("danger") + " ms-auto"}>
-                        {client.noShowCount} לא הגיע/ה
+                        {m.clients.noShows(client.noShowCount)}
                       </span>
                     )}
                   </div>
 
                   <div className="border-border grid grid-cols-3 gap-2 border-t pt-3 text-center">
-                    <Stat label="תורים" value={String(client.totalBookings)} />
+                    <Stat label={m.clients.stats.bookings} value={String(client.totalBookings)} />
                     <Stat
-                      label="ביקור אחרון"
+                      label={m.clients.stats.lastVisit}
                       value={
                         lastVisit
-                          ? formatInTimeZone(lastVisit, therapist.timezone, "d.M.yy")
+                          ? formatInTimeZone(lastVisit, therapist.timezone, locale === "he" ? "d.M.yy" : "d MMM yy", {
+                              locale: dateFnsLocale(locale),
+                            })
                           : "—"
                       }
                     />
                     <Stat
-                      label="מאז"
-                      value={formatInTimeZone(client.createdAt, therapist.timezone, "M/yy")}
+                      label={m.clients.stats.since}
+                      value={formatInTimeZone(client.createdAt, therapist.timezone, locale === "he" ? "M/yy" : "MMM yy", {
+                        locale: dateFnsLocale(locale),
+                      })}
                     />
                   </div>
                 </CardContent>
@@ -94,9 +97,7 @@ export default async function ClientsPage() {
       )}
 
       <Card>
-        <CardContent className="text-muted-foreground py-4 text-xs">
-          רשימת הלקוחות נבנית אוטומטית מהזמנות — אין צורך להוסיף לקוחות ידנית.
-        </CardContent>
+        <CardContent className="text-muted-foreground py-4 text-xs">{m.clients.autoNote}</CardContent>
       </Card>
     </main>
   );

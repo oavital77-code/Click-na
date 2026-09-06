@@ -1,21 +1,21 @@
 import { z } from "zod";
 import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "שעה לא תקינה");
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "validation.timeInvalid");
 const durationSchema = z
   .number()
   .int()
-  .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "משך לא תקין");
+  .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid");
 
 export const ruleCreateSchema = z
   .object({
-    days: z.array(z.number().int().min(0).max(6)).min(1, "בחר לפחות יום אחד"),
+    days: z.array(z.number().int().min(0).max(6)).min(1, "validation.pickAtLeastOneDay"),
     startTime: timeSchema,
     endTime: timeSchema,
     slotDurationMinutes: durationSchema,
   })
   .refine((d) => d.startTime < d.endTime, {
-    message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
+    message: "validation.endAfterStart",
     path: ["endTime"],
   });
 
@@ -31,7 +31,7 @@ export const ruleUpdateSchema = z
     isActive: z.boolean(),
   })
   .refine((d) => d.startTime < d.endTime, {
-    message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
+    message: "validation.endAfterStart",
     path: ["endTime"],
   });
 

@@ -8,11 +8,14 @@ import { bookingLinkPrefix } from "@/lib/public-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OnboardingInput } from "@/lib/onboarding-schema";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
+import { useI18n } from "@/i18n/client";
+import type { Locale } from "@/i18n/config";
 
 type ProfileState = {
   fullName: string;
   phone: string;
   professionType: OnboardingInput["professionType"] | null;
+  locale: Locale;
   slug: string;
   slugChangedAt: string | null;
 };
@@ -53,6 +56,7 @@ export function LinkEditor({
   profile: ProfileState;
   settings: SettingsState;
 }) {
+  const { m, issue } = useI18n();
   const [profile, setProfile] = useState(initialProfile);
   const [settings, setSettings] = useState(initialSettings);
   const [savedSlug, setSavedSlug] = useState(initialProfile.slug);
@@ -81,12 +85,12 @@ export function LinkEditor({
 
     const profileParsed = profileSchema.safeParse(profile);
     if (!profileParsed.success) {
-      setError(profileParsed.error.issues[0]?.message ?? "יש לתקן את הטופס");
+      setError(issue(profileParsed.error.issues[0]?.message));
       return;
     }
     const settingsParsed = settingsSchema.safeParse(settings);
     if (!settingsParsed.success) {
-      setError(settingsParsed.error.issues[0]?.message ?? "יש לתקן את הטופס");
+      setError(issue(settingsParsed.error.issues[0]?.message));
       return;
     }
 
@@ -101,10 +105,10 @@ export function LinkEditor({
       if (!profileRes.ok) {
         setError(
           profileData.error === "slug_taken"
-            ? "הכתובת הזו כבר תפוסה"
+            ? m.settings.slugTaken
             : profileData.error === "SLUG_CHANGE_TOO_SOON"
-              ? "ניתן לשנות כתובת רק פעם ב-30 יום"
-              : "אירעה שגיאה בשמירת הכתובת"
+              ? m.settings.slugTooSoon
+              : m.link.saveAddressError
         );
         return;
       }
@@ -116,7 +120,7 @@ export function LinkEditor({
         body: JSON.stringify(settingsParsed.data),
       });
       if (!settingsRes.ok) {
-        setError("אירעה שגיאה בשמירת תוכן העמוד");
+        setError(m.link.saveContentError);
         return;
       }
 
@@ -125,7 +129,7 @@ export function LinkEditor({
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     } finally {
       setSaving(false);
     }
@@ -136,21 +140,21 @@ export function LinkEditor({
       {/* Preview — always reflects the last saved state. */}
       <div className="flex min-h-[50vh] flex-1 flex-col gap-3 p-4 text-center md:min-h-0 md:p-8 md:text-start">
         <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
-          <h1 className="text-xl">תצוגה מקדימה</h1>
+          <h1 className="text-xl">{m.link.preview}</h1>
           <a
             href={`/book/${savedSlug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-primary inline-flex min-h-11 items-center text-sm underline underline-offset-2 md:min-h-0"
           >
-            פתח בטאב חדש
+            {m.link.openNewTab}
           </a>
         </div>
         <div className="border-border bg-card flex-1 overflow-hidden rounded-lg border">
           <iframe
             key={previewVersion}
             src={`/book/${savedSlug}`}
-            title="תצוגה מקדימה של דף ההזמנה"
+            title={m.link.previewTitle}
             className="h-full min-h-[500px] w-full border-0"
           />
         </div>
@@ -160,10 +164,10 @@ export function LinkEditor({
       <aside className="border-border bg-card flex w-full flex-col gap-4 border-t p-4 text-center md:w-80 md:shrink-0 md:border-t-0 md:border-s md:p-6 md:text-start">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">הקישור שלך</CardTitle>
+            <CardTitle className="text-base">{m.link.yourLink}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <Label htmlFor="slug">הכתובת שלך</Label>
+            <Label htmlFor="slug">{m.settings.yourAddress}</Label>
             <div className="text-muted-foreground flex items-center justify-center gap-1 text-sm md:justify-start">
               <span className="num">{bookingLinkPrefix()}</span>
               <Input
@@ -176,19 +180,19 @@ export function LinkEditor({
               />
             </div>
             {slugCooldownActive && (
-              <p className="text-muted-foreground text-xs">ניתן לשנות את הכתובת רק פעם ב-30 יום</p>
+              <p className="text-muted-foreground text-xs">{m.settings.slugCooldown}</p>
             )}
             <div className="flex flex-wrap justify-center gap-2 pt-1 md:justify-start">
               <Button type="button" variant="outline" size="sm" onClick={copyLink}>
-                {copied ? "הועתק!" : "העתק קישור"}
+                {copied ? m.link.copied : m.link.copyLink}
               </Button>
               <Button type="button" variant="outline" size="sm" asChild>
                 <a
-                  href={`https://wa.me/?text=${encodeURIComponent(`אפשר לקבוע תור אצלי כאן: ${publicUrl}`)}`}
+                  href={`https://wa.me/?text=${encodeURIComponent(m.link.shareText(publicUrl))}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  שתף בווטסאפ
+                  {m.link.shareWhatsapp}
                 </a>
               </Button>
             </div>
@@ -197,11 +201,11 @@ export function LinkEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">תוכן העמוד</CardTitle>
+            <CardTitle className="text-base">{m.link.pageContent}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="bookingPageHeadline">כותרת בדף ההזמנה</Label>
+              <Label htmlFor="bookingPageHeadline">{m.settings.bookingHeadline}</Label>
               <Input
                 id="bookingPageHeadline"
                 value={settings.bookingPageHeadline}
@@ -209,7 +213,7 @@ export function LinkEditor({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="bookingPageDescription">תיאור קצר</Label>
+              <Label htmlFor="bookingPageDescription">{m.settings.bookingDescription}</Label>
               <Input
                 id="bookingPageDescription"
                 value={settings.bookingPageDescription}
@@ -221,11 +225,11 @@ export function LinkEditor({
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">מיתוג</CardTitle>
+            <CardTitle className="text-base">{m.settings.brandingCard}</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="brandColor">צבע מותג</Label>
+              <Label htmlFor="brandColor">{m.settings.brandColor}</Label>
               <div className="flex items-center justify-center gap-2 md:justify-start">
                 <Input
                   id="brandColor"
@@ -234,11 +238,11 @@ export function LinkEditor({
                   value={settings.brandColor || "#000000"}
                   onChange={(e) => setSettings((s) => ({ ...s, brandColor: e.target.value }))}
                 />
-                <span className="text-muted-foreground num text-sm">{settings.brandColor || "ברירת מחדל"}</span>
+                <span className="text-muted-foreground num text-sm">{settings.brandColor || m.link.defaultColor}</span>
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="brandLogoUrl">קישור ללוגו</Label>
+              <Label htmlFor="brandLogoUrl">{m.settings.brandLogoUrl}</Label>
               <Input
                 id="brandLogoUrl"
                 dir="ltr"
@@ -254,10 +258,10 @@ export function LinkEditor({
         {error && <p className="text-destructive text-sm">{error}</p>}
         <div className="flex items-center gap-2">
           <Button type="button" disabled={saving} onClick={handleSave} className="w-full">
-            {saving ? "שומר..." : "שמור ועדכן תצוגה"}
+            {saving ? m.common.saving : m.link.saveAndPreview}
           </Button>
         </div>
-        {saved && <span className="text-center text-sm text-green-600">נשמר ✓</span>}
+        {saved && <span className="text-center text-sm text-green-600">{m.common.saved}</span>}
       </aside>
     </div>
   );

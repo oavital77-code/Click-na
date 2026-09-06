@@ -2,20 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
+import { useI18n } from "@/i18n/client";
+import { fmt } from "@/i18n/dates";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { bookingStatusTone, statusBadgeClass } from "@/lib/status-badge";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "ממתין לאישור",
-  confirmed: "מאושר",
-  canceled_by_client: "בוטל ע\"י הלקוח",
-  canceled_by_therapist: "בוטל",
-  completed: "הושלם",
-  no_show: "לא הגיע",
-};
 
 const CANCELABLE = new Set(["pending", "confirmed"]);
 
@@ -37,6 +29,7 @@ type Props = {
 type Filter = "today" | "week" | "all";
 
 export function BookingsView({ timezone, initialBookings }: Props) {
+  const { m, locale } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState<Filter>("today");
   const [canceling, setCanceling] = useState<string | null>(null);
@@ -69,7 +62,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
         body: JSON.stringify({ reason: reason || undefined }),
       });
       if (!res.ok) {
-        setError("אירעה שגיאה, נסה שוב");
+        setError(m.common.genericError);
         return;
       }
       setBookings((prev) =>
@@ -78,18 +71,14 @@ export function BookingsView({ timezone, initialBookings }: Props) {
       setCanceling(null);
       setReason("");
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     }
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-        {([
-          ["today", "היום"],
-          ["week", "השבוע"],
-          ["all", "הקרובים"],
-        ] as const).map(([value, label]) => (
+        {(["today", "week", "all"] as const).map((value) => (
           <Button
             key={value}
             type="button"
@@ -97,7 +86,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
             size="sm"
             onClick={() => setFilter(value)}
           >
-            {label}
+            {m.bookings.filters[value]}
           </Button>
         ))}
       </div>
@@ -105,7 +94,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
       {error && <p className="text-destructive text-sm">{error}</p>}
 
       {filtered.length === 0 ? (
-        <p className="text-muted-foreground text-sm">אין הזמנות בטווח הזה</p>
+        <p className="text-muted-foreground text-sm">{m.bookings.empty}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {filtered.map((booking) => (
@@ -114,14 +103,12 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                 <CardContent className="flex flex-col gap-2">
                   <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
                     <span className="text-sm">
-                      {formatInTimeZone(new Date(booking.startsAt), timezone, "EEEE, d.M", {
-                        locale: he,
-                      })}{" "}
-                      · {formatInTimeZone(new Date(booking.startsAt), timezone, "HH:mm")}–
-                      {formatInTimeZone(new Date(booking.endsAt), timezone, "HH:mm")}
+                      {fmt(booking.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
+                      {fmt(booking.startsAt, timezone, locale, "time")}–
+                      {fmt(booking.endsAt, timezone, locale, "time")}
                     </span>
                     <span className={statusBadgeClass(bookingStatusTone(booking.status))}>
-                      {STATUS_LABELS[booking.status] ?? booking.status}
+                      {m.bookings.status[booking.status as keyof typeof m.bookings.status] ?? booking.status}
                     </span>
                   </div>
                   <p className="font-medium">{booking.clientName}</p>
@@ -129,14 +116,14 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                     <p className="text-muted-foreground text-sm">{booking.clientPhone}</p>
                   )}
                   {booking.clientNote && (
-                    <p className="text-muted-foreground text-sm">הערה: {booking.clientNote}</p>
+                    <p className="text-muted-foreground text-sm">{m.bookings.note(booking.clientNote)}</p>
                   )}
 
                   {CANCELABLE.has(booking.status) &&
                     (canceling === booking.id ? (
                       <div className="flex flex-col gap-2">
                         <Input
-                          placeholder="סיבת ביטול (אופציונלי, יישלח ללקוח)"
+                          placeholder={m.bookings.cancelReasonPlaceholder}
                           value={reason}
                           onChange={(e) => setReason(e.target.value)}
                         />
@@ -147,7 +134,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                             size="sm"
                             onClick={() => confirmCancel(booking.id)}
                           >
-                            אשר ביטול
+                            {m.bookings.confirmCancel}
                           </Button>
                           <Button
                             type="button"
@@ -158,7 +145,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                               setReason("");
                             }}
                           >
-                            חזור
+                            {m.common.back}
                           </Button>
                         </div>
                       </div>
@@ -170,7 +157,7 @@ export function BookingsView({ timezone, initialBookings }: Props) {
                         className="w-full md:w-fit"
                         onClick={() => setCanceling(booking.id)}
                       >
-                        בטל תור
+                        {m.bookings.cancelBooking}
                       </Button>
                     ))}
                 </CardContent>

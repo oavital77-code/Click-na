@@ -10,9 +10,9 @@ import { z } from "zod";
 const httpUrl = z
   .string()
   .trim()
-  .url("קישור לא תקין")
+  .url("validation.urlInvalid")
   .max(500)
-  .refine((value) => /^https?:\/\//i.test(value), "הקישור חייב להתחיל ב-http:// או https://");
+  .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 
 export const PROFESSION_TYPES = [
@@ -29,49 +29,49 @@ export const LOCATION_TYPES = ["clinic", "online", "client_home", "hybrid"] as c
 // Spec 8.3 / 7.1 step 3.
 export const DURATION_OPTIONS = [30, 45, 50, 60, 90] as const;
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "שעה לא תקינה");
+const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "validation.timeInvalid");
 
 export const onboardingSchema = z
   .object({
-    fullName: z.string().trim().min(2, "שם קצר מדי").max(255),
-    phone: z.string().trim().min(7, "טלפון לא תקין").max(50),
+    fullName: z.string().trim().min(2, "validation.nameTooShort").max(255),
+    phone: z.string().trim().min(7, "validation.phoneInvalid").max(50),
     professionType: z.enum(PROFESSION_TYPES),
     slug: z
       .string()
       .trim()
       .toLowerCase()
-      .regex(SLUG_REGEX, "3-40 תווים: אותיות לטיניות קטנות, ספרות ומקפים בלבד")
-      .refine((slug) => !RESERVED_SLUGS.has(slug), "כתובת זו שמורה"),
+      .regex(SLUG_REGEX, "validation.slugFormat")
+      .refine((slug) => !RESERVED_SLUGS.has(slug), "validation.slugReserved"),
     defaultDurationMinutes: z
       .number()
       .int()
-      .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "משך לא תקין"),
+      .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid"),
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
     onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
     availability: z
       .object({
-        days: z.array(z.number().int().min(0).max(6)).min(1, "בחר לפחות יום אחד"),
+        days: z.array(z.number().int().min(0).max(6)).min(1, "validation.pickAtLeastOneDay"),
         startTime: timeSchema,
         endTime: timeSchema,
       })
       .refine((a) => a.startTime < a.endTime, {
-        message: "שעת הסיום חייבת להיות אחרי שעת ההתחלה",
+        message: "validation.endAfterStart",
         path: ["endTime"],
       }),
   })
   .refine(
     (data) => data.locationType !== "online" || !!data.onlineMeetingUrl,
-    { message: "נדרש קישור למפגש מקוון", path: ["onlineMeetingUrl"] }
+    { message: "validation.meetingUrlRequired", path: ["onlineMeetingUrl"] }
   )
   .refine(
     (data) => !["clinic", "client_home"].includes(data.locationType) || !!data.locationAddress,
-    { message: "נדרשת כתובת", path: ["locationAddress"] }
+    { message: "validation.addressRequired", path: ["locationAddress"] }
   )
   .refine(
     (data) =>
       data.locationType !== "hybrid" || !!(data.locationAddress || data.onlineMeetingUrl),
-    { message: "נדרשת כתובת או קישור למפגש מקוון", path: ["locationAddress"] }
+    { message: "validation.addressOrMeetingUrlRequired", path: ["locationAddress"] }
   );
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;

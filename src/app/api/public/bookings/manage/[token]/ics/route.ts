@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateBookingIcs } from "@/lib/ics";
+import { getMessages, toLocale } from "@/i18n";
 
 export async function GET(
   _request: NextRequest,
@@ -26,7 +27,7 @@ export async function GET(
     uid: booking.id,
     startsAt: booking.session.startsAt,
     endsAt: booking.session.endsAt,
-    therapistFullName: booking.therapist.fullName,
+    title: getMessages(toLocale(booking.therapist.locale)).ics.eventTitle(booking.therapist.fullName),
     location,
   });
 

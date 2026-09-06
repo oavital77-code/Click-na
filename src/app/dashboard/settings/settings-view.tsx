@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -25,7 +26,8 @@ import {
   PROFESSION_TYPES,
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
-import { PROFESSION_LABELS, LOCATION_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
+import { LOCALES, type Locale } from "@/i18n/config";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
 import { ResetSchedule } from "@/components/reset-schedule";
 
@@ -33,6 +35,7 @@ type ProfileState = {
   fullName: string;
   phone: string;
   professionType: OnboardingInput["professionType"] | null;
+  locale: Locale;
   slug: string;
   slugChangedAt: string | null;
 };
@@ -95,6 +98,8 @@ export function SettingsView({
   profile: ProfileState;
   settings: SettingsState;
 }) {
+  const router = useRouter();
+  const { m, issue } = useI18n();
   const [profile, setProfile] = useState(initialProfile);
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -116,7 +121,7 @@ export function SettingsView({
     setProfileSaved(false);
     const parsed = profileSchema.safeParse(profile);
     if (!parsed.success) {
-      setProfileError(parsed.error.issues[0]?.message ?? "יש לתקן את הטופס");
+      setProfileError(issue(parsed.error.issues[0]?.message));
       return;
     }
     setProfileSaving(true);
@@ -130,17 +135,20 @@ export function SettingsView({
       if (!res.ok) {
         setProfileError(
           data.error === "slug_taken"
-            ? "הכתובת הזו כבר תפוסה"
+            ? m.settings.slugTaken
             : data.error === "SLUG_CHANGE_TOO_SOON"
-              ? "ניתן לשנות כתובת רק פעם ב-30 יום"
-              : "אירעה שגיאה, נסה שוב"
+              ? m.settings.slugTooSoon
+              : m.common.genericError
         );
         return;
       }
       setProfile((prev) => ({ ...prev, slugChangedAt: data.therapist.slugChangedAt }));
       setProfileSaved(true);
+      // The language lives in the profile; the server components around this
+      // form (nav, header) only pick the change up on a fresh render.
+      router.refresh();
     } catch {
-      setProfileError("שגיאת רשת, נסה שוב");
+      setProfileError(m.common.networkError);
     } finally {
       setProfileSaving(false);
     }
@@ -151,7 +159,7 @@ export function SettingsView({
     setSettingsSaved(false);
     const parsed = settingsSchema.safeParse(settings);
     if (!parsed.success) {
-      setSettingsError(parsed.error.issues[0]?.message ?? "יש לתקן את הטופס");
+      setSettingsError(issue(parsed.error.issues[0]?.message));
       return;
     }
     setSettingsSaving(true);
@@ -162,12 +170,12 @@ export function SettingsView({
         body: JSON.stringify(parsed.data),
       });
       if (!res.ok) {
-        setSettingsError("אירעה שגיאה, נסה שוב");
+        setSettingsError(m.common.genericError);
         return;
       }
       setSettingsSaved(true);
     } catch {
-      setSettingsError("שגיאת רשת, נסה שוב");
+      setSettingsError(m.common.networkError);
     } finally {
       setSettingsSaving(false);
     }
@@ -187,14 +195,14 @@ export function SettingsView({
 
   return (
     <div className="flex flex-col gap-6">
-      {/* פרופיל + הקישור שלי */}
+      {/* Profile and public link */}
       <Card>
         <CardHeader>
-          <CardTitle>פרופיל והקישור שלי</CardTitle>
+          <CardTitle>{m.settings.profileCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="fullName">שם מלא</Label>
+            <Label htmlFor="fullName">{m.settings.fullName}</Label>
             <Input
               id="fullName"
               value={profile.fullName}
@@ -202,7 +210,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="phone">טלפון</Label>
+            <Label htmlFor="phone">{m.settings.phone}</Label>
             <Input
               id="phone"
               value={profile.phone}
@@ -210,7 +218,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="professionType">תחום עיסוק</Label>
+            <Label htmlFor="professionType">{m.settings.profession}</Label>
             <Select
               value={profile.professionType ?? ""}
               onValueChange={(v) =>
@@ -218,19 +226,38 @@ export function SettingsView({
               }
             >
               <SelectTrigger id="professionType">
-                <SelectValue placeholder="בחר תחום" />
+                <SelectValue placeholder={m.settings.pickProfession} />
               </SelectTrigger>
               <SelectContent>
                 {PROFESSION_TYPES.map((p) => (
                   <SelectItem key={p} value={p}>
-                    {PROFESSION_LABELS[p]}
+                    {m.labels.profession[p]}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="slug">הכתובת שלך</Label>
+            <Label htmlFor="locale">{m.settings.language}</Label>
+            <Select
+              value={profile.locale}
+              onValueChange={(v) => setProfile((p) => ({ ...p, locale: v as Locale }))}
+            >
+              <SelectTrigger id="locale">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LOCALES.map((l) => (
+                  <SelectItem key={l} value={l}>
+                    {m.labels.language[l]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-muted-foreground text-xs">{m.settings.languageHelp}</p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="slug">{m.settings.yourAddress}</Label>
             <div className="text-muted-foreground flex items-center gap-1 text-sm">
               <span>{bookingLinkPrefix()}</span>
               <Input
@@ -245,29 +272,27 @@ export function SettingsView({
               />
             </div>
             {slugCooldownActive && (
-              <p className="text-muted-foreground text-xs">
-                ניתן לשנות את הכתובת רק פעם ב-30 יום
-              </p>
+              <p className="text-muted-foreground text-xs">{m.settings.slugCooldown}</p>
             )}
           </div>
           {profileError && <p className="text-destructive text-sm">{profileError}</p>}
           <div className="flex items-center gap-2">
             <Button type="button" disabled={profileSaving} onClick={saveProfile} className="w-fit">
-              {profileSaving ? "שומר..." : "שמור פרופיל"}
+              {profileSaving ? m.common.saving : m.settings.saveProfile}
             </Button>
-            {profileSaved && <span className="text-sm text-green-600">נשמר ✓</span>}
+            {profileSaved && <span className="text-sm text-green-600">{m.common.saved}</span>}
           </div>
         </CardContent>
       </Card>
 
-      {/* זמני טיפול */}
+      {/* Session times */}
       <Card>
         <CardHeader>
-          <CardTitle>זמני טיפול</CardTitle>
+          <CardTitle>{m.settings.timesCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="duration">משך טיפול ברירת מחדל</Label>
+            <Label htmlFor="duration">{m.settings.defaultDuration}</Label>
             <Select
               value={String(settings.defaultDurationMinutes)}
               onValueChange={(v) => updateSettings("defaultDurationMinutes", Number(v))}
@@ -278,7 +303,7 @@ export function SettingsView({
               <SelectContent>
                 {DURATION_OPTIONS.map((d) => (
                   <SelectItem key={d} value={String(d)}>
-                    {d} דקות
+                    {m.common.minutes(d)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -286,7 +311,7 @@ export function SettingsView({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="bufferBefore">זמן הכנה לפני (דקות)</Label>
+              <Label htmlFor="bufferBefore">{m.settings.bufferBefore}</Label>
               <Input
                 id="bufferBefore"
                 type="number"
@@ -296,7 +321,7 @@ export function SettingsView({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="bufferAfter">זמן ניקיון אחרי (דקות)</Label>
+              <Label htmlFor="bufferAfter">{m.settings.bufferAfter}</Label>
               <Input
                 id="bufferAfter"
                 type="number"
@@ -308,7 +333,7 @@ export function SettingsView({
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="minNotice">מינימום שעות מראש</Label>
+              <Label htmlFor="minNotice">{m.settings.minNotice}</Label>
               <Input
                 id="minNotice"
                 type="number"
@@ -318,7 +343,7 @@ export function SettingsView({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="maxAdvance">עד כמה ימים קדימה</Label>
+              <Label htmlFor="maxAdvance">{m.settings.maxAdvance}</Label>
               <Input
                 id="maxAdvance"
                 type="number"
@@ -331,14 +356,14 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* מיקום */}
+      {/* Location */}
       <Card>
         <CardHeader>
-          <CardTitle>מיקום</CardTitle>
+          <CardTitle>{m.settings.locationCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="locationType">סוג מיקום</Label>
+            <Label htmlFor="locationType">{m.settings.locationType}</Label>
             <Select
               value={settings.locationType}
               onValueChange={(v) => updateSettings("locationType", v as SettingsState["locationType"])}
@@ -349,7 +374,7 @@ export function SettingsView({
               <SelectContent>
                 {LOCATION_TYPES.map((l) => (
                   <SelectItem key={l} value={l}>
-                    {LOCATION_LABELS[l]}
+                    {m.labels.location[l]}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -359,7 +384,7 @@ export function SettingsView({
             settings.locationType === "client_home" ||
             settings.locationType === "hybrid") && (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="locationAddress">כתובת</Label>
+              <Label htmlFor="locationAddress">{m.settings.address}</Label>
               <Input
                 id="locationAddress"
                 value={settings.locationAddress}
@@ -369,7 +394,7 @@ export function SettingsView({
           )}
           {(settings.locationType === "online" || settings.locationType === "hybrid") && (
             <div className="flex flex-col gap-2">
-              <Label htmlFor="onlineMeetingUrl">קישור למפגש מקוון</Label>
+              <Label htmlFor="onlineMeetingUrl">{m.settings.meetingUrl}</Label>
               <Input
                 id="onlineMeetingUrl"
                 dir="ltr"
@@ -379,7 +404,7 @@ export function SettingsView({
             </div>
           )}
           <div className="flex flex-col gap-2">
-            <Label htmlFor="locationNotes">הוראות הגעה, חניה</Label>
+            <Label htmlFor="locationNotes">{m.settings.locationNotes}</Label>
             <Input
               id="locationNotes"
               value={settings.locationNotes}
@@ -389,14 +414,14 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* מדיניות ביטול והזמנות */}
+      {/* Cancellation and booking policy */}
       <Card>
         <CardHeader>
-          <CardTitle>מדיניות ביטול והזמנות</CardTitle>
+          <CardTitle>{m.settings.policyCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="cancellationHours">עד כמה שעות לפני מותר לבטל</Label>
+            <Label htmlFor="cancellationHours">{m.settings.cancellationHours}</Label>
             <Input
               id="cancellationHours"
               type="number"
@@ -406,7 +431,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="cancellationText">טקסט מדיניות ביטול (מוצג ללקוח)</Label>
+            <Label htmlFor="cancellationText">{m.settings.cancellationText}</Label>
             <Input
               id="cancellationText"
               value={settings.cancellationPolicyText}
@@ -414,41 +439,41 @@ export function SettingsView({
             />
           </div>
           <ToggleRow
-            label="דרוש טלפון בטופס ההזמנה"
+            label={m.settings.requirePhone}
             checked={settings.requirePhone}
             onChange={(v) => updateSettings("requirePhone", v)}
           />
           <ToggleRow
-            label="אישור הזמנה אוטומטי"
+            label={m.settings.autoConfirm}
             checked={settings.autoConfirm}
             onChange={(v) => updateSettings("autoConfirm", v)}
           />
         </CardContent>
       </Card>
 
-      {/* התראות */}
+      {/* Notifications */}
       <Card>
         <CardHeader>
-          <CardTitle>התראות</CardTitle>
+          <CardTitle>{m.settings.notificationsCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <ToggleRow
-            label="שליחת אישור הזמנה במייל"
+            label={m.settings.emailConfirmation}
             checked={settings.sendEmailConfirmation}
             onChange={(v) => updateSettings("sendEmailConfirmation", v)}
           />
           <ToggleRow
-            label="תזכורת במייל"
+            label={m.settings.emailReminder}
             checked={settings.sendEmailReminder}
             onChange={(v) => updateSettings("sendEmailReminder", v)}
           />
           <ToggleRow
-            label="תזכורת בוואטסאפ"
+            label={m.settings.whatsappReminder}
             checked={settings.sendSmsReminder}
             onChange={(v) => updateSettings("sendSmsReminder", v)}
           />
           <div className="flex flex-col gap-2">
-            <Label htmlFor="reminderHours">כמה שעות לפני לשלוח תזכורת</Label>
+            <Label htmlFor="reminderHours">{m.settings.reminderHours}</Label>
             <Input
               id="reminderHours"
               type="number"
@@ -457,20 +482,18 @@ export function SettingsView({
               onChange={(e) => updateSettings("reminderHoursBefore", Number(e.target.value))}
             />
           </div>
-          <p className="text-muted-foreground text-xs">
-            שליחה בפועל של הודעות תיכנס בשלב הבא — כרגע ההעדפות נשמרות בלבד.
-          </p>
+          <p className="text-muted-foreground text-xs">{m.settings.notificationsNote}</p>
         </CardContent>
       </Card>
 
-      {/* מיתוג */}
+      {/* Branding */}
       <Card>
         <CardHeader>
-          <CardTitle>מיתוג</CardTitle>
+          <CardTitle>{m.settings.brandingCard}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
-            <Label htmlFor="bookingPageHeadline">כותרת בדף ההזמנה</Label>
+            <Label htmlFor="bookingPageHeadline">{m.settings.bookingHeadline}</Label>
             <Input
               id="bookingPageHeadline"
               value={settings.bookingPageHeadline}
@@ -478,7 +501,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="bookingPageDescription">תיאור קצר</Label>
+            <Label htmlFor="bookingPageDescription">{m.settings.bookingDescription}</Label>
             <Input
               id="bookingPageDescription"
               value={settings.bookingPageDescription}
@@ -486,7 +509,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="brandColor">צבע מותג</Label>
+            <Label htmlFor="brandColor">{m.settings.brandColor}</Label>
             <Input
               id="brandColor"
               type="color"
@@ -496,7 +519,7 @@ export function SettingsView({
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="brandLogoUrl">קישור ללוגו</Label>
+            <Label htmlFor="brandLogoUrl">{m.settings.brandLogoUrl}</Label>
             <Input
               id="brandLogoUrl"
               dir="ltr"
@@ -512,32 +535,30 @@ export function SettingsView({
       </div>
       <div className="flex flex-col items-center gap-2 md:flex-row md:justify-start">
         <Button type="button" disabled={settingsSaving} onClick={saveSettings} className="w-full md:w-fit">
-          {settingsSaving ? "שומר..." : "שמור הגדרות"}
+          {settingsSaving ? m.common.saving : m.settings.saveSettings}
         </Button>
-        {settingsSaved && <span className="text-sm text-green-600">נשמר ✓</span>}
+        {settingsSaved && <span className="text-sm text-green-600">{m.common.saved}</span>}
       </div>
 
-      {/* פרטיות */}
+      {/* Privacy */}
       <Card>
         <CardHeader>
-          <CardTitle>פרטיות</CardTitle>
-          <CardDescription>הנתונים שלך בלבד — לא נחשפים ללקוחות אחרים</CardDescription>
+          <CardTitle>{m.settings.privacyCard}</CardTitle>
+          <CardDescription>{m.settings.privacyDescription}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           <Button asChild variant="outline" className="w-full md:w-fit">
-            <a href="/api/me/export">ייצוא הנתונים שלי (JSON)</a>
+            <a href="/api/me/export">{m.settings.exportData}</a>
           </Button>
-          <p className="text-muted-foreground text-xs">
-            ניהול החשבון וההתחברות (כולל מחיקת חשבון) מתבצע דרך תפריט המשתמש למעלה.
-          </p>
+          <p className="text-muted-foreground text-xs">{m.settings.accountNote}</p>
         </CardContent>
       </Card>
 
-      {/* איפוס */}
+      {/* Reset */}
       <Card>
         <CardHeader>
-          <CardTitle>איפוס</CardTitle>
-          <CardDescription>התחלה מחדש מלוח ריק</CardDescription>
+          <CardTitle>{m.settings.resetCard}</CardTitle>
+          <CardDescription>{m.settings.resetDescription}</CardDescription>
         </CardHeader>
         <CardContent>
           <ResetSchedule scope="everything" />

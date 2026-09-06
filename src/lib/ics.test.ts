@@ -6,7 +6,7 @@ describe("generateBookingIcs", () => {
     uid: "booking-uid-123",
     startsAt: new Date("2026-09-01T09:00:00Z"),
     endsAt: new Date("2026-09-01T09:50:00Z"),
-    therapistFullName: "ליאור כהן",
+    title: "תור אצל ליאור כהן",
     location: "רוטשילד 12, תל אביב",
   };
 
@@ -32,8 +32,8 @@ describe("generateBookingIcs", () => {
     expect(generateBookingIcs(base)).toContain(`UID:${base.uid}`);
   });
 
-  it("includes the Hebrew therapist name in the summary", () => {
-    expect(generateBookingIcs(base)).toContain(base.therapistFullName);
+  it("carries the caller's title (already in the reader's language) into the summary", () => {
+    expect(generateBookingIcs(base)).toContain("ליאור כהן");
   });
 
   it("omits LOCATION when none is given, without erroring", () => {

@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ManageBooking } from "./manage-booking";
+import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
+import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 
 function isWithinCancellationWindow(startsAt: Date, cancellationPolicyHours: number) {
   const hoursUntilSession = (startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
@@ -19,15 +21,22 @@ export default async function ManageBookingPage({
   if (!booking) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-        <p className="text-lg font-medium">ההזמנה לא נמצאה</p>
+        <p className="text-lg font-medium">{getMessages(DEFAULT_LOCALE).manage.notFound}</p>
       </main>
     );
   }
 
+  const locale = toLocale(booking.therapist.locale);
   const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
 
   return (
-    <main className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-4 py-8 text-center md:text-start">
+    <I18nProvider locale={locale}>
+    <HtmlLangDir locale={locale} />
+    <main
+      dir={dirFor(locale)}
+      lang={langTag(locale)}
+      className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-6 p-4 py-8 text-center md:text-start"
+    >
       <ManageBooking
         token={token}
         slug={booking.therapist.slug}
@@ -43,5 +52,6 @@ export default async function ManageBookingPage({
         )}
       />
     </main>
+    </I18nProvider>
   );
 }

@@ -3,16 +3,17 @@ import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { credentialStorageReady, listIntegrations } from "@/lib/integrations";
 import { AddonsView } from "./addons-view";
+import { getMessages, toLocale } from "@/i18n";
 
 export default async function AddonsPage() {
   const therapist = await getCurrentTherapist();
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -20,14 +21,14 @@ export default async function AddonsPage() {
     redirect("/dashboard/onboarding");
   }
 
-  const integrations = await listIntegrations(therapist.id);
+  const integrations = await listIntegrations(therapist.id, locale);
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader
-        kicker="חיבורים"
-        title="תוספים"
-        meta="מפעילים תוסף, מזינים את פרטי החשבון שלך אצל אותו שירות, וזה מתחיל לעבוד."
+        kicker={m.pages.addons.kicker}
+        title={m.pages.addons.title}
+        meta={m.pages.addons.meta}
       />
       <AddonsView
         initial={{ integrations, credentialStorageReady: credentialStorageReady() }}

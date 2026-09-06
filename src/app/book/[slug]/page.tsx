@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { PROFESSION_LABELS } from "@/lib/labels";
+import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
+import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 import { resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
 import { BookingFlow } from "./booking-flow";
@@ -18,18 +19,23 @@ export async function generateMetadata({ params }: PageProps<"/book/[slug]">) {
     include: { settings: true },
   });
 
-  if (!therapist) return { title: "הדף לא נמצא" };
+  if (!therapist) return { title: getMessages(DEFAULT_LOCALE).book.notFound };
 
+  const locale = toLocale(therapist.locale);
+  const m = getMessages(locale);
   const name = therapist.settings?.bookingPageHeadline || therapist.fullName;
-  const profession = therapist.professionType
-    ? PROFESSION_LABELS[therapist.professionType]
-    : null;
-  const description = [profession, "קביעת תור אונליין"].filter(Boolean).join(" · ");
+  const profession = therapist.professionType ? m.labels.profession[therapist.professionType] : null;
+  const description = [profession, m.book.onlineBooking].filter(Boolean).join(" · ");
 
   return {
     title: name,
     description,
-    openGraph: { title: name, description, type: "website" as const, locale: "he_IL" },
+    openGraph: {
+      title: name,
+      description,
+      type: "website" as const,
+      locale: locale === "he" ? "he_IL" : "en_US",
+    },
     twitter: { card: "summary_large_image" as const, title: name, description },
   };
 }
@@ -56,19 +62,28 @@ export default async function BookingPage({
       redirect(`/book/${currentSlug}`);
     }
 
+    const m = getMessages(DEFAULT_LOCALE);
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
-        <p className="text-lg font-medium">הדף לא נמצא</p>
-        <p className="text-muted-foreground text-sm">בדוק שהקישור נכון.</p>
+        <p className="text-lg font-medium">{m.book.notFound}</p>
+        <p className="text-muted-foreground text-sm">{m.book.checkLink}</p>
       </main>
     );
   }
 
   const { settings } = therapist;
+  // The page speaks the therapist's language to every visitor: it is their
+  // practice's front door, not the viewer's account.
+  const locale = toLocale(therapist.locale);
+  const m = getMessages(locale);
   const brandHsl = settings.brandColor ? hexToHslTriple(settings.brandColor) : null;
 
   return (
+    <I18nProvider locale={locale}>
+    <HtmlLangDir locale={locale} />
     <main
+      dir={dirFor(locale)}
+      lang={langTag(locale)}
       className="mx-auto flex w-full max-w-lg flex-1 flex-col gap-6 p-4 py-8 text-center md:text-start"
       style={
         brandHsl
@@ -89,8 +104,8 @@ export default async function BookingPage({
           {settings.bookingPageHeadline || therapist.fullName}
         </h1>
         <p className="text-muted-foreground text-sm">
-          {therapist.professionType && PROFESSION_LABELS[therapist.professionType]} ·{" "}
-          {settings.defaultDurationMinutes} דקות
+          {therapist.professionType && m.labels.profession[therapist.professionType]} ·{" "}
+          {m.common.minutes(settings.defaultDurationMinutes)}
         </p>
         {settings.locationAddress && (
           <p className="text-muted-foreground text-sm">📍 {settings.locationAddress}</p>
@@ -113,5 +128,6 @@ export default async function BookingPage({
         }}
       />
     </main>
+    </I18nProvider>
   );
 }

@@ -6,13 +6,14 @@ import { verifyCredentials } from "@/lib/integration-verify";
 import {
   CREDENTIAL_SCHEMAS,
   INTEGRATION_PROVIDERS,
-  PROVIDER_SPECS,
+  getProviderSpecs,
   type AnyCredentials,
   type IntegrationProvider,
   type ProviderSpec,
 } from "@/lib/integration-providers";
+import { DEFAULT_LOCALE, getMessages, translateIssue, type Locale } from "@/i18n";
 
-export { INTEGRATION_PROVIDERS, PROVIDER_SPECS };
+export { INTEGRATION_PROVIDERS, getProviderSpecs };
 export type { CredentialField, IntegrationProvider, ProviderSpec } from "@/lib/integration-providers";
 
 export type IntegrationState = "connected" | "disconnected";
@@ -55,12 +56,16 @@ function readFilledFields(spec: ProviderSpec, encrypted: string | null): string[
   }
 }
 
-export async function listIntegrations(therapistId: string): Promise<IntegrationCard[]> {
+export async function listIntegrations(
+  therapistId: string,
+  locale: Locale = DEFAULT_LOCALE
+): Promise<IntegrationCard[]> {
   const rows = await prisma.integration.findMany({ where: { therapistId } });
   const byProvider = new Map(rows.map((row) => [row.provider, row]));
+  const specs = getProviderSpecs(locale);
 
   return INTEGRATION_PROVIDERS.map((provider) => {
-    const spec = PROVIDER_SPECS[provider];
+    const spec = specs[provider];
     const row = byProvider.get(provider);
     const state: IntegrationState = row?.status === "connected" ? "connected" : "disconnected";
 
@@ -108,30 +113,29 @@ export type ConnectResult =
 export async function connectIntegration(
   therapistId: string,
   provider: IntegrationProvider,
-  input: unknown
+  input: unknown,
+  locale: Locale = DEFAULT_LOCALE
 ): Promise<ConnectResult> {
-  const spec = PROVIDER_SPECS[provider];
+  const spec = getProviderSpecs(locale)[provider];
+  const m = getMessages(locale);
 
   const parsed = CREDENTIAL_SCHEMAS[provider].safeParse(input ?? {});
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) {
       const key = issue.path[0];
-      if (typeof key === "string" && !fieldErrors[key]) fieldErrors[key] = issue.message;
+      if (typeof key === "string" && !fieldErrors[key]) fieldErrors[key] = translateIssue(m, issue.message);
     }
-    return { ok: false, error: "יש להשלים את כל השדות.", fieldErrors };
+    return { ok: false, error: m.integrations.errors.fillAllFields, fieldErrors };
   }
 
   const credentials = parsed.data as AnyCredentials;
 
   if (spec.fields.length > 0 && !credentialStorageReady()) {
-    return {
-      ok: false,
-      error: "אחסון מוצפן לא מוגדר בשרת, ולכן אי אפשר לשמור פרטי חשבון. צריך להגדיר INTEGRATION_ENCRYPTION_KEY.",
-    };
+    return { ok: false, error: m.integrations.errors.storageNotConfigured };
   }
 
-  const verified = await verifyCredentials(provider, credentials);
+  const verified = await verifyCredentials(provider, credentials, locale);
   if (!verified.ok) {
     await prisma.integration.upsert({
       where: { therapistId_provider: { therapistId, provider } },

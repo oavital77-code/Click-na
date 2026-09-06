@@ -8,16 +8,16 @@ import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSchedule } from "./dashboard-schedule";
 import { WeekInsights } from "./week-insights";
+import { getMessages, toLocale } from "@/i18n";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
+  const m = getMessages(toLocale(therapist?.locale));
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -66,24 +66,24 @@ export default async function DashboardPage() {
     ]);
 
   const stats = [
-    { value: todayBookedCount, text: "תורים היום" },
-    { value: weekBookingsCount, text: "תורים השבוע" },
-    { value: openSlotsCount, text: "חלונות פנויים" },
-    { value: newClientsCount, text: "לקוחות חדשים" },
+    { value: todayBookedCount, text: m.dashboard.stats.today },
+    { value: weekBookingsCount, text: m.dashboard.stats.week },
+    { value: openSlotsCount, text: m.dashboard.stats.openSlots },
+    { value: newClientsCount, text: m.dashboard.stats.newClients },
   ];
 
   // The header's meta line, built from the figures the page already loaded —
   // the same numbers as the stat row, said as a sentence.
   const todayLine =
     todayBookedCount === 0
-      ? `אין תורים היום · ${openSlotsCount} חלונות פנויים השבוע`
-      : `${todayBookedCount} תורים היום · ${weekBookingsCount} השבוע`;
+      ? m.dashboard.noneToday(openSlotsCount)
+      : m.dashboard.todayLine(todayBookedCount, weekBookingsCount);
 
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:gap-8 md:p-8 md:text-start">
       <PageHeader
-        kicker="מרכז הבקרה"
-        title={`שלום ${therapist.fullName}`}
+        kicker={m.dashboard.kicker}
+        title={m.dashboard.hello(therapist.fullName)}
         meta={todayLine}
         actions={<UserButton />}
       />

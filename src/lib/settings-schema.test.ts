@@ -6,10 +6,19 @@ describe("profileSchema", () => {
     fullName: "לירון כהן",
     phone: "0501234567",
     professionType: "coach" as const,
+    locale: "he" as const,
     slug: "liron-coaching",
   };
 
   it("accepts a valid profile", () => {
+    expect(profileSchema.safeParse(valid).success).toBe(true);
+  });
+
+  it("rejects a language the product does not speak", () => {
+    expect(profileSchema.safeParse({ ...valid, locale: "fr" }).success).toBe(false);
+  });
+
+  it("accepts English", () => {
     expect(profileSchema.safeParse(valid).success).toBe(true);
   });
 

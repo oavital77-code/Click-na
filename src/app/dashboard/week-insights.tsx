@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DAY_LABELS_SHORT } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
 
 type Session = { startsAt: string; endsAt: string; status: string };
 
@@ -48,6 +48,7 @@ export function WeekInsights({
   sessions: Session[];
   timezone: string;
 }) {
+  const { m } = useI18n();
   const load = useMemo(() => buildLoad(sessions, timezone), [sessions, timezone]);
 
   const totalBooked = load.reduce((sum, d) => sum + d.bookedMinutes, 0);
@@ -58,7 +59,7 @@ export function WeekInsights({
     <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">שעות תפוסות לפי יום</CardTitle>
+          <CardTitle className="text-base">{m.dashboard.insights.hoursByDay}</CardTitle>
         </CardHeader>
         <CardContent>
           <LoadChart load={load} />
@@ -67,7 +68,7 @@ export function WeekInsights({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">תפוסה השבוע</CardTitle>
+          <CardTitle className="text-base">{m.dashboard.insights.occupancy}</CardTitle>
         </CardHeader>
         <CardContent className="flex items-center justify-center">
           <OccupancyRing
@@ -82,6 +83,7 @@ export function WeekInsights({
 }
 
 function LoadChart({ load }: { load: DayLoad[] }) {
+  const { m, dir } = useI18n();
   const [hovered, setHovered] = useState<number | null>(null);
 
   const peak = Math.max(...load.map((d) => d.bookedMinutes + d.openMinutes), 60);
@@ -89,17 +91,15 @@ function LoadChart({ load }: { load: DayLoad[] }) {
 
   if (empty) {
     return (
-      <p className="text-muted-foreground py-8 text-center text-sm">
-        אין עדיין שעות בשבוע הזה.
-      </p>
+      <p className="text-muted-foreground py-8 text-center text-sm">{m.dashboard.insights.noHours}</p>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {/* Bars run right to left so the week reads in the same direction as the
-          page and as the calendar above it. */}
-      <div className="flex h-40 items-end justify-between gap-2" dir="rtl">
+      {/* Bars run in the page's reading direction, so the week reads the same way
+          as the calendar above it. */}
+      <div className="flex h-40 items-end justify-between gap-2" dir={dir}>
         {load.map((day) => {
           const offered = day.bookedMinutes + day.openMinutes;
           const trackHeight = offered === 0 ? 0 : Math.max((offered / peak) * 100, 4);
@@ -118,8 +118,7 @@ function LoadChart({ load }: { load: DayLoad[] }) {
             >
               {isHovered && offered > 0 && (
                 <div className="bg-foreground text-background absolute bottom-full z-10 mb-1 rounded-md px-2 py-1 text-xs whitespace-nowrap">
-                  <span className="num">{hours(day.bookedMinutes)}</span> מתוך{" "}
-                  <span className="num">{hours(offered)}</span> שעות
+                  {m.dashboard.insights.ofHours(hours(day.bookedMinutes), hours(offered))}
                 </div>
               )}
 
@@ -135,16 +134,14 @@ function LoadChart({ load }: { load: DayLoad[] }) {
               </div>
 
               <span className="text-muted-foreground text-[11px] leading-none font-medium">
-                {DAY_LABELS_SHORT[day.dow]}
+                {m.labels.daysShort[day.dow]}
               </span>
             </div>
           );
         })}
       </div>
 
-      <p className="text-muted-foreground text-xs">
-        הגובה המלא הוא השעות שפתחת, והחלק הכהה הוא מה שכבר נתפס.
-      </p>
+      <p className="text-muted-foreground text-xs">{m.dashboard.insights.legend}</p>
     </div>
   );
 }
@@ -158,13 +155,14 @@ function OccupancyRing({
   bookedHours: number;
   offeredHours: number;
 }) {
+  const { m } = useI18n();
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div className="relative">
-        <svg viewBox="0 0 128 128" className="size-40" role="img" aria-label={`תפוסה ${percent} אחוז`}>
+        <svg viewBox="0 0 128 128" className="size-40" role="img" aria-label={m.dashboard.insights.ringLabel(percent)}>
           <circle
             cx="64"
             cy="64"
@@ -193,8 +191,7 @@ function OccupancyRing({
         </div>
       </div>
       <p className="text-muted-foreground text-center text-xs">
-        <span className="num">{bookedHours}</span> מתוך <span className="num">{offeredHours}</span> שעות
-        שפתחת
+        {m.dashboard.insights.ringCaption(bookedHours, offeredHours)}
       </p>
     </div>
   );

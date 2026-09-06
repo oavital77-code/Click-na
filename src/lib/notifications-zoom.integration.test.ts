@@ -25,6 +25,7 @@ describe("Zoom meetings on booking (against a live database)", () => {
       data: {
         email: `zoom-therapist-${Date.now()}-${Math.random()}@example.com`,
         fullName: "ליאור כהן",
+        locale: "he",
         slug: `zoom-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         subscription: { create: {} },
         settings: {

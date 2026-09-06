@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 // SVG icons, never the ‹ › punctuation: those are Unicode-mirrored characters,
 // so an RTL run flips the glyph and the arrows end up pointing inward.
@@ -13,7 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
-import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
+import { fmt } from "@/i18n/dates";
+import type { Messages } from "@/i18n";
 import { buildTimeAxis } from "@/lib/schedule-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
@@ -41,12 +42,6 @@ type ActionResult = { ok: true } | { ok: false; error: string };
 
 type Granularity = "day" | "week" | "month";
 
-const GRANULARITY_LABELS: Record<Granularity, string> = {
-  day: "יום",
-  week: "שבוע",
-  month: "חודש",
-};
-
 type Props = {
   timezone: string;
   today: string;
@@ -62,14 +57,14 @@ function addMinutesToTime(time: string, minutes: number) {
   return `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
 }
 
-function formatRangeLabel(granularity: Granularity, anchorDate: string) {
+function formatRangeLabel(m: Messages, granularity: Granularity, anchorDate: string) {
   if (granularity === "day") {
     const dow = new Date(`${anchorDate}T00:00:00Z`).getUTCDay();
-    return `יום ${DAY_LABELS_SHORT[dow]} · ${anchorDate.slice(8, 10)}.${anchorDate.slice(5, 7)}`;
+    return m.dashboard.schedule.dayLabel(m.labels.daysShort[dow], `${anchorDate.slice(8, 10)}.${anchorDate.slice(5, 7)}`);
   }
   if (granularity === "month") {
     const [year, month] = anchorDate.split("-");
-    return `${MONTH_LABELS[Number(month) - 1]} ${year}`;
+    return `${m.labels.months[Number(month) - 1]} ${year}`;
   }
   const start = startOfWeekUtc(anchorDate);
   const end = addDaysUtc(start, 6);
@@ -82,6 +77,8 @@ export function DashboardSchedule({
   defaultDurationMinutes,
   sessions: initialSessions,
 }: Props) {
+  const { m, locale, dir } = useI18n();
+  const s = m.dashboard.schedule;
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [granularity, setGranularity] = useState<Granularity>("week");
   const [anchorDate, setAnchorDate] = useState(today);
@@ -133,7 +130,7 @@ export function DashboardSchedule({
         );
       })
       .catch(() => {
-        if (!cancelled) setLoadError("שגיאה בטעינת הלו״ז, נסה שוב");
+        if (!cancelled) setLoadError(s.loadError);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -141,7 +138,7 @@ export function DashboardSchedule({
     return () => {
       cancelled = true;
     };
-  }, [range.from, range.to, timezone]);
+  }, [range.from, range.to, timezone, s.loadError]);
 
   const byDayAndTime = useMemo(() => {
     const map = new Map<string, SessionRow>();
@@ -208,10 +205,10 @@ export function DashboardSchedule({
           ok: false,
           error:
             data.error === "overlaps_existing"
-              ? "יש כבר חלון בזמן הזה"
+              ? s.overlaps
               : data.error === "in_past"
-                ? "לא ניתן לפתוח חלון בעבר"
-                : "שגיאה בפתיחת החלון",
+                ? s.inPast
+                : s.openError,
         };
       }
       setSessions((prev) => [
@@ -228,7 +225,7 @@ export function DashboardSchedule({
       ]);
       return { ok: true };
     } catch {
-      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+      return { ok: false, error: m.common.networkError };
     }
   }
 
@@ -241,14 +238,14 @@ export function DashboardSchedule({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "blocked", note: note.trim() || undefined }),
       });
-      if (!res.ok) return { ok: false, error: "שגיאה בשמירה" };
+      if (!res.ok) return { ok: false, error: s.saveError };
       const trimmed = note.trim() || null;
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, status: "blocked", blockedNote: trimmed } : s))
       );
       return { ok: true };
     } catch {
-      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+      return { ok: false, error: m.common.networkError };
     }
   }
 
@@ -266,14 +263,14 @@ export function DashboardSchedule({
           ok: false,
           error:
             data?.error === "not_deletable"
-              ? "אי אפשר למחוק תור שכבר הוזמן — צריך לבטל אותו"
-              : "שגיאה במחיקה",
+              ? s.deleteBooked
+              : s.deleteError,
         };
       }
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
       return { ok: true };
     } catch {
-      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+      return { ok: false, error: m.common.networkError };
     }
   }
 
@@ -284,13 +281,13 @@ export function DashboardSchedule({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: "open" }),
       });
-      if (!res.ok) return { ok: false, error: "שגיאה בפתיחה מחדש" };
+      if (!res.ok) return { ok: false, error: s.reopenError };
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, status: "open", blockedNote: null } : s))
       );
       return { ok: true };
     } catch {
-      return { ok: false, error: "שגיאת רשת, נסה שוב" };
+      return { ok: false, error: m.common.networkError };
     }
   }
 
@@ -303,7 +300,7 @@ export function DashboardSchedule({
           instead of on the card. */}
       <CardHeader className="flex flex-col items-stretch gap-3">
         <div className="flex flex-col items-center gap-3 md:flex-row md:justify-between">
-          <CardTitle className="text-lg">הלו״ז שלי</CardTitle>
+          <CardTitle className="text-lg">{s.title}</CardTitle>
           {granularity !== "month" && (
             <div className="bg-muted inline-flex gap-1 rounded-md p-1">
               <button
@@ -314,7 +311,7 @@ export function DashboardSchedule({
                   view === "calendar" ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
-                תצוגת יומן
+                {s.calendarView}
               </button>
               <button
                 type="button"
@@ -324,7 +321,7 @@ export function DashboardSchedule({
                   view === "list" ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
-                תצוגת רשימה
+                {s.listView}
               </button>
             </div>
           )}
@@ -342,21 +339,21 @@ export function DashboardSchedule({
                   granularity === g ? "bg-card shadow-xs" : "text-muted-foreground"
                 )}
               >
-                {GRANULARITY_LABELS[g]}
+                {s.granularity[g]}
               </button>
             ))}
           </div>
           <div className="flex flex-wrap items-center justify-center gap-2">
-            <span className="num text-sm font-medium">{formatRangeLabel(granularity, anchorDate)}</span>
+            <span className="num text-sm font-medium">{formatRangeLabel(m, granularity, anchorDate)}</span>
             <div className="flex gap-1">
-              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label="התקופה הקודמת">
-                <ChevronRight className="size-4" />
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goPrev} aria-label={s.prevPeriod}>
+                {dir === "rtl" ? <ChevronRight className="size-4" /> : <ChevronLeft className="size-4" />}
               </Button>
               <Button type="button" variant="outline" size="sm" disabled={loading || isCurrentPeriod} onClick={goToday}>
-                היום
+                {s.today}
               </Button>
-              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goNext} aria-label="התקופה הבאה">
-                <ChevronLeft className="size-4" />
+              <Button type="button" variant="outline" size="sm" disabled={loading} onClick={goNext} aria-label={s.nextPeriod}>
+                {dir === "rtl" ? <ChevronLeft className="size-4" /> : <ChevronRight className="size-4" />}
               </Button>
             </div>
           </div>
@@ -404,7 +401,7 @@ export function DashboardSchedule({
                         )}
                       >
                         <span className="text-[11px] leading-none font-medium">
-                          {DAY_LABELS_SHORT[dow]}
+                          {m.labels.daysShort[dow]}
                         </span>
                         <span className="num text-xs leading-none">{dateKey.slice(8, 10)}</span>
                         <span
@@ -471,7 +468,7 @@ export function DashboardSchedule({
                       const isToday = dateKey === today;
                       return (
                         <th key={dateKey} className="min-w-[148px] snap-start pb-2 text-center font-medium">
-                          <div className={isToday ? "text-primary" : undefined}>{DAY_LABELS_SHORT[dow]}</div>
+                          <div className={isToday ? "text-primary" : undefined}>{m.labels.daysShort[dow]}</div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
                           </div>
@@ -518,11 +515,11 @@ export function DashboardSchedule({
                 className="border-border flex min-h-11 flex-col items-center justify-center gap-1 rounded-md border px-3 py-2 text-sm md:flex-row md:justify-between md:gap-2"
               >
                 <span className="num text-muted-foreground">
-                  {formatInTimeZone(new Date(session.startsAt), timezone, "EEEE, d.M", { locale: he })} ·{" "}
-                  {formatInTimeZone(new Date(session.startsAt), timezone, "HH:mm")}
+                  {fmt(session.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
+                  {fmt(session.startsAt, timezone, locale, "time")}
                 </span>
                 <span className={statusBadgeClass(sessionStatusTone(session.status))}>
-                  {session.clientName ?? "פנוי"}
+                  {session.clientName ?? s.status.open}
                 </span>
               </li>
             ))}
@@ -532,13 +529,6 @@ export function DashboardSchedule({
     </Card>
   );
 }
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "פנוי",
-  blocked: "חסום",
-  booked: "מוזמן",
-  held: "מוחזק זמנית",
-};
 
 function SlotCell({
   session,
@@ -557,6 +547,8 @@ function SlotCell({
   onReopenSlot: (sessionId: string) => Promise<ActionResult>;
   onDeleteSlot: (sessionId: string) => Promise<ActionResult>;
 }) {
+  const { m } = useI18n();
+  const s = m.dashboard.schedule;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -574,7 +566,7 @@ function SlotCell({
         <Popover.Trigger asChild>
           <button
             type="button"
-            aria-label={`פתח חלון טיפול ב-${time}`}
+            aria-label={s.openSlotAt(time)}
             className="border-muted-foreground/30 hover:border-primary hover:text-primary text-muted-foreground/50 flex min-h-11 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors md:min-h-9"
           >
             +
@@ -586,7 +578,7 @@ function SlotCell({
             className="bg-card border-border z-50 w-52 rounded-md border p-3 text-start shadow-lg"
           >
             <p className="num text-sm font-medium">{time}</p>
-            <p className="text-muted-foreground mb-2 text-xs">אין כאן חלון פתוח</p>
+            <p className="text-muted-foreground mb-2 text-xs">{s.noSlotHere}</p>
             {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
             <Button
               type="button"
@@ -602,7 +594,7 @@ function SlotCell({
                 else setError(result.error);
               }}
             >
-              {busy ? "פותח..." : "פתח חלון טיפול"}
+              {busy ? s.opening : s.openSlot}
             </Button>
           </Popover.Content>
         </Popover.Portal>
@@ -612,7 +604,7 @@ function SlotCell({
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
   const chipLabel =
-    session.clientName ?? session.blockedNote ?? STATUS_LABELS[session.status] ?? session.status;
+    session.clientName ?? session.blockedNote ?? s.status[session.status as keyof typeof s.status] ?? session.status;
   const hoverDetails = isBookedOrHeld
     ? [session.clientName, session.clientPhone, time].filter(Boolean).join(" · ")
     : undefined;
@@ -632,14 +624,14 @@ function SlotCell({
           </button>
         }
       >
-        <p className="num text-sm font-medium">{time} · פנוי</p>
-        <p className="text-muted-foreground mb-2 text-xs">חלון טיפול פתוח, עדיין לא הוזמן</p>
+        <p className="num text-sm font-medium">{time} · {s.status.open}</p>
+        <p className="text-muted-foreground mb-2 text-xs">{s.openSlotHint}</p>
         <NoteBlockForm
           initialNote=""
           busy={busy}
           error={error}
-          submitLabel="חסום חלון"
-          busyLabel="חוסם..."
+          submitLabel={s.block}
+          busyLabel={s.blocking}
           onSubmit={async (note) => {
             setBusy(true);
             setError(null);
@@ -682,14 +674,14 @@ function SlotCell({
           </button>
         }
       >
-        <p className="num text-sm font-medium">{time} · חסום</p>
-        <p className="text-muted-foreground mb-2 text-xs">אפשר להוסיף תווית, או לפתוח מחדש</p>
+        <p className="num text-sm font-medium">{time} · {s.status.blocked}</p>
+        <p className="text-muted-foreground mb-2 text-xs">{s.blockedSlotHint}</p>
         <NoteBlockForm
           initialNote={session.blockedNote ?? ""}
           busy={busy}
           error={error}
-          submitLabel="שמור"
-          busyLabel="שומר..."
+          submitLabel={s.saveNote}
+          busyLabel={s.saving}
           onSubmit={async (note) => {
             setBusy(true);
             setError(null);
@@ -714,7 +706,7 @@ function SlotCell({
             else setError(result.error);
           }}
         >
-          פתח מחדש
+          {s.reopen}
         </Button>
         <DeleteSlotButton
           busy={busy}
@@ -747,6 +739,8 @@ function SlotCell({
  * sit inside a dense grid where the wrong cell is one pixel away.
  */
 function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => void }) {
+  const { m } = useI18n();
+  const s = m.dashboard.schedule;
   const [confirming, setConfirming] = useState(false);
 
   if (!confirming) {
@@ -760,14 +754,14 @@ function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => v
         onClick={() => setConfirming(true)}
       >
         <Trash2 className="size-4" />
-        מחק חלון
+        {s.delete}
       </Button>
     );
   }
 
   return (
     <div className="mt-1 flex flex-col gap-1">
-      <p className="text-muted-foreground text-xs">למחוק את החלון הזה?</p>
+      <p className="text-muted-foreground text-xs">{s.deleteQuestion}</p>
       <div className="flex gap-1">
         <Button
           type="button"
@@ -777,7 +771,7 @@ function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => v
           disabled={busy}
           onClick={onDelete}
         >
-          {busy ? "מוחק..." : "כן, מחק"}
+          {busy ? s.deleting : s.yesDelete}
         </Button>
         <Button
           type="button"
@@ -786,7 +780,7 @@ function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => v
           disabled={busy}
           onClick={() => setConfirming(false)}
         >
-          ביטול
+          {m.common.cancel}
         </Button>
       </div>
     </div>
@@ -834,6 +828,7 @@ function NoteBlockForm({
   busyLabel: string;
   onSubmit: (note: string) => void;
 }) {
+  const { m } = useI18n();
   const [note, setNote] = useState(initialNote);
 
   return (
@@ -841,7 +836,7 @@ function NoteBlockForm({
       <Input
         value={note}
         onChange={(e) => setNote(e.target.value)}
-        placeholder="הערה (למשל שם המטופל)"
+        placeholder={m.dashboard.schedule.blockNotePlaceholder}
         maxLength={80}
         className="h-9 text-sm"
       />
@@ -853,18 +848,14 @@ function NoteBlockForm({
   );
 }
 
-const EMPTY_HINT_LABEL: Record<Granularity, string> = {
-  day: "היום",
-  week: "השבוע",
-  month: "החודש",
-};
-
 function EmptyCalendarHint({ granularity }: { granularity: Granularity }) {
+  const { m } = useI18n();
+  const s = m.dashboard.schedule;
   return (
     <p className="text-muted-foreground py-6 text-center text-sm">
-      אין תורים או חלונות פתוחים {EMPTY_HINT_LABEL[granularity]} —{" "}
+      {granularity === "day" ? s.emptyDay : s.emptyWeek}{" "}
       <Link href="/dashboard/availability" className="text-primary underline underline-offset-2">
-        פתחו חלון טיפול
+        {s.emptyRules}
       </Link>
     </p>
   );

@@ -1,13 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendSubscriptionEmail } from "@/lib/account-emails";
 import type { SubscriptionTier } from "@/generated/prisma/client";
-
-const TIER_LABELS: Record<SubscriptionTier, string> = {
-  free: "חינם",
-  basic: "בסיסי",
-  pro: "מקצועי",
-  business: "עסקי",
-};
+import { getMessages, toLocale } from "@/i18n";
 
 export type SubscriptionChangeInput = {
   tier: SubscriptionTier;
@@ -41,8 +35,11 @@ export async function changeSubscription(therapistId: string, change: Subscripti
     },
   });
 
+  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId }, select: { locale: true } });
+  const tierLabel = getMessages(toLocale(therapist?.locale)).labels.tier[change.tier];
+
   await sendSubscriptionEmail(therapistId, {
-    tierLabel: TIER_LABELS[change.tier],
+    tierLabel,
     status: change.status,
     periodEnd: subscription.currentPeriodEnd,
   });

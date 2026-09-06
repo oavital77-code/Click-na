@@ -19,6 +19,7 @@ describe("notifications (against a live database)", () => {
       data: {
         email: `notif-therapist-${Date.now()}-${Math.random()}@example.com`,
         fullName: "ליאור כהן",
+        locale: "he",
         slug: `notif-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
         subscription: { create: {} },
         settings: {

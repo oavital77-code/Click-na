@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getMessages, type Locale } from "@/i18n";
 
 export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp"] as const;
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
@@ -25,67 +26,72 @@ export type ProviderSpec = {
   note?: string;
 };
 
-export const PROVIDER_SPECS: Record<IntegrationProvider, ProviderSpec> = {
-  calendar: {
-    provider: "calendar",
-    label: "סנכרון יומן",
-    summary:
-      "כתובת מנוי ליומן שמושכת אליה את כל התורים שנקבעו. עובדת מול Google Calendar, יומן האייפון ו-Outlook.",
-    fields: [],
-    docsUrl: null,
-    setupHint: "לא נדרש חשבון חיצוני — אפשר להפעיל מיד.",
-  },
-  zoom: {
-    provider: "zoom",
-    label: "Zoom",
-    summary: "פתיחת פגישת Zoom אוטומטית לכל תור מקוון, והקישור נשלח ללקוח יחד עם האישור.",
-    fields: [
-      { name: "accountId", label: "Account ID", secret: false },
-      { name: "clientId", label: "Client ID", secret: false },
-      { name: "clientSecret", label: "Client Secret", secret: true },
-    ],
-    docsUrl: "https://marketplace.zoom.us/develop/create",
-    setupHint:
-      'ב-Zoom Marketplace: Develop ← Build App ← "Server-to-Server OAuth". בהרשאות (Scopes) צריך meeting:write:admin. שלושת הערכים מופיעים בלשונית App Credentials.',
-  },
-  whatsapp: {
-    provider: "whatsapp",
-    label: "WhatsApp",
-    summary: "שליחת אישורים ותזכורות בוואטסאפ במקום (או בנוסף) למייל.",
-    fields: [
-      { name: "accountSid", label: "Account SID", secret: false, placeholder: "AC..." },
-      { name: "authToken", label: "Auth Token", secret: true },
-      {
-        name: "fromNumber",
-        label: "מספר השולח",
-        secret: false,
-        placeholder: "+14155238886",
-        help: "המספר שאושר לוואטסאפ ב-Twilio. בסנדבוקס זה המספר שטוויליו נותנת לבדיקות.",
-      },
-    ],
-    docsUrl: "https://console.twilio.com",
-    setupHint:
-      "דרך Twilio: שלושת הערכים נמצאים בעמוד הראשי של הקונסולה ובמסך WhatsApp Senders. הסנדבוקס עובד מיד; מספר עסקי אמיתי דורש אימות עסק אצל Meta.",
-  },
-};
+/**
+ * The shape of each add-on — which fields it needs and where they come from —
+ * is fixed; only the words change with the therapist's language, so the specs
+ * are built per locale from the message catalogue.
+ */
+export function getProviderSpecs(locale: Locale): Record<IntegrationProvider, ProviderSpec> {
+  const m = getMessages(locale).integrations;
+  return {
+    calendar: {
+      provider: "calendar",
+      label: m.calendar.label,
+      summary: m.calendar.summary,
+      fields: [],
+      docsUrl: null,
+      setupHint: m.calendar.setupHint,
+    },
+    zoom: {
+      provider: "zoom",
+      label: m.zoom.label,
+      summary: m.zoom.summary,
+      fields: [
+        { name: "accountId", label: m.zoom.fields.accountId, secret: false },
+        { name: "clientId", label: m.zoom.fields.clientId, secret: false },
+        { name: "clientSecret", label: m.zoom.fields.clientSecret, secret: true },
+      ],
+      docsUrl: "https://marketplace.zoom.us/develop/create",
+      setupHint: m.zoom.setupHint,
+    },
+    whatsapp: {
+      provider: "whatsapp",
+      label: m.whatsapp.label,
+      summary: m.whatsapp.summary,
+      fields: [
+        { name: "accountSid", label: m.whatsapp.fields.accountSid, secret: false, placeholder: "AC..." },
+        { name: "authToken", label: m.whatsapp.fields.authToken, secret: true },
+        {
+          name: "fromNumber",
+          label: m.whatsapp.fields.fromNumber,
+          secret: false,
+          placeholder: "+14155238886",
+          help: m.whatsapp.fromNumberHelp,
+        },
+      ],
+      docsUrl: "https://console.twilio.com",
+      setupHint: m.whatsapp.setupHint,
+    },
+  };
+}
 
 /**
  * Per-provider validation of what the therapist typed. Deliberately loose on
- * format — Twilio and Stripe are the authority on whether a credential is real,
+ * format — Twilio and Zoom are the authority on whether a credential is real,
  * and we find that out by calling them, not by pattern-matching a prefix that
- * they are free to change.
+ * they are free to change. Messages are catalogue keys, translated on display.
  */
 export const CREDENTIAL_SCHEMAS = {
   calendar: z.object({}),
   zoom: z.object({
-    accountId: z.string().trim().min(1, "שדה חובה"),
-    clientId: z.string().trim().min(1, "שדה חובה"),
-    clientSecret: z.string().trim().min(1, "שדה חובה"),
+    accountId: z.string().trim().min(1, "validation.required"),
+    clientId: z.string().trim().min(1, "validation.required"),
+    clientSecret: z.string().trim().min(1, "validation.required"),
   }),
   whatsapp: z.object({
-    accountSid: z.string().trim().min(1, "שדה חובה"),
-    authToken: z.string().trim().min(1, "שדה חובה"),
-    fromNumber: z.string().trim().min(1, "שדה חובה"),
+    accountSid: z.string().trim().min(1, "validation.required"),
+    authToken: z.string().trim().min(1, "validation.required"),
+    fromNumber: z.string().trim().min(1, "validation.required"),
   }),
 } satisfies Record<IntegrationProvider, z.ZodType>;
 

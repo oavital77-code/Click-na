@@ -14,7 +14,8 @@ export function generateBookingIcs(input: {
   uid: string;
   startsAt: Date;
   endsAt: Date;
-  therapistFullName: string;
+  /** Already in the reader's language — see i18n messages.ics.eventTitle. */
+  title: string;
   location: string | null;
 }) {
   const { error, value } = createEvent({
@@ -23,7 +24,7 @@ export function generateBookingIcs(input: {
     end: toDateArray(input.endsAt),
     startInputType: "utc",
     endInputType: "utc",
-    title: `תור אצל ${input.therapistFullName}`,
+    title: input.title,
     location: input.location ?? undefined,
     status: "CONFIRMED",
     productId: "Cleana+",

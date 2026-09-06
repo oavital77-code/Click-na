@@ -2,16 +2,17 @@ import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { SettingsView } from "./settings-view";
+import { getMessages, toLocale } from "@/i18n";
 
 export default async function SettingsPage() {
   const therapist = await getCurrentTherapist();
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -26,15 +27,16 @@ export default async function SettingsPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader
-        kicker="החשבון שלי"
-        title="הגדרות"
-        meta="פרטי העסק, מדיניות ההזמנה, המיתוג וההתראות."
+        kicker={m.settings.kicker}
+        title={m.settings.title}
+        meta={m.settings.meta}
       />
       <SettingsView
         profile={{
           fullName: therapist.fullName,
           phone: therapist.phone ?? "",
           professionType: therapist.professionType,
+          locale,
           slug: therapist.slug,
           slugChangedAt: therapist.slugChangedAt?.toISOString() ?? null,
         }}

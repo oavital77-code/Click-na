@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateCalendarFeed, type FeedEvent } from "@/lib/ics";
+import { getMessages, toLocale } from "@/i18n";
 
 // How much of the schedule the feed carries. Calendar clients replace the whole
 // feed on every poll, so a bounded window keeps the response small without the
@@ -25,7 +26,8 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const calendarName = `Cleana+ — ${integration.therapist.fullName}`;
+  const m = getMessages(toLocale(integration.therapist.locale)).ics;
+  const calendarName = m.calendarName(integration.therapist.fullName);
 
   // A disconnected add-on serves an empty calendar rather than a 404: the events
   // vanish from the therapist's calendar, which is what disconnecting means,
@@ -52,7 +54,7 @@ export async function GET(
     uid: `${session.id}@cleana`,
     startsAt: session.startsAt,
     endsAt: session.endsAt,
-    title: session.booking?.clientNameSnapshot ?? session.blockedNote ?? "תור",
+    title: session.booking?.clientNameSnapshot ?? session.blockedNote ?? m.appointment,
     // The meeting opened for this specific booking beats the therapist's default
     // location — it's the thing they need to click at the top of the hour.
     location: session.booking?.meetingUrl ?? location,

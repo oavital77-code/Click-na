@@ -8,8 +8,11 @@ import {
   Wordmark,
   loadFonts,
 } from "@/lib/og";
+import { DEFAULT_LOCALE, getMessages } from "@/i18n";
 
-export const alt = "Cleana+ — ניהול תורים למטפלים עצמאיים";
+const og = getMessages(DEFAULT_LOCALE).og;
+
+export const alt = og.siteAlt;
 export const size = OG_SIZE;
 export const contentType = OG_CONTENT_TYPE;
 
@@ -23,7 +26,7 @@ export default async function Image() {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          alignItems: "flex-end",
+          alignItems: DEFAULT_LOCALE === "he" ? "flex-end" : "flex-start",
           position: "relative",
           padding: 96,
           gap: 20,
@@ -44,7 +47,7 @@ export default async function Image() {
           lineHeight={1.15}
           color={COLORS.foreground}
         >
-          היומן שלך, בלי הודעות
+          {og.headline1}
         </Line>
         <Line
           position="relative"
@@ -53,11 +56,11 @@ export default async function Image() {
           lineHeight={1.15}
           color={COLORS.foreground}
         >
-          הלוך ושוב
+          {og.headline2}
         </Line>
 
         <Line position="relative" fontSize={36} color={COLORS.muted} marginTop={16}>
-          זימון תורים למטפלים ובעלי מקצוע עצמאיים
+          {og.subline}
         </Line>
       </div>
     ),

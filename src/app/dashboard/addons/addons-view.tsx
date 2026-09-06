@@ -20,6 +20,7 @@ import { statusBadgeClass } from "@/lib/status-badge";
 import { subscribeLinks } from "@/lib/calendar-subscribe";
 import { cn } from "@/lib/utils";
 import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
+import { useI18n } from "@/i18n/client";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
@@ -30,19 +31,20 @@ const ICONS: Record<IntegrationProvider, LucideIcon> = {
 type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolean };
 
 export function AddonsView({ initial }: { initial: Payload }) {
+  const { m } = useI18n();
   const [payload, setPayload] = useState(initial);
 
   return (
     <div className="flex flex-col gap-4">
       {!payload.credentialStorageReady && (
         <div className="border-st-held/50 bg-st-held/10 flex flex-col gap-1 rounded-md border p-3 text-sm">
-          <p className="font-medium">נשאר צעד אחד להשלמה</p>
+          <p className="font-medium">{m.addons.setupBannerTitle}</p>
           <p className="text-muted-foreground">
-            כדי לשמור פרטי חשבון בבטחה צריך להגדיר פעם אחת את משתנה הסביבה{" "}
+            {m.addons.setupBannerBefore}{" "}
             <span dir="ltr" className="font-mono text-xs">
               INTEGRATION_ENCRYPTION_KEY
             </span>{" "}
-            ולעשות Redeploy. עד אז סנכרון היומן עובד כרגיל — הוא לא דורש חשבון חיצוני.
+            {m.addons.setupBannerAfter}
           </p>
         </div>
       )}
@@ -62,6 +64,7 @@ function AddonCard({
   integration: IntegrationCard;
   onChange: (payload: Payload) => void;
 }) {
+  const { m } = useI18n();
   const Icon = ICONS[integration.provider];
   const connected = integration.state === "connected";
   const needsCredentials = integration.fields.length > 0;
@@ -89,13 +92,13 @@ function AddonCard({
       if (data.integrations) onChange(data);
 
       if (!res.ok) {
-        setError(data.error ?? "הפעולה נכשלה. נסה שוב.");
+        setError(data.error ?? m.addons.actionFailed);
         setFieldErrors(data.fieldErrors ?? {});
         return false;
       }
       return true;
     } catch {
-      setError("הפעולה נכשלה. נסה שוב.");
+      setError(m.addons.actionFailed);
       return false;
     } finally {
       setBusy(false);
@@ -145,7 +148,7 @@ function AddonCard({
           <Toggle
             checked={connected}
             busy={busy}
-            label={`${connected ? "כבה" : "הפעל"} ${integration.label}`}
+            label={m.addons.toggle(connected, integration.label)}
             onClick={onToggle}
           />
         </div>
@@ -158,10 +161,10 @@ function AddonCard({
       <CardContent className="flex min-w-0 flex-col gap-3">
         {connected && (
           <div className="flex flex-col items-center gap-1 md:items-start">
-            <span className={statusBadgeClass("open")}>מחובר</span>
+            <span className={statusBadgeClass("open")}>{m.addons.connected}</span>
             {integration.accountLabel && (
               <span className="text-muted-foreground text-xs">
-                חשבון: <span dir="ltr">{integration.accountLabel}</span>
+                {m.addons.account} <span dir="ltr">{integration.accountLabel}</span>
               </span>
             )}
           </div>
@@ -206,7 +209,7 @@ function AddonCard({
             }}
             disabled={busy}
           >
-            החלפת פרטי חשבון
+            {m.addons.swapCredentials}
           </Button>
         )}
       </CardContent>
@@ -268,6 +271,7 @@ function CredentialForm({
   onSubmit: () => void;
   onCancel: () => void;
 }) {
+  const { m } = useI18n();
   return (
     <form
       className="border-border flex min-w-0 flex-col gap-3 rounded-md border p-3 text-center md:text-start"
@@ -286,7 +290,7 @@ function CredentialForm({
           className="text-primary inline-flex items-center justify-center gap-1 text-xs hover:underline md:justify-start"
         >
           <ExternalLink className="size-3.5" />
-          פתיחת העמוד שבו נמצאים הפרטים
+          {m.addons.openDocs}
         </a>
       )}
 
@@ -316,10 +320,10 @@ function CredentialForm({
 
       <div className="flex flex-col justify-center gap-2 sm:flex-row md:justify-start">
         <Button type="submit" disabled={busy}>
-          {busy ? "בודקים מול השירות..." : "שמור והפעל"}
+          {busy ? m.addons.checking : m.addons.saveAndEnable}
         </Button>
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
-          ביטול
+          {m.common.cancel}
         </Button>
       </div>
     </form>
@@ -327,6 +331,7 @@ function CredentialForm({
 }
 
 function CalendarFeed({ url }: { url: string }) {
+  const { m } = useI18n();
   const [copied, setCopied] = useState(false);
   const [showUrl, setShowUrl] = useState(false);
   const links = subscribeLinks(url, "Cleana+");
@@ -344,7 +349,7 @@ function CalendarFeed({ url }: { url: string }) {
 
   return (
     <div className="border-border flex min-w-0 flex-col gap-3 rounded-md border p-3 text-center md:text-start">
-      <p className="text-sm font-medium">הוספה ליומן שלך</p>
+      <p className="text-sm font-medium">{m.addons.feedTitle}</p>
 
       <div className="flex flex-col justify-center gap-2 sm:flex-row md:justify-start">
         {/* Opens the calendar app straight onto a subscribe prompt, instead of
@@ -352,7 +357,7 @@ function CalendarFeed({ url }: { url: string }) {
         <Button asChild variant="outline" size="sm">
           <a href={links.webcal}>
             <Apple className="size-4" />
-            אייפון / מק
+            {m.addons.apple}
           </a>
         </Button>
         <Button asChild variant="outline" size="sm">
@@ -374,7 +379,7 @@ function CalendarFeed({ url }: { url: string }) {
         onClick={() => setShowUrl((open) => !open)}
         className="text-muted-foreground hover:text-foreground self-center text-xs underline underline-offset-4 md:self-start"
       >
-        {showUrl ? "הסתר את הכתובת" : "יומן אחר? הצג את הכתובת להדבקה"}
+        {showUrl ? m.addons.hideUrl : m.addons.showUrl}
       </button>
 
       {showUrl && (
@@ -388,15 +393,13 @@ function CalendarFeed({ url }: { url: string }) {
           <div className="flex justify-center md:justify-start">
             <Button type="button" variant="outline" size="sm" onClick={copy}>
               {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-              {copied ? "הועתק!" : "העתק כתובת"}
+              {copied ? m.link.copied : m.addons.copyUrl}
             </Button>
           </div>
         </div>
       )}
 
-      <p className="text-muted-foreground text-xs">
-        העדכון ביומן אינו מיידי — היומן מושך את השינויים פעם בכמה שעות, בקצב שלו.
-      </p>
+      <p className="text-muted-foreground text-xs">{m.addons.delayNote}</p>
     </div>
   );
 }

@@ -5,16 +5,17 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { BookingsView } from "./bookings-view";
+import { getMessages, toLocale } from "@/i18n";
 
 export default async function BookingsPage() {
   const therapist = await getCurrentTherapist();
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -35,9 +36,9 @@ export default async function BookingsPage() {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4 text-center md:p-8 md:text-start">
       <PageHeader
-        kicker="יומן"
-        title="הזמנות"
-        meta="כל התורים שנקבעו, לפי טווח זמן."
+        kicker={m.pages.bookings.kicker}
+        title={m.pages.bookings.title}
+        meta={m.pages.bookings.meta}
       />
       <BookingsView
         timezone={therapist.timezone}

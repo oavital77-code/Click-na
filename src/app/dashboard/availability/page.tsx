@@ -8,16 +8,16 @@ import { listRulesWithCounts } from "@/lib/availability-rules";
 import { AvailabilityView } from "./availability-view";
 import { RecurringRules } from "./recurring-rules";
 import { ResetSchedule } from "@/components/reset-schedule";
+import { getMessages, toLocale } from "@/i18n";
 
 export default async function AvailabilityPage() {
   const therapist = await getCurrentTherapist();
+  const m = getMessages(toLocale(therapist?.locale));
 
   if (!therapist) {
     return (
       <main className="flex flex-1 flex-col items-center justify-center p-8">
-        <p className="text-muted-foreground">
-          מסיימים את ההרשמה שלך... אם זה נמשך, רענן את הדף.
-        </p>
+        <p className="text-muted-foreground">{m.common.finishingSignup}</p>
       </main>
     );
   }
@@ -53,9 +53,9 @@ export default async function AvailabilityPage() {
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader
-        kicker="שעות עבודה"
-        title="זמינות"
-        meta="הכללים החוזרים שממלאים את הלוח, ומדיניות ההזמנה שנגזרת מהם."
+        kicker={m.availability.kicker}
+        title={m.availability.title}
+        meta={m.availability.meta}
       />
       <AvailabilityView
         timezone={therapist.timezone}

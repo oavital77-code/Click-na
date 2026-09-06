@@ -12,20 +12,11 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
-import { DAY_LABELS_SHORT, MONTH_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
 import { buildTimeAxis } from "@/lib/schedule-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { cn } from "@/lib/utils";
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "פנוי",
-  blocked: "חסום",
-  booked: "מוזמן",
-  held: "מוחזק זמנית",
-  completed: "הושלם",
-  canceled: "בוטל",
-};
 
 type SessionRow = {
   id: string;
@@ -50,6 +41,8 @@ export function AvailabilityView({
   defaultDurationMinutes,
   initialSessions,
 }: Props) {
+  const { m } = useI18n();
+  const a = m.availability;
   const [granularity, setGranularity] = useState<Granularity>("week");
   const [anchorDate, setAnchorDate] = useState(initialWeekStart);
   const [sessions, setSessions] = useState(initialSessions);
@@ -106,7 +99,7 @@ export function AvailabilityView({
         );
       })
       .catch(() => {
-        if (!cancelled) setFormError("שגיאה בטעינת הטווח, נסה שוב");
+        if (!cancelled) setFormError(a.loadError);
       })
       .finally(() => {
         if (!cancelled) setLoadingWeek(false);
@@ -114,7 +107,7 @@ export function AvailabilityView({
     return () => {
       cancelled = true;
     };
-  }, [range.from, range.to, timezone]);
+  }, [range.from, range.to, timezone, a.loadError]);
 
   const byDayAndTime = useMemo(() => {
     const map = new Map<string, SessionRow>();
@@ -141,10 +134,10 @@ export function AvailabilityView({
       if (!res.ok) {
         setFormError(
           data.error === "overlaps_existing"
-            ? "יש כבר חלון בזמן הזה"
+            ? a.overlaps
             : data.error === "in_past"
-              ? "לא ניתן לפתוח חלון בעבר"
-              : "שגיאה בהוספת החלון"
+              ? a.inPast
+              : a.addError
         );
         return;
       }
@@ -162,7 +155,7 @@ export function AvailabilityView({
         ]);
       }
     } catch {
-      setFormError("שגיאת רשת, נסה שוב");
+      setFormError(m.common.networkError);
     } finally {
       setSubmitting(false);
     }
@@ -198,8 +191,8 @@ export function AvailabilityView({
           <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
             <CardTitle className="text-base">
               {granularity === "month"
-                ? `${MONTH_LABELS[Number(anchorDate.slice(5, 7)) - 1]} ${anchorDate.slice(0, 4)}`
-                : `לוח שבועי · ${weekDates[0].slice(8, 10)}.${weekDates[0].slice(5, 7)}–${weekDates[6].slice(8, 10)}.${weekDates[6].slice(5, 7)}`}
+                ? `${m.labels.months[Number(anchorDate.slice(5, 7)) - 1]} ${anchorDate.slice(0, 4)}`
+                : a.weekTitle(`${weekDates[0].slice(8, 10)}.${weekDates[0].slice(5, 7)}–${weekDates[6].slice(8, 10)}.${weekDates[6].slice(5, 7)}`)}
             </CardTitle>
             <div className="bg-muted inline-flex gap-1 rounded-md p-1">
               {(["week", "month"] as const).map((g) => (
@@ -215,7 +208,7 @@ export function AvailabilityView({
                     granularity === g ? "bg-card shadow-xs" : "text-muted-foreground"
                   )}
                 >
-                  {g === "week" ? "שבוע" : "חודש"}
+                  {g === "week" ? a.week : a.month}
                 </button>
               ))}
             </div>
@@ -230,7 +223,7 @@ export function AvailabilityView({
                 setAnchorDate((d) => (granularity === "month" ? addMonthsUtc(d, -1) : addDaysUtc(startOfWeekUtc(d), -7)))
               }
             >
-              {granularity === "month" ? "חודש קודם" : "שבוע קודם"}
+              {granularity === "month" ? a.prevMonth : a.prevWeek}
             </Button>
             <Button
               type="button"
@@ -244,7 +237,7 @@ export function AvailabilityView({
               }
               onClick={() => setAnchorDate(granularity === "month" ? startOfMonthUtc(today) : today)}
             >
-              היום
+              {a.today}
             </Button>
             <Button
               type="button"
@@ -255,7 +248,7 @@ export function AvailabilityView({
                 setAnchorDate((d) => (granularity === "month" ? addMonthsUtc(d, 1) : addDaysUtc(startOfWeekUtc(d), 7)))
               }
             >
-              {granularity === "month" ? "חודש הבא" : "שבוע הבא"}
+              {granularity === "month" ? a.nextMonth : a.nextWeek}
             </Button>
           </div>
         </CardHeader>
@@ -285,7 +278,7 @@ export function AvailabilityView({
                       return (
                         <th key={dateKey} className="snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>
-                            {DAY_LABELS_SHORT[dow]}
+                            {m.labels.daysShort[dow]}
                           </div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
@@ -319,7 +312,7 @@ export function AvailabilityView({
                                 title={session.clientName ?? undefined}
                                 className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center disabled:opacity-100"}
                               >
-                                {session.clientName ?? STATUS_LABELS[session.status] ?? session.status}
+                                {session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}
                               </button>
                             ) : (
                               <span className="text-muted-foreground/40">—</span>
@@ -331,9 +324,7 @@ export function AvailabilityView({
                   ))}
                 </tbody>
               </table>
-              <p className="text-muted-foreground mt-3 text-xs md:hidden">
-                גלול לצדדים לצפייה בכל ימות השבוע
-              </p>
+              <p className="text-muted-foreground mt-3 text-xs md:hidden">{a.scrollHint}</p>
             </div>
           )}
         </CardContent>
@@ -341,16 +332,16 @@ export function AvailabilityView({
 
       <Card>
         <CardHeader>
-          <CardTitle>הוסף חלון טיפול</CardTitle>
+          <CardTitle>{a.addSlot}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="date">תאריך</Label>
+              <Label htmlFor="date">{a.date}</Label>
               <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="startTime">משעה</Label>
+              <Label htmlFor="startTime">{a.from}</Label>
               <Input
                 id="startTime"
                 type="time"
@@ -359,7 +350,7 @@ export function AvailabilityView({
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="endTime">עד שעה</Label>
+              <Label htmlFor="endTime">{a.to}</Label>
               <Input
                 id="endTime"
                 type="time"
@@ -368,7 +359,7 @@ export function AvailabilityView({
               />
             </div>
             <Button type="button" className="w-full md:w-auto" disabled={submitting} onClick={handleAdd}>
-              {submitting ? "מוסיף..." : "+ הוסף חלון"}
+              {submitting ? a.adding : a.addButton}
             </Button>
           </div>
           {formError && <p className="text-destructive text-sm">{formError}</p>}

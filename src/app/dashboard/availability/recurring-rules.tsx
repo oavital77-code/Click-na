@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { DAY_LABELS } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
 import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
 
 type Rule = {
@@ -28,6 +28,8 @@ type Rule = {
 };
 
 export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
+  const { m } = useI18n();
+  const r = m.availability.rules;
   const [rules, setRules] = useState(initialRules);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -67,7 +69,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
         }),
       });
       if (!res.ok) {
-        setError("אירעה שגיאה בשמירה");
+        setError(r.saveError);
         return;
       }
       setRules((prev) =>
@@ -79,7 +81,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
       );
       setEditingId(null);
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     } finally {
       setBusyId(null);
     }
@@ -100,7 +102,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
         }),
       });
       if (!res.ok) {
-        setError("אירעה שגיאה");
+        setError(r.toggleError);
         return;
       }
       setRules((prev) =>
@@ -120,13 +122,13 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
         { method: "DELETE" }
       );
       if (!res.ok) {
-        setError("אירעה שגיאה במחיקה");
+        setError(r.deleteError);
         return;
       }
       setRules((prev) => prev.filter((r) => r.id !== rule.id));
       setConfirmingDeleteId(null);
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
     } finally {
       setBusyId(null);
     }
@@ -153,14 +155,14 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
         }),
       });
       if (!res.ok) {
-        setError("אירעה שגיאה בהוספת הכלל");
+        setError(r.addError);
         return;
       }
       // Simplest correct refresh: the server response doesn't echo the new
       // rule ids, and we need up-to-date future-slot counts anyway.
       window.location.reload();
     } catch {
-      setError("שגיאת רשת, נסה שוב");
+      setError(m.common.networkError);
       setAdding(false);
     }
   }
@@ -168,13 +170,13 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>כללי זמינות חוזרים</CardTitle>
+        <CardTitle>{r.title}</CardTitle>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         {error && <p className="text-destructive text-sm">{error}</p>}
 
         {rules.length === 0 ? (
-          <p className="text-muted-foreground text-sm">אין כללי זמינות חוזרים</p>
+          <p className="text-muted-foreground text-sm">{r.empty}</p>
         ) : (
           <ul className="flex flex-col gap-2">
             {rules.map((rule) => (
@@ -183,7 +185,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor={`start-${rule.id}`}>משעה</Label>
+                        <Label htmlFor={`start-${rule.id}`}>{m.availability.from}</Label>
                         <Input
                           id={`start-${rule.id}`}
                           type="time"
@@ -192,7 +194,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor={`end-${rule.id}`}>עד שעה</Label>
+                        <Label htmlFor={`end-${rule.id}`}>{m.availability.to}</Label>
                         <Input
                           id={`end-${rule.id}`}
                           type="time"
@@ -201,7 +203,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         />
                       </div>
                       <div className="flex flex-col gap-1">
-                        <Label htmlFor={`duration-${rule.id}`}>משך</Label>
+                        <Label htmlFor={`duration-${rule.id}`}>{r.duration}</Label>
                         <Select
                           value={String(editDuration)}
                           onValueChange={(v) => setEditDuration(Number(v))}
@@ -212,7 +214,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                           <SelectContent>
                             {DURATION_OPTIONS.map((d) => (
                               <SelectItem key={d} value={String(d)}>
-                                {d} דקות
+                                {m.common.minutes(d)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -226,7 +228,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => saveEdit(rule)}
                       >
-                        שמור
+                        {r.save}
                       </Button>
                       <Button
                         type="button"
@@ -234,16 +236,16 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         variant="outline"
                         onClick={() => setEditingId(null)}
                       >
-                        ביטול
+                        {m.common.cancel}
                       </Button>
                     </div>
                   </div>
                 ) : confirmingDeleteId === rule.id ? (
                   <div className="flex flex-col gap-2">
                     <p>
-                      לכלל הזה יש {rule.futureOpenCount} חלונות פתוחים ו-{rule.futureBookedCount}{" "}
-                      חלונות מוזמנים בעתיד. ההזמנות הקיימות{" "}
-                      <strong>לעולם לא יימחקו</strong>. למחוק גם את החלונות הפתוחים?
+                      {r.deleteQuestion(rule.futureOpenCount, rule.futureBookedCount)}
+                      <strong>{r.neverDeleted}</strong>
+                      {r.deleteQuestionEnd}
                     </p>
                     <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                       <Button
@@ -253,7 +255,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => confirmDelete(rule, true)}
                       >
-                        מחק את הכלל וגם את החלונות הפתוחים
+                        {r.deleteWithSlots}
                       </Button>
                       <Button
                         type="button"
@@ -262,7 +264,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => confirmDelete(rule, false)}
                       >
-                        מחק רק את הכלל
+                        {r.deleteRuleOnly}
                       </Button>
                       <Button
                         type="button"
@@ -270,19 +272,18 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         variant="ghost"
                         onClick={() => setConfirmingDeleteId(null)}
                       >
-                        ביטול
+                        {m.common.cancel}
                       </Button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
                     <span className={cn(!rule.isActive && "text-muted-foreground line-through")}>
-                      {DAY_LABELS[rule.dayOfWeek]} · {rule.startTime}–{rule.endTime} ·{" "}
-                      {rule.slotDurationMinutes} דקות
+                      {r.summary(m.labels.days[rule.dayOfWeek], rule.startTime, rule.endTime, m.common.minutes(rule.slotDurationMinutes))}
                       {(rule.futureOpenCount > 0 || rule.futureBookedCount > 0) && (
                         <span className="text-muted-foreground">
                           {" "}
-                          ({rule.futureOpenCount} פנויים, {rule.futureBookedCount} מוזמנים)
+                          {r.counts(rule.futureOpenCount, rule.futureBookedCount)}
                         </span>
                       )}
                     </span>
@@ -294,7 +295,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => startEdit(rule)}
                       >
-                        ערוך
+                        {r.edit}
                       </Button>
                       <Button
                         type="button"
@@ -303,7 +304,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => toggleActive(rule)}
                       >
-                        {rule.isActive ? "השבת" : "הפעל"}
+                        {rule.isActive ? r.disable : r.enable}
                       </Button>
                       <Button
                         type="button"
@@ -312,7 +313,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                         disabled={busyId === rule.id}
                         onClick={() => setConfirmingDeleteId(rule.id)}
                       >
-                        מחק
+                        {r.delete}
                       </Button>
                     </span>
                   </div>
@@ -323,9 +324,9 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
         )}
 
         <div className="flex flex-col gap-3 border-t pt-4">
-          <p className="text-sm font-medium">הוסף כלל חדש</p>
+          <p className="text-sm font-medium">{r.addTitle}</p>
           <div className="flex flex-wrap justify-center gap-2 md:justify-start">
-            {DAY_LABELS.map((label, day) => (
+            {m.labels.days.map((label, day) => (
               <button
                 key={day}
                 type="button"
@@ -343,7 +344,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
           </div>
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <div className="flex flex-col gap-1">
-              <Label htmlFor="addStart">משעה</Label>
+              <Label htmlFor="addStart">{m.availability.from}</Label>
               <Input
                 id="addStart"
                 type="time"
@@ -352,7 +353,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="addEnd">עד שעה</Label>
+              <Label htmlFor="addEnd">{m.availability.to}</Label>
               <Input
                 id="addEnd"
                 type="time"
@@ -361,7 +362,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <Label htmlFor="addDuration">משך</Label>
+              <Label htmlFor="addDuration">{r.duration}</Label>
               <Select value={String(addDuration)} onValueChange={(v) => setAddDuration(Number(v))}>
                 <SelectTrigger id="addDuration">
                   <SelectValue />
@@ -369,7 +370,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                 <SelectContent>
                   {DURATION_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d} דקות
+                      {m.common.minutes(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -381,7 +382,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
               disabled={addingDays.length === 0 || adding}
               onClick={submitAdd}
             >
-              {adding ? "מוסיף..." : "+ הוסף כלל"}
+              {adding ? m.availability.adding : r.addButton}
             </Button>
           </div>
         </div>

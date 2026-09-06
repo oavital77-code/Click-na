@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentTherapist } from "@/lib/auth";
+import { toLocale } from "@/i18n";
 import {
   INTEGRATION_PROVIDERS,
   connectIntegration,
@@ -23,9 +24,9 @@ const bodySchema = z.discriminatedUnion("action", [
   }),
 ]);
 
-async function payload(therapistId: string) {
+async function payload(therapistId: string, locale: string) {
   return {
-    integrations: await listIntegrations(therapistId),
+    integrations: await listIntegrations(therapistId, toLocale(locale)),
     credentialStorageReady: credentialStorageReady(),
   };
 }
@@ -34,7 +35,7 @@ export async function GET() {
   const therapist = await getCurrentTherapist();
   if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  return NextResponse.json(await payload(therapist.id));
+  return NextResponse.json(await payload(therapist.id, therapist.locale));
 }
 
 export async function POST(request: NextRequest) {
@@ -48,20 +49,21 @@ export async function POST(request: NextRequest) {
 
   if (parsed.data.action === "disconnect") {
     await disconnectIntegration(therapist.id, parsed.data.provider);
-    return NextResponse.json(await payload(therapist.id));
+    return NextResponse.json(await payload(therapist.id, therapist.locale));
   }
 
   const result = await connectIntegration(
     therapist.id,
     parsed.data.provider,
-    parsed.data.credentials ?? {}
+    parsed.data.credentials ?? {},
+    toLocale(therapist.locale)
   );
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error, fieldErrors: result.fieldErrors, ...(await payload(therapist.id)) },
+      { error: result.error, fieldErrors: result.fieldErrors, ...(await payload(therapist.id, therapist.locale)) },
       { status: 422 }
     );
   }
 
-  return NextResponse.json(await payload(therapist.id));
+  return NextResponse.json(await payload(therapist.id, therapist.locale));
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LOCALES } from "@/i18n/config";
 
 /**
  * A URL a therapist types in and the app later renders as a link or an image
@@ -10,22 +11,23 @@ import { z } from "zod";
 const httpUrl = z
   .string()
   .trim()
-  .url("קישור לא תקין")
+  .url("validation.urlInvalid")
   .max(500)
-  .refine((value) => /^https?:\/\//i.test(value), "הקישור חייב להתחיל ב-http:// או https://");
+  .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 import { PROFESSION_TYPES, LOCATION_TYPES, DURATION_OPTIONS } from "@/lib/onboarding-schema";
 
 export const profileSchema = z.object({
-  fullName: z.string().trim().min(2, "שם קצר מדי").max(255),
-  phone: z.string().trim().min(7, "טלפון לא תקין").max(50),
+  fullName: z.string().trim().min(2, "validation.nameTooShort").max(255),
+  phone: z.string().trim().min(7, "validation.phoneInvalid").max(50),
   professionType: z.enum(PROFESSION_TYPES),
+  locale: z.enum(LOCALES),
   slug: z
     .string()
     .trim()
     .toLowerCase()
-    .regex(SLUG_REGEX, "3-40 תווים: אותיות לטיניות קטנות, ספרות ומקפים בלבד")
-    .refine((slug) => !RESERVED_SLUGS.has(slug), "כתובת זו שמורה"),
+    .regex(SLUG_REGEX, "validation.slugFormat")
+    .refine((slug) => !RESERVED_SLUGS.has(slug), "validation.slugReserved"),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;
@@ -37,7 +39,7 @@ export const settingsSchema = z
     defaultDurationMinutes: z
       .number()
       .int()
-      .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "משך לא תקין"),
+      .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid"),
     bufferBeforeMinutes: timeUnitSchema.max(120),
     bufferAfterMinutes: timeUnitSchema.max(120),
     minNoticeHours: timeUnitSchema.max(24 * 30),
@@ -57,7 +59,7 @@ export const settingsSchema = z
     brandColor: z
       .string()
       .trim()
-      .regex(/^#[0-9a-fA-F]{6}$/, "צבע לא תקין")
+      .regex(/^#[0-9a-fA-F]{6}$/, "validation.colorInvalid")
       .optional()
       .or(z.literal("")),
     brandLogoUrl: httpUrl.optional().or(z.literal("")),
@@ -65,17 +67,17 @@ export const settingsSchema = z
     bookingPageDescription: z.string().trim().max(1000).optional(),
   })
   .refine((data) => data.locationType !== "online" || !!data.onlineMeetingUrl, {
-    message: "נדרש קישור למפגש מקוון",
+    message: "validation.meetingUrlRequired",
     path: ["onlineMeetingUrl"],
   })
   .refine(
     (data) => !["clinic", "client_home"].includes(data.locationType) || !!data.locationAddress,
-    { message: "נדרשת כתובת", path: ["locationAddress"] }
+    { message: "validation.addressRequired", path: ["locationAddress"] }
   )
   .refine(
     (data) =>
       data.locationType !== "hybrid" || !!(data.locationAddress || data.onlineMeetingUrl),
-    { message: "נדרשת כתובת או קישור למפגש מקוון", path: ["locationAddress"] }
+    { message: "validation.addressOrMeetingUrlRequired", path: ["locationAddress"] }
   );
 
 export type SettingsInput = z.infer<typeof settingsSchema>;

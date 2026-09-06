@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
-import { DAY_LABELS_SHORT } from "@/lib/labels";
+import { useI18n } from "@/i18n/client";
 
 /** The least a session needs to expose to be summarised on a month cell. Both the
  *  dashboard and the availability page pass richer rows than this. */
@@ -19,7 +19,7 @@ export type MonthGridSession = {
  * of clients with a booking, plus compact counts of booked and open slots.
  *
  * Cells are deliberately terse. At a phone's ~49px column width a full label like
- * "2 מוזמן" overflows, so counts render as colour-coded number chips and at most
+ * "2 booked" overflows, so counts render as colour-coded number chips and at most
  * two names are spelled out before collapsing to "first +N".
  */
 export function MonthGrid({
@@ -35,6 +35,7 @@ export function MonthGrid({
   timezone: string;
   onSelectDay: (date: string) => void;
 }) {
+  const { m } = useI18n();
   const currentMonth = anchorDate.slice(0, 7);
   const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
   const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)), [gridStart]);
@@ -46,16 +47,16 @@ export function MonthGrid({
       const dayKey = formatInTimeZone(new Date(s.startsAt), timezone, "yyyy-MM-dd");
       const entry = map.get(dayKey) ?? { open: 0, bookedNames: [] };
       if (s.status === "open") entry.open++;
-      else entry.bookedNames.push(s.clientName ?? "מוזמן");
+      else entry.bookedNames.push(s.clientName ?? m.common.booked);
       map.set(dayKey, entry);
     }
     return map;
-  }, [sessions, timezone]);
+  }, [sessions, timezone, m.common.booked]);
 
   return (
     <div className="flex flex-col gap-1">
       <div className="grid grid-cols-7 gap-1 text-center">
-        {DAY_LABELS_SHORT.map((label) => (
+        {m.labels.daysShort.map((label) => (
           <div key={label} className="text-muted-foreground py-1 text-xs font-medium">
             {label}
           </div>

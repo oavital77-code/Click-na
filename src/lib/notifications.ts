@@ -15,6 +15,7 @@ import {
   rescheduledEmailForTherapist,
 } from "@/lib/email-templates";
 import type { NotificationChannel, NotificationType } from "@/generated/prisma/client";
+import { getMessages, toLocale } from "@/i18n";
 
 
 
@@ -65,6 +66,7 @@ type BookingWithContext = {
     fullName: string;
     slug: string;
     timezone: string;
+    locale: string;
     settings: {
       locationType: string;
       locationAddress: string | null;
@@ -97,7 +99,12 @@ async function sendWhatsAppToClient(
     type,
     channel: "whatsapp",
     recipient: booking.clientPhoneSnapshot,
-    send: () => sendWhatsApp(credentials, { to: booking.clientPhoneSnapshot!, body }),
+    send: () =>
+      sendWhatsApp(credentials, {
+        to: booking.clientPhoneSnapshot!,
+        body,
+        locale: toLocale(booking.therapist.locale),
+      }),
   });
 }
 
@@ -201,6 +208,9 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
 
   const { session, therapist } = booking;
   const settings = therapist.settings;
+  // Everything the client receives is in the therapist's language — it is the
+  // therapist's practice, and it speaks one language to everyone.
+  const locale = toLocale(therapist.locale);
   // A meeting opened for this booking is the location — it's more use to the
   // client than the therapist's street address or a static room link.
   const meetingUrl = await createMeetingFor(booking);
@@ -209,6 +219,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
 
   if (booking.clientEmailSnapshot && settings?.sendEmailConfirmation) {
     const { subject, html } = confirmationEmailForClient({
+      locale,
       clientFullName: booking.clientNameSnapshot,
       therapistFullName: therapist.fullName,
       startsAt: session.startsAt,
@@ -221,7 +232,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
       uid: booking.id,
       startsAt: session.startsAt,
       endsAt: session.endsAt,
-      therapistFullName: therapist.fullName,
+      title: getMessages(locale).ics.eventTitle(therapist.fullName),
       location,
     });
     await recordNotification({
@@ -240,6 +251,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
   }
 
   const { subject: therapistSubject, html: therapistHtml } = newBookingEmailForTherapist({
+    locale,
     therapistFullName: therapist.fullName,
     clientFullName: booking.clientNameSnapshot,
     startsAt: session.startsAt,
@@ -258,6 +270,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
     booking,
     "confirmation",
     confirmationWhatsApp({
+      locale,
       clientFullName: booking.clientNameSnapshot,
       therapistFullName: therapist.fullName,
       startsAt: session.startsAt,
@@ -286,9 +299,11 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
   });
 
   const { session, therapist } = booking;
+  const locale = toLocale(therapist.locale);
 
   if (canceledBy === "client") {
     const { subject, html } = cancellationEmailForTherapist({
+      locale,
       therapistFullName: therapist.fullName,
       clientFullName: booking.clientNameSnapshot,
       startsAt: session.startsAt,
@@ -306,6 +321,7 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
 
   if (booking.clientEmailSnapshot) {
     const { subject, html } = cancellationEmailForClient({
+      locale,
       clientFullName: booking.clientNameSnapshot,
       therapistFullName: therapist.fullName,
       startsAt: session.startsAt,
@@ -340,6 +356,7 @@ export async function sendBookingRescheduledNotifications(bookingId: string, old
   await scheduleReminders(booking);
 
   const { subject, html } = rescheduledEmailForTherapist({
+    locale: toLocale(therapist.locale),
     therapistFullName: therapist.fullName,
     clientFullName: booking.clientNameSnapshot,
     oldStartsAt,
@@ -376,7 +393,9 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
     const location = resolveLocation(
       await prisma.therapistSettings.findUnique({ where: { therapistId: booking.therapistId } })
     );
+    const locale = toLocale(booking.therapist.locale);
     const message = {
+      locale,
       clientFullName: booking.clientNameSnapshot,
       therapistFullName: booking.therapist.fullName,
       startsAt: booking.session.startsAt,
@@ -401,6 +420,7 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
       result = await sendWhatsApp(credentials, {
         to: notification.recipient,
         body: reminderWhatsApp(message),
+        locale,
       });
     } else {
       const { subject, html } = reminderEmailForClient(message);

@@ -1,13 +1,9 @@
-import { formatInTimeZone } from "date-fns-tz";
-import { he } from "date-fns/locale";
+import { getMessages, type Locale } from "@/i18n";
+import { fmtRange } from "@/i18n/dates";
 
 /** Same wording as the emails, trimmed for a chat bubble: no salutation block, no footer. */
-function when(startsAt: Date, endsAt: Date, timezone: string) {
-  const day = formatInTimeZone(startsAt, timezone, "EEEE, d.M.yyyy", { locale: he });
-  return `${day}, ${formatInTimeZone(startsAt, timezone, "HH:mm")}–${formatInTimeZone(endsAt, timezone, "HH:mm")}`;
-}
-
 export type BookingMessageInput = {
+  locale: Locale;
   clientFullName: string;
   therapistFullName: string;
   startsAt: Date;
@@ -18,24 +14,26 @@ export type BookingMessageInput = {
 };
 
 export function confirmationWhatsApp(input: BookingMessageInput): string {
+  const m = getMessages(input.locale).messages;
   return [
-    `שלום ${input.clientFullName},`,
-    `התור שלך אצל ${input.therapistFullName} אושר:`,
-    when(input.startsAt, input.endsAt, input.timezone),
-    input.location ? `מיקום: ${input.location}` : null,
-    `לצפייה או לביטול: ${input.manageUrl}`,
+    m.hello(input.clientFullName),
+    m.confirmation.lead(input.therapistFullName),
+    fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale),
+    input.location ? m.location(input.location) : null,
+    m.confirmation.whatsappManage(input.manageUrl),
   ]
     .filter(Boolean)
     .join("\n");
 }
 
 export function reminderWhatsApp(input: BookingMessageInput): string {
+  const m = getMessages(input.locale).messages;
   return [
-    `שלום ${input.clientFullName},`,
-    `תזכורת לתור אצל ${input.therapistFullName}:`,
-    when(input.startsAt, input.endsAt, input.timezone),
-    input.location ? `מיקום: ${input.location}` : null,
-    `לצפייה או לביטול: ${input.manageUrl}`,
+    m.hello(input.clientFullName),
+    m.reminder.whatsappLead(input.therapistFullName),
+    fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale),
+    input.location ? m.location(input.location) : null,
+    m.confirmation.whatsappManage(input.manageUrl),
   ]
     .filter(Boolean)
     .join("\n");

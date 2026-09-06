@@ -104,7 +104,7 @@ describe("verifyCredentials — failure handling", () => {
 
     const result = await verifyCredentials("whatsapp", TWILIO);
     expect(result.ok).toBe(false);
-    if (!result.ok) expect(result.error).toContain("לא הגיב בזמן");
+    if (!result.ok) expect(result.error).toContain("did not respond in time");
   });
 
   it("survives a network error instead of throwing into the request handler", async () => {

@@ -7,15 +7,17 @@ import { SignOutButton } from "@clerk/nextjs";
 import { LogOut, Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/brand-mark";
+import { useI18n } from "@/i18n/client";
+import type { Messages } from "@/i18n";
 
-const LINKS = [
-  { href: "/dashboard", label: "דשבורד" },
-  { href: "/dashboard/availability", label: "זמינות" },
-  { href: "/dashboard/bookings", label: "הזמנות" },
-  { href: "/dashboard/clients", label: "לקוחות" },
-  { href: "/dashboard/link", label: "הקישור שלי" },
-  { href: "/dashboard/addons", label: "תוספים" },
-  { href: "/dashboard/settings", label: "הגדרות" },
+const LINKS: { href: string; key: keyof Messages["nav"] }[] = [
+  { href: "/dashboard", key: "dashboard" },
+  { href: "/dashboard/availability", key: "availability" },
+  { href: "/dashboard/bookings", key: "bookings" },
+  { href: "/dashboard/clients", key: "clients" },
+  { href: "/dashboard/link", key: "link" },
+  { href: "/dashboard/addons", key: "addons" },
+  { href: "/dashboard/settings", key: "settings" },
 ];
 
 function isActive(pathname: string | null, href: string) {
@@ -23,6 +25,7 @@ function isActive(pathname: string | null, href: string) {
 }
 
 function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigate?: () => void }) {
+  const { m } = useI18n();
   return (
     <>
       {LINKS.map((link) => (
@@ -37,7 +40,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
               : "text-muted-foreground hover:bg-muted hover:text-foreground"
           )}
         >
-          {link.label}
+          {m.nav[link.key]}
         </Link>
       ))}
     </>
@@ -45,6 +48,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
 }
 
 function SignOutLink() {
+  const { m } = useI18n();
   return (
     <SignOutButton redirectUrl="/">
       <button
@@ -52,7 +56,7 @@ function SignOutLink() {
         className="text-muted-foreground hover:bg-muted hover:text-foreground flex min-h-11 w-full items-center gap-2 rounded-md px-3 text-sm font-medium transition-colors"
       >
         <LogOut className="size-4" strokeWidth={1.75} />
-        התנתקות
+        {m.nav.signOut}
       </button>
     </SignOutButton>
   );
@@ -61,6 +65,7 @@ function SignOutLink() {
 export function DashboardNav() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { m } = useI18n();
 
   return (
     <>
@@ -72,7 +77,7 @@ export function DashboardNav() {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
-          aria-label="פתח תפריט ניווט"
+          aria-label={m.nav.openMenu}
           className="hover:bg-muted flex size-11 items-center justify-center rounded-md"
         >
           <Menu className="size-5" />
@@ -83,7 +88,7 @@ export function DashboardNav() {
         <div className="fixed inset-0 z-50 md:hidden">
           <button
             type="button"
-            aria-label="סגור תפריט"
+            aria-label={m.nav.closeMenu}
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
@@ -93,7 +98,7 @@ export function DashboardNav() {
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}
-                aria-label="סגור תפריט"
+                aria-label={m.nav.closeMenu}
                 className="hover:bg-muted flex size-11 items-center justify-center rounded-md"
               >
                 <X className="size-5" />
