@@ -332,7 +332,7 @@ model Notification {
   sentAt       DateTime?           @map("sent_at") @db.Timestamptz
   status       NotificationStatus  @default(pending)
   attempts     Int                 @default(0)
-  errorMessage String?
+  errorMessage String?             @map("error_message")
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
   booking   Booking?  @relation(fields: [bookingId], references: [id])

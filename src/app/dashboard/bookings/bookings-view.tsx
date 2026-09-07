@@ -25,6 +25,8 @@ type Booking = {
   manageToken: string;
   /** When a WhatsApp reminder went out — automatically or by the therapist's tap. */
   reminderSentAt: string | null;
+  /** False when no reminder was ever queued: the booking came in too close to the time. */
+  hasScheduledReminder: boolean;
 };
 
 type Props = {
@@ -165,6 +167,13 @@ export function BookingsView({ timezone, slug, therapistFullName, location, init
                   )}
                   {booking.clientNote && (
                     <p className="text-muted-foreground text-sm">{m.bookings.note(booking.clientNote)}</p>
+                  )}
+
+                  {/* Booked inside the reminder lead time, so the automatic one
+                      never got queued. Saying so is what turns the button below
+                      from a convenience into the thing to do. */}
+                  {CANCELABLE.has(booking.status) && !booking.hasScheduledReminder && !booking.reminderSentAt && (
+                    <p className="text-muted-foreground text-xs">{m.bookings.noAutoReminder}</p>
                   )}
 
                   {CANCELABLE.has(booking.status) &&

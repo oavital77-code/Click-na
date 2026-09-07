@@ -33,18 +33,22 @@ export default async function BookingsPage() {
     orderBy: { session: { startsAt: "asc" } },
   });
 
-  // "Was this client reminded?" — by the cron through Twilio or by the
-  // therapist's own tap, both land in the same table.
+  // Two questions, one query. "Was this client reminded on WhatsApp?" — by the
+  // cron through Twilio or by the therapist's own tap, both land here. And "is
+  // any reminder coming at all?" — a booking made closer to the appointment
+  // than the reminder lead time never gets one scheduled, which was invisible.
   const reminders = await prisma.notification.findMany({
-    where: {
-      bookingId: { in: bookings.map((b) => b.id) },
-      type: "reminder",
-      channel: "whatsapp",
-      status: "sent",
-    },
-    select: { bookingId: true, sentAt: true },
+    where: { bookingId: { in: bookings.map((b) => b.id) }, type: "reminder" },
+    select: { bookingId: true, sentAt: true, channel: true, status: true },
   });
-  const reminderSentAt = new Map(reminders.map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null]));
+  const reminderSentAt = new Map(
+    reminders
+      .filter((r) => r.channel === "whatsapp" && r.status === "sent")
+      .map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null])
+  );
+  const hasReminder = new Set(
+    reminders.filter((r) => r.status !== "canceled").map((r) => r.bookingId)
+  );
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4 text-center md:p-8 md:text-start">
@@ -68,6 +72,7 @@ export default async function BookingsPage() {
           clientNote: b.clientNote,
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
+          hasScheduledReminder: hasReminder.has(b.id),
         }))}
       />
     </main>

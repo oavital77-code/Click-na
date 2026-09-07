@@ -48,3 +48,15 @@ export function sessionStatusTone(status: string): StatusTone {
 export function bookingStatusTone(status: string): StatusTone {
   return BOOKING_TONE[status] ?? "neutral";
 }
+
+const MESSAGE_TONE: Record<string, StatusTone> = {
+  sent: "open",
+  // The one state the therapist has to act on, so it gets the alarm tone.
+  failed: "danger",
+  pending: "held",
+  canceled: "neutral",
+};
+
+export function messageStatusTone(status: string): StatusTone {
+  return MESSAGE_TONE[status] ?? "neutral";
+}

@@ -17,6 +17,7 @@ const LINKS: { href: string; key: keyof Messages["nav"] }[] = [
   { href: "/dashboard/clients", key: "clients" },
   { href: "/dashboard/link", key: "link" },
   { href: "/dashboard/addons", key: "addons" },
+  { href: "/dashboard/messages", key: "messages" },
   { href: "/dashboard/settings", key: "settings" },
 ];
 

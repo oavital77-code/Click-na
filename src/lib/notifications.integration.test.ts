@@ -229,6 +229,91 @@ describe("notifications (against a live database)", () => {
       expect(sendEmailMock).not.toHaveBeenCalled();
     });
 
+    // A send that failed once used to stay failed forever: the query only looked
+    // at "pending", so the row fell out of it and the client silently never
+    // heard from their therapist.
+    it("retries a reminder that failed, while the appointment is still ahead", async () => {
+      therapistId = await makeTherapist();
+      const booking = await makeBookingFor(therapistId, 48);
+      await prisma.notification.create({
+        data: {
+          therapistId,
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot!,
+          scheduledFor: new Date(Date.now() - 60 * 1000),
+          status: "failed",
+          attempts: 1,
+          errorMessage: "the provider blinked",
+        },
+      });
+
+      const summary = await sendDueReminders();
+
+      expect(summary.sent).toBeGreaterThanOrEqual(1);
+      const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
+      expect(reminder?.status).toBe("sent");
+      expect(reminder?.attempts).toBe(2);
+    });
+
+    it("gives up after three attempts rather than retrying forever", async () => {
+      therapistId = await makeTherapist();
+      const booking = await makeBookingFor(therapistId, 48);
+      await prisma.notification.create({
+        data: {
+          therapistId,
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot!,
+          scheduledFor: new Date(Date.now() - 60 * 1000),
+          status: "failed",
+          attempts: 3,
+        },
+      });
+
+      await sendDueReminders();
+
+      const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
+      expect(reminder?.attempts).toBe(3);
+      expect(sendEmailMock).not.toHaveBeenCalled();
+    });
+
+    // Reminding somebody about an appointment they already had is worse than
+    // saying nothing, so a failed reminder stops being retried once it passes.
+    it("does not retry a failed reminder for an appointment that already happened", async () => {
+      therapistId = await makeTherapist();
+      const booking = await makeBookingFor(therapistId, 48);
+      // Booked while it was still ahead, then time passed: createBooking refuses
+      // a slot in the past, so the session is moved rather than created there.
+      await prisma.session.update({
+        where: { id: booking.sessionId },
+        data: {
+          startsAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          endsAt: new Date(Date.now() - 60 * 60 * 1000),
+        },
+      });
+      await prisma.notification.create({
+        data: {
+          therapistId,
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot!,
+          scheduledFor: new Date(Date.now() - 60 * 60 * 1000),
+          status: "failed",
+          attempts: 1,
+        },
+      });
+
+      await sendDueReminders();
+
+      const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
+      expect(reminder?.attempts).toBe(1);
+      expect(sendEmailMock).not.toHaveBeenCalled();
+    });
+
     it("cancels a due reminder instead of sending it when the booking was canceled", async () => {
       therapistId = await makeTherapist();
       const booking = await makeBookingFor(therapistId, 48);

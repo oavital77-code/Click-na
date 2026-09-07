@@ -374,10 +374,34 @@ export async function sendBookingRescheduledNotifications(bookingId: string, old
 
 export type SendDueRemindersSummary = { sent: number; failed: number };
 
+/**
+ * How many times a reminder is attempted before it is left alone.
+ *
+ * A send that failed was almost always a passing problem — the mail provider
+ * blinked, a token was briefly rejected, the network dropped. Leaving the row
+ * `failed` after one attempt meant a client silently never heard from their
+ * therapist and nobody found out. Each cron run is one further attempt.
+ */
+const REMINDER_ATTEMPT_LIMIT = 3;
+
 /** Cron entry point (spec 8.6: reminders go out `reminder_hours_before` ahead of the session). */
 export async function sendDueReminders(now = new Date()): Promise<SendDueRemindersSummary> {
   const due = await prisma.notification.findMany({
-    where: { type: "reminder", status: "pending", scheduledFor: { lte: now } },
+    where: {
+      type: "reminder",
+      scheduledFor: { lte: now },
+      OR: [
+        { status: "pending" },
+        // Retried on a later run — but only while the appointment is still
+        // ahead. A reminder for something already over helps nobody, so those
+        // rows stay failed and simply stop being picked up.
+        {
+          status: "failed",
+          attempts: { lt: REMINDER_ATTEMPT_LIMIT },
+          booking: { is: { session: { startsAt: { gt: now } } } },
+        },
+      ],
+    },
     include: { booking: { include: { session: true, therapist: true } } },
   });
 

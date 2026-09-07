@@ -35,6 +35,7 @@ export const en = {
     clients: "Clients",
     link: "My link",
     addons: "Add-ons",
+    messages: "Messages",
     settings: "Settings",
     signOut: "Sign out",
     openMenu: "Open navigation menu",
@@ -288,6 +289,7 @@ export const en = {
     reminderHint:
       "Opens WhatsApp on your phone with the reminder written and the client's number filled in — you only press send. Automatic sending needs the WhatsApp add-on.",
     noPhone: "No phone number — the client did not leave one",
+    noAutoReminder: "No automatic reminder — this was booked closer to the time than your reminder setting.",
     note: (note: string) => `Note: ${note}`,
     cancelReasonPlaceholder: "Reason for cancelling (optional, sent to the client)",
     confirmCancel: "Confirm cancellation",
@@ -541,5 +543,34 @@ export const en = {
     headline1: "Your calendar, without",
     headline2: "the back-and-forth",
     subline: "Scheduling for therapists and independent practitioners",
+  },
+
+  messageLog: {
+    kicker: "Sent on your behalf",
+    title: "Messages",
+    meta: "Every confirmation and reminder the app tried to send, and what became of it.",
+    empty: "Nothing has been sent yet. Confirmations and reminders show up here the moment a client books.",
+    allDelivered: "Everything sent so far has gone out.",
+    someFailed: (n: number) =>
+      n === 1 ? "1 message did not go out." : `${n} messages did not go out.`,
+    failedHelp:
+      "A reminder that fails is tried again on the next daily run, up to three times, as long as the appointment is still ahead. A confirmation is not retried — reach the client another way.",
+    schedule: "Reminders are sent once a day, in the morning. A reminder set for fewer than 24 hours before an appointment may go out later than intended.",
+    status: { sent: "Sent", failed: "Did not go out", pending: "Waiting", canceled: "Cancelled" },
+    type: {
+      confirmation: "Booking confirmation",
+      reminder: "Reminder",
+      cancellation: "Cancellation",
+      reschedule: "Change of time",
+      welcome: "Welcome",
+      onboarding_complete: "Your link is live",
+      subscription: "Subscription",
+    },
+    channel: { email: "Email", whatsapp: "WhatsApp", sms: "SMS" },
+    scheduledFor: (when: string) => `Due ${when}`,
+    attempts: (n: number) => (n === 1 ? "1 attempt" : `${n} attempts`),
+    forAppointment: (when: string) => `for the appointment on ${when}`,
+    filterAll: "All",
+    filterFailed: "Did not go out",
   },
 };
