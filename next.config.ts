@@ -17,8 +17,10 @@ const securityHeaders = [
   },
   {
     // Superseded by frame-ancestors for modern browsers, kept for older ones.
+    // SAMEORIGIN, not DENY: the "My link" screen previews the public booking page
+    // in an iframe on this very origin, and DENY blocked that too.
     key: "X-Frame-Options",
-    value: "DENY",
+    value: "SAMEORIGIN",
   },
   {
     // Stops a browser from re-interpreting a therapist's uploaded content or a

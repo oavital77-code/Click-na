@@ -33,6 +33,19 @@ export default async function BookingsPage() {
     orderBy: { session: { startsAt: "asc" } },
   });
 
+  // "Was this client reminded?" — by the cron through Twilio or by the
+  // therapist's own tap, both land in the same table.
+  const reminders = await prisma.notification.findMany({
+    where: {
+      bookingId: { in: bookings.map((b) => b.id) },
+      type: "reminder",
+      channel: "whatsapp",
+      status: "sent",
+    },
+    select: { bookingId: true, sentAt: true },
+  });
+  const reminderSentAt = new Map(reminders.map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null]));
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 p-4 text-center md:p-8 md:text-start">
       <PageHeader
@@ -42,6 +55,9 @@ export default async function BookingsPage() {
       />
       <BookingsView
         timezone={therapist.timezone}
+        slug={therapist.slug}
+        therapistFullName={therapist.fullName}
+        location={therapist.settings?.locationAddress ?? therapist.settings?.onlineMeetingUrl ?? null}
         initialBookings={bookings.map((b) => ({
           id: b.id,
           startsAt: b.session.startsAt.toISOString(),
@@ -50,6 +66,8 @@ export default async function BookingsPage() {
           clientName: b.clientNameSnapshot,
           clientPhone: b.clientPhoneSnapshot,
           clientNote: b.clientNote,
+          manageToken: b.manageToken,
+          reminderSentAt: reminderSentAt.get(b.id) ?? null,
         }))}
       />
     </main>

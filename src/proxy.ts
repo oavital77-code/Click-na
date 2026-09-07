@@ -37,7 +37,9 @@ export default clerkMiddleware({
 
       "object-src": ["none"],
       "base-uri": ["self"],
-      "frame-ancestors": ["none"],
+      // "self", not "none": /dashboard/link previews the booking page in an
+      // iframe on this origin. Third-party framing stays blocked.
+      "frame-ancestors": ["self"],
     },
   },
 });
