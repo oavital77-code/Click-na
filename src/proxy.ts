@@ -1,11 +1,13 @@
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 import { clerkMiddleware } from "@clerk/nextjs/server";
+import { createNonce, isPublicPath, publicCsp } from "@/lib/csp";
 
 // Only enables auth() / auth.protect() for server components and route handlers.
 // Actual protection happens per-route (e.g. src/app/dashboard/layout.tsx) —
 // path-matching-based protection here is deprecated by Clerk in favor of
 // resource-based auth checks, since middleware matching can diverge from
 // how Next.js actually routes a request.
-export default clerkMiddleware({
+const withClerk = clerkMiddleware({
   /**
    * The Content-Security-Policy, generated per request.
    *
@@ -43,6 +45,37 @@ export default clerkMiddleware({
     },
   },
 });
+
+/**
+ * Public routes never touch Clerk.
+ *
+ * Running clerkMiddleware on them is not free: on a development instance an
+ * anonymous visitor is bounced through a 307 handshake to Clerk's servers
+ * before the page renders, which put the booking page — the product itself —
+ * behind the availability of a service it has no reason to consult. Those
+ * routes read no session, so they get their own CSP (src/lib/csp.ts) and go
+ * straight to the app.
+ *
+ * The cost of the split is that auth() throws on these routes rather than
+ * returning an empty session; getCurrentTherapist() absorbs that.
+ */
+export default function proxy(request: NextRequest, event: NextFetchEvent) {
+  if (!isPublicPath(request.nextUrl.pathname)) {
+    return withClerk(request, event);
+  }
+
+  const nonce = createNonce();
+  const csp = publicCsp(nonce);
+
+  // Set on the request as well as the response: Next reads the CSP off the
+  // *request* headers to find the nonce and stamp it onto its own scripts.
+  const headers = new Headers(request.headers);
+  headers.set("content-security-policy", csp);
+
+  const response = NextResponse.next({ request: { headers } });
+  response.headers.set("content-security-policy", csp);
+  return response;
+}
 
 export const config = {
   matcher: [

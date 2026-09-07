@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
 import { Heebo, Inter, Frank_Ruhl_Libre, Geist_Mono } from "next/font/google";
-import { ClerkProvider } from "@clerk/nextjs";
-import { enUS, heIL } from "@clerk/localizations";
 import { DirectionProvider } from "@radix-ui/react-direction";
 import { appUrl } from "@/lib/public-url";
 import { getCurrentLocale } from "@/lib/auth";
@@ -54,24 +52,27 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
-  // The signed-in therapist's language decides <html lang dir> and Clerk's own
-  // strings. A visitor who is not signed in gets the product default. Public
-  // booking pages speak the *therapist's* language regardless of who is
-  // looking, and correct these attributes themselves (see HtmlLangDir).
+  // The signed-in therapist's language decides <html lang dir>. A visitor who
+  // is not signed in — and every public route, which does not run Clerk at all
+  // (see src/proxy.ts) — gets the product default. Public booking pages speak
+  // the *therapist's* language regardless of who is looking, and correct these
+  // attributes themselves (see HtmlLangDir).
   const locale = await getCurrentLocale();
   const dir = dirFor(locale);
 
+  // No ClerkProvider here on purpose: the booking page and the landing page
+  // would otherwise ship the auth SDK to every visitor who will never sign in.
+  // It wraps the three route groups that actually need it instead — the
+  // dashboard, and the sign-in and sign-up screens.
   return (
-    <ClerkProvider localization={locale === "he" ? heIL : enUS}>
-      <html
-        lang={langTag(locale)}
-        dir={dir}
-        className={`${heebo.variable} ${inter.variable} ${frankRuhlLibre.variable} ${geistMono.variable} h-full antialiased`}
-      >
-        <body className="min-h-full flex flex-col">
-          <DirectionProvider dir={dir}>{children}</DirectionProvider>
-        </body>
-      </html>
-    </ClerkProvider>
+    <html
+      lang={langTag(locale)}
+      dir={dir}
+      className={`${heebo.variable} ${inter.variable} ${frankRuhlLibre.variable} ${geistMono.variable} h-full antialiased`}
+    >
+      <body className="min-h-full flex flex-col">
+        <DirectionProvider dir={dir}>{children}</DirectionProvider>
+      </body>
+    </html>
   );
 }
