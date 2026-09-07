@@ -237,7 +237,11 @@ function Toggle({
       disabled={busy}
       onClick={onClick}
       className={cn(
+        // after:: the track is 24px tall because that is what a switch should
+        // look like, but 24px is not a finger. The pseudo-element extends the
+        // hit area to 44px without moving anything on screen.
         "focus-visible:ring-ring/50 relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors outline-none focus-visible:ring-[3px] disabled:opacity-50",
+        "after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-['']",
         checked ? "bg-primary" : "bg-muted-foreground/30"
       )}
     >
@@ -287,7 +291,7 @@ function CredentialForm({
           href={integration.docsUrl}
           target="_blank"
           rel="noreferrer noopener"
-          className="text-primary inline-flex items-center justify-center gap-1 text-xs hover:underline md:justify-start"
+          className="text-primary inline-flex min-h-11 items-center justify-center gap-1 text-xs hover:underline md:min-h-0 md:justify-start"
         >
           <ExternalLink className="size-3.5" />
           {m.addons.openDocs}
@@ -377,7 +381,7 @@ function CalendarFeed({ url }: { url: string }) {
       <button
         type="button"
         onClick={() => setShowUrl((open) => !open)}
-        className="text-muted-foreground hover:text-foreground self-center text-xs underline underline-offset-4 md:self-start"
+        className="text-muted-foreground hover:text-foreground inline-flex min-h-11 items-center self-center text-xs underline underline-offset-4 md:min-h-0 md:self-start"
       >
         {showUrl ? m.addons.hideUrl : m.addons.showUrl}
       </button>
