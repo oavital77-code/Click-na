@@ -5,10 +5,13 @@ import {
   onboardingCompleteEmail,
   signupAlertEmail,
   subscriptionEmail,
+  trialEmail,
+  type TrialEmailInput,
   welcomeEmail,
 } from "@/lib/email-templates";
 import type { NotificationType } from "@/generated/prisma/client";
 import { DEFAULT_LOCALE, toLocale } from "@/i18n";
+import { formatPriceIls, planPriceIls } from "@/lib/plan";
 
 /**
  * Mail about the therapist's own account, as distinct from the booking mail in
@@ -139,4 +142,22 @@ export async function sendSignupAlert(therapistId: string) {
   });
 
   await sendEmail({ to: recipient, subject, html });
+}
+
+/** One step of the trial countdown — a reminder, the end, or the lock. */
+export async function sendTrialEmail(therapistId: string, stage: TrialEmailInput["stage"]) {
+  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId } });
+  if (!therapist) return;
+  const locale = toLocale(therapist.locale);
+  const price = planPriceIls();
+
+  const { subject, html } = trialEmail({
+    locale,
+    therapistFullName: therapist.fullName,
+    stage,
+    price: price === null ? null : formatPriceIls(price, locale),
+    billingUrl: `${appUrl()}/dashboard/billing`,
+  });
+
+  await record({ therapistId, type: "trial_reminder", recipient: therapist.email, subject, html });
 }

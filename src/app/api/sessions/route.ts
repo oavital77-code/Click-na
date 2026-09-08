@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { isExclusionViolation } from "@/lib/prisma-errors";
+import { writeBlocked } from "@/lib/require-access";
 
 const querySchema = z.object({
   from: z.string().datetime(),
@@ -48,6 +49,8 @@ export async function POST(request: NextRequest) {
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = createSchema.safeParse(await request.json());
   if (!parsed.success) {

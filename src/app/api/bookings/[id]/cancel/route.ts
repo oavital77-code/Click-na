@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { cancelBookingByTherapist } from "@/lib/bookings";
 import { sendBookingCanceledNotifications } from "@/lib/notifications";
+import { writeBlocked } from "@/lib/require-access";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() });
 
@@ -18,6 +19,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/booking
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {

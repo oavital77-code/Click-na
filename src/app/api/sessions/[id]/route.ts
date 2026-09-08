@@ -3,6 +3,7 @@ import { z } from "zod";
 import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { SlotNotDeletableError, deleteSlot } from "@/lib/reset";
+import { writeBlocked } from "@/lib/require-access";
 
 const patchSchema = z.object({
   status: z.enum(["open", "blocked"]),
@@ -15,6 +16,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = patchSchema.safeParse(await request.json());
   if (!parsed.success) {
@@ -53,6 +56,8 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/sess
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const { id } = await ctx.params;
   try {

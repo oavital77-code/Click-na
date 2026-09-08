@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { settingsSchema } from "@/lib/settings-schema";
 import { updateSettings } from "@/lib/settings";
+import { writeBlocked } from "@/lib/require-access";
 
 export async function GET() {
   const { userId } = await auth();
@@ -23,6 +24,8 @@ export async function PATCH(request: NextRequest) {
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = settingsSchema.safeParse(await request.json());
   if (!parsed.success) {

@@ -292,6 +292,55 @@ export function subscriptionEmail(input: SubscriptionEmailInput) {
   };
 }
 
+export type TrialEmailInput = Localized & {
+  therapistFullName: string;
+  /** Where the therapist is in the countdown. */
+  stage: { kind: "reminder"; daysLeft: number } | { kind: "ended"; graceDays: number } | { kind: "locked" };
+  /** The monthly price, already formatted for the locale. Null when none is configured. */
+  price: string | null;
+  billingUrl: string;
+};
+
+/**
+ * The trial countdown. Three moments, one shape: where you are, what happens
+ * next, and the one thing to do about it. Never a scare — the client-facing
+ * side is explicitly said to keep working, because it does.
+ */
+export function trialEmail(input: TrialEmailInput) {
+  const m = getMessages(input.locale).messages;
+  const t = m.trial;
+  const { subject, lead, note } = (() => {
+    switch (input.stage.kind) {
+      case "reminder":
+        return input.stage.daysLeft <= 0
+          ? { subject: t.lastDaySubject, lead: t.lastDayLead, note: input.price ? t.reminderNote(input.price) : "" }
+          : {
+              subject: t.reminderSubject(input.stage.daysLeft),
+              lead: t.reminderLead(input.stage.daysLeft),
+              note: input.price ? t.reminderNote(input.price) : "",
+            };
+      case "ended":
+        return { subject: t.endedSubject, lead: t.endedLead(input.stage.graceDays), note: t.endedNote };
+      case "locked":
+        return { subject: t.lockedSubject, lead: t.lockedLead, note: t.lockedNote };
+    }
+  })();
+
+  return {
+    subject,
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.hello(input.therapistFullName))}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(lead)}</p>
+      ${note ? `<p style="font-size:14px;line-height:1.6;color:#6d6154;">${esc(note)}</p>` : ""}
+      <p style="margin:24px 0;">
+        <a href="${esc(input.billingUrl)}" style="background:#c67139;color:#f9f4ed;padding:12px 22px;border-radius:999px;text-decoration:none;font-size:15px;display:inline-block;">
+          ${esc(t.cta)}
+        </a>
+      </p>
+    `),
+  };
+}
+
 export type SignupAlertEmailInput = Localized & {
   therapistFullName: string;
   therapistEmail: string;

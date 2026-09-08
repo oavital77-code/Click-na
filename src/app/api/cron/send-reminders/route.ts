@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/notifications";
 import { pruneRateLimits } from "@/lib/rate-limit";
+import { runBillingLifecycle } from "@/lib/billing-lifecycle";
 
 /**
  * Constant-time check of the bearer header. Both sides go through SHA-256 first
@@ -31,10 +32,13 @@ export async function GET(request: NextRequest) {
 
   const summary = await sendDueReminders();
 
+  // Trials that ended, grace that ran out, countdown mail — see billing-lifecycle.ts.
+  const billing = await runBillingLifecycle();
+
   // Rate-limit windows are only useful until they close. Swept here rather than
   // on a schedule of their own: the rows are tiny and nothing depends on them
   // disappearing promptly.
   const prunedRateLimits = await pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
-  return NextResponse.json({ ...summary, prunedRateLimits });
+  return NextResponse.json({ ...summary, billing, prunedRateLimits });
 }

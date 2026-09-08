@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { listRulesWithCounts, createRules } from "@/lib/availability-rules";
 import { ruleCreateSchema } from "@/lib/availability-rule-schema";
+import { writeBlocked } from "@/lib/require-access";
 
 export async function GET() {
   const { userId } = await auth();
@@ -21,6 +22,8 @@ export async function POST(request: NextRequest) {
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = ruleCreateSchema.safeParse(await request.json());
   if (!parsed.success) {

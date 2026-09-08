@@ -3,6 +3,7 @@ import { z } from "zod";
 import { formatInTimeZone } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { accessState, acceptsNewBookings } from "@/lib/access";
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -21,9 +22,12 @@ export async function GET(
 
   const therapist = await prisma.therapist.findUnique({
     where: { slug },
-    include: { settings: true },
+    include: { settings: true, subscription: true },
   });
   if (!therapist || therapist.status !== "active" || !therapist.settings) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
+  if (therapist.subscription && !acceptsNewBookings(accessState(therapist.subscription))) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 

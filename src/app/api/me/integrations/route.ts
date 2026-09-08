@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getCurrentTherapist } from "@/lib/auth";
 import { toLocale } from "@/i18n";
+import { writeBlocked } from "@/lib/require-access";
 import {
   INTEGRATION_PROVIDERS,
   connectIntegration,
@@ -41,6 +42,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const therapist = await getCurrentTherapist();
   if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {

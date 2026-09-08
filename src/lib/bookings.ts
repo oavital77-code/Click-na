@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { isExclusionViolation } from "@/lib/prisma-errors";
 import type { Booking, Session } from "@/generated/prisma/client";
+import { accessState, acceptsNewBookings } from "@/lib/access";
 
 const HOLD_MINUTES = 10;
 
@@ -58,10 +59,14 @@ export async function createBooking(
 ): Promise<CreateBookingResult> {
   const session = await prisma.session.findUnique({
     where: { id: sessionId },
-    include: { therapist: { include: { settings: true } } },
+    include: { therapist: { include: { settings: true, subscription: true } } },
   });
 
   if (!session || session.therapist.status !== "active" || !session.therapist.settings) {
+    return { ok: false, error: "THERAPIST_NOT_FOUND" };
+  }
+  // Cancelled and run out: closed to new bookings, same as the page says.
+  if (session.therapist.subscription && !acceptsNewBookings(accessState(session.therapist.subscription))) {
     return { ok: false, error: "THERAPIST_NOT_FOUND" };
   }
 

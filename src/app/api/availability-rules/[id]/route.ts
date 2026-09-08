@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { updateRule, deleteRule } from "@/lib/availability-rules";
 import { ruleUpdateSchema } from "@/lib/availability-rule-schema";
+import { writeBlocked } from "@/lib/require-access";
 
 async function getOwnedRule(therapistId: string, ruleId: string) {
   const rule = await prisma.availabilityRule.findUnique({ where: { id: ruleId } });
@@ -19,6 +20,8 @@ export async function PATCH(
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const { id } = await ctx.params;
   const existing = await getOwnedRule(therapist.id, id);
@@ -42,6 +45,8 @@ export async function DELETE(
 
   const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const blocked = await writeBlocked(therapist.id);
+  if (blocked) return blocked;
 
   const { id } = await ctx.params;
   const existing = await getOwnedRule(therapist.id, id);
