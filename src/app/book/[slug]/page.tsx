@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 import { resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
+import { accessState, acceptsNewBookings } from "@/lib/access";
 import { BookingFlow } from "./booking-flow";
 
 /**
@@ -47,7 +48,7 @@ export default async function BookingPage({
 
   const therapist = await prisma.therapist.findUnique({
     where: { slug },
-    include: { settings: true },
+    include: { settings: true, subscription: true },
   });
 
   if (
@@ -76,6 +77,17 @@ export default async function BookingPage({
   // practice's front door, not the viewer's account.
   const locale = toLocale(therapist.locale);
   const m = getMessages(locale);
+
+  // Cancelled and run out: the practice has said it is closing, so the door
+  // says so too. Anything short of that keeps taking bookings — see access.ts.
+  if (therapist.subscription && !acceptsNewBookings(accessState(therapist.subscription))) {
+    return (
+      <main dir={dirFor(locale)} lang={langTag(locale)} className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
+        <p className="text-lg font-medium">{settings.bookingPageHeadline || therapist.fullName}</p>
+        <p className="text-muted-foreground text-sm">{m.billing.publicClosed}</p>
+      </main>
+    );
+  }
   const brandHsl = settings.brandColor ? hexToHslTriple(settings.brandColor) : null;
 
   return (

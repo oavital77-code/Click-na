@@ -5,6 +5,8 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { I18nProvider } from "@/i18n/client";
 import { DEFAULT_LOCALE, dirFor, toLocale } from "@/i18n/config";
 import { DashboardNav } from "./dashboard-nav";
+import { AccessBanner } from "@/components/access-banner";
+import { accessState } from "@/lib/access";
 
 export default async function DashboardLayout({
   children,
@@ -29,7 +31,10 @@ export default async function DashboardLayout({
           {/* min-w-0: a flex item defaults to min-width:auto, so the week table
               (1084px) would widen this column and scroll the whole page sideways
               instead of scrolling inside its own container. */}
-          <div className="flex min-w-0 flex-1 flex-col">{children}</div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            {therapist?.subscription && <AccessBanner state={accessState(therapist.subscription)} />}
+            {children}
+          </div>
         </div>
       </I18nProvider>
     </ClerkProvider>

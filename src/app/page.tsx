@@ -4,6 +4,7 @@ import { Briefcase, Brain, HandHeart, Building2, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/site-footer";
 import { BrandMark } from "@/components/brand-mark";
+import { formatPriceIls, planPriceIls } from "@/lib/plan";
 
 // The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
 // build time cannot carry it — its scripts would be blocked in production only.
@@ -18,11 +19,15 @@ export const metadata: Metadata = {
 };
 
 /**
- * The single price. Left unset deliberately: the plan section reads correctly
- * without a figure, and a number invented here would sit on a public page as a
- * commitment nobody made. Set it and it appears.
+ * The single price, from PLAN_PRICE_ILS. Unset, the plan section still reads
+ * correctly without a figure — a number invented in code would sit on a public
+ * page as a commitment nobody made. Set the variable and it appears here, on the
+ * billing screen and in the charge, from the one source.
  */
-const PRICE: { amount: string; period: string } | null = null;
+const PRICE: { amount: string; period: string } | null = (() => {
+  const price = planPriceIls();
+  return price === null ? null : { amount: formatPriceIls(price, "en"), period: "month, VAT included" };
+})();
 
 /** What the product answers, in the order a practitioner meets it. */
 const ANSWERS = [
@@ -178,6 +183,10 @@ export default function Home() {
                   </span>
                 </p>
               )}
+              <p className="text-muted-foreground text-sm leading-relaxed">
+                The first 30 days are free, with no card and nothing to cancel. After that it is one
+                monthly payment, and you can stop it any time from your dashboard.
+              </p>
             </div>
 
             <ul className="mx-auto flex max-w-xl flex-col gap-3">
