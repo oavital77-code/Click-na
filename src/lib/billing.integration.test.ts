@@ -170,6 +170,17 @@ describe("requestCancellation", () => {
     expect(await requestCancellation(id, { fetchImpl })).toEqual({ ok: false, reason: "not_active" });
   });
 
+  it("has nothing to cancel on an account from before billing existed, and does not lock it", async () => {
+    payplusEnv();
+    const id = await therapist("legacy");
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "free", trialEndsAt: null, currentPeriodEnd: null },
+    });
+    expect(await requestCancellation(id)).toEqual({ ok: false, reason: "not_active" });
+    expect((await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } })).status).toBe("active");
+  });
+
   it("is not_active for a trial", async () => {
     payplusEnv();
     const id = await therapist("cancel-trial");

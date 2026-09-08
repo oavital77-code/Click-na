@@ -203,6 +203,11 @@ export async function requestCancellation(
   if (!subscription || subscription.status !== "active" || subscription.cancelAtPeriodEnd) {
     return { ok: false, reason: "not_active" };
   }
+  // An account from before billing existed is "active" on the free tier with no
+  // paid period. There is nothing to cancel — and cancelling it would lock it.
+  if (subscription.tier === "free" && !subscription.payplusRecurringUid) {
+    return { ok: false, reason: "not_active" };
+  }
   const cfg = payplusConfig();
   if (subscription.payplusRecurringUid) {
     if (!cfg) return { ok: false, reason: "not_configured" };

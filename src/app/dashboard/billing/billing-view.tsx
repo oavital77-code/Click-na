@@ -110,7 +110,8 @@ export function BillingView({
   })();
 
   const showActivate = state.kind !== "active";
-  const showCancel = state.kind === "active";
+  // A paid subscription has a period end; an account from before billing does not, and has nothing to cancel.
+  const showCancel = state.kind === "active" && state.periodEnd !== null;
 
   return (
     <div className="flex flex-col gap-6">
