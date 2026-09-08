@@ -43,7 +43,10 @@ describe("handleUserCreated (against a live database)", () => {
     expect(therapist!.fullName).toBe("לירון כהן");
     expect(therapist!.slug).toMatch(/^t-[0-9a-f]{6}$/);
     expect(therapist!.onboardingCompleted).toBe(false);
-    expect(therapist!.subscription).toMatchObject({ tier: "free", status: "active" });
+    expect(therapist!.subscription).toMatchObject({ tier: "free", status: "trialing" });
+    const trialDays = (therapist!.subscription!.trialEndsAt!.getTime() - Date.now()) / 86_400_000;
+    expect(trialDays).toBeGreaterThan(29.9);
+    expect(trialDays).toBeLessThanOrEqual(30);
     expect(therapist!.settings).not.toBeNull();
   });
 

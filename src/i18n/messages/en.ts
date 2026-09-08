@@ -36,6 +36,7 @@ export const en = {
     link: "My link",
     addons: "Add-ons",
     messages: "Messages",
+    billing: "Subscription",
     settings: "Settings",
     signOut: "Sign out",
     openMenu: "Open navigation menu",
@@ -64,7 +65,7 @@ export const en = {
       "July", "August", "September", "October", "November", "December",
     ],
     language: { en: "English", he: "עברית" },
-    tier: { free: "Free", basic: "Basic", pro: "Pro", business: "Business" },
+    tier: { free: "Free", plus: "Cleana+", basic: "Basic", pro: "Pro", business: "Business" },
   },
 
   /** Keys referenced by the zod schemas as "validation.<key>". */
@@ -250,6 +251,25 @@ export const en = {
       pastDueLead: "We could not charge the payment method on the account.",
       pastDueNote: "Your calendar and link keep working for now. Updating the payment method will resolve this.",
       dashboardLink: "Your account",
+    },
+    trial: {
+      reminderSubject: (days: number) => (days === 1 ? "Your free month ends tomorrow" : `${days} days left on your free month`),
+      reminderLead: (days: number) =>
+        days === 1
+          ? "Your free month of Cleana+ ends tomorrow."
+          : `Your free month of Cleana+ ends in ${days} days.`,
+      reminderNote: (price: string) =>
+        `To keep your calendar, your booking link and your reminders running without a pause, activate the subscription — ${price} a month, cancel whenever you like.`,
+      lastDaySubject: "Your free month ends today",
+      lastDayLead: "Today is the last day of your free month of Cleana+.",
+      endedSubject: "Your free month has ended",
+      endedLead: (graceDays: number) =>
+        `Your free month is over. Your dashboard stays open for ${graceDays} more days; after that it locks until the subscription is activated.`,
+      endedNote: "Your booking link and every appointment already in the calendar keep working — your clients are not affected.",
+      lockedSubject: "Your dashboard is locked",
+      lockedLead: "The grace period has ended and your dashboard is now locked.",
+      lockedNote: "Nothing was deleted. Activate the subscription and everything is exactly where you left it. Your booking link keeps working meanwhile.",
+      cta: "Activate subscription",
     },
     signupAlert: {
       subject: (name: string) => `New user signed up: ${name}`,
@@ -545,6 +565,63 @@ export const en = {
     subline: "Scheduling for therapists and independent practitioners",
   },
 
+  billing: {
+    kicker: "My plan",
+    title: "Subscription",
+    meta: "One plan, every feature. A free month first, cancel whenever you like.",
+    planName: "Cleana+",
+    perMonth: (price: string) => `${price} / month`,
+    inclVat: "VAT included",
+    noPrice: "Payments are not available yet.",
+    state: {
+      trialing: (days: number) => (days === 1 ? "Free month — 1 day left" : `Free month — ${days} days left`),
+      trialingHint: "Activate now and the first charge is today; nothing is charged before you do.",
+      graceTrial: (days: number) =>
+        days === 1
+          ? "Your free month has ended — the dashboard locks tomorrow"
+          : `Your free month has ended — the dashboard locks in ${days} days`,
+      gracePayment: (days: number) =>
+        days === 1
+          ? "The last payment failed — the dashboard locks tomorrow"
+          : `The last payment failed — the dashboard locks in ${days} days`,
+      graceHint: "Your booking link and existing appointments keep working. Your clients notice nothing.",
+      lockedTrial: "Your free month has ended and the dashboard is locked",
+      lockedPayment: "The payment failed and the dashboard is locked",
+      lockedCanceled: "Your subscription has ended",
+      lockedHint: "Everything is saved. Activate the subscription to pick up where you left off.",
+      active: (until: string) => `Active — next charge on ${until}`,
+      activeNoDate: "Active",
+      canceling: (until: string) => `Cancelled — works until ${until}`,
+      cancelingHint: "You will not be charged again. Reactivating starts a new subscription.",
+    },
+    activate: "Activate subscription",
+    activating: "Opening secure payment…",
+    reactivate: "Reactivate subscription",
+    cancel: "Cancel subscription",
+    cancelConfirm: "Cancel the subscription? It keeps working until the end of the paid period, and you will not be charged again.",
+    canceling: "Cancelling…",
+    keep: "Keep subscription",
+    securePayment: "Payment is handled by PayPlus on a secure page. Cleana+ never sees your card.",
+    history: "Payments",
+    noHistory: "No payments yet.",
+    paymentStatus: { succeeded: "Paid", failed: "Failed", refunded: "Refunded" },
+    returned: {
+      success: "Thank you — the payment went through. Your subscription is being activated; this page updates in a moment.",
+      failure: "The payment did not go through. Nothing was charged. You can try again.",
+      cancel: "The payment was cancelled. Nothing was charged.",
+    },
+    banner: {
+      trialing: (days: number) => (days === 1 ? "Your free month ends tomorrow." : `${days} days left on your free month.`),
+      graceTrial: (days: number) => `Your free month has ended. The dashboard locks in ${days} days.`,
+      gracePayment: (days: number) => `The last payment failed. The dashboard locks in ${days} days.`,
+      locked: "Your dashboard is locked. Your booking link keeps working; changes need an active subscription.",
+      cta: "Activate",
+      details: "Details",
+    },
+    writeBlocked: "This needs an active subscription.",
+    publicClosed: "This practice is not taking new bookings right now.",
+  },
+
   messageLog: {
     kicker: "Sent on your behalf",
     title: "Messages",
@@ -565,6 +642,7 @@ export const en = {
       welcome: "Welcome",
       onboarding_complete: "Your link is live",
       subscription: "Subscription",
+      trial_reminder: "Free month",
     },
     channel: { email: "Email", whatsapp: "WhatsApp", sms: "SMS" },
     scheduledFor: (when: string) => `Due ${when}`,

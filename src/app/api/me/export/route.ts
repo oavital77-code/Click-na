@@ -8,7 +8,7 @@ export async function GET() {
 
   const therapist = await prisma.therapist.findUnique({
     where: { clerkUserId: userId },
-    omit: { clerkUserId: true, stripeCustomerId: true },
+    omit: { clerkUserId: true },
     include: {
       settings: true,
       subscription: true,

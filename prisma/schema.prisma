@@ -27,7 +27,11 @@ enum TherapistStatus {
 }
 
 enum SubscriptionTier {
+  // No paid plan: the trial, and whatever the trial becomes when it is not paid for.
   free
+  // The one paid plan. Every feature, one price (see PLAN_PRICE_ILS).
+  plus
+  // Kept only so existing rows stay readable; nothing writes these any more.
   basic
   pro
   business
@@ -81,6 +85,7 @@ enum NotificationType {
   welcome
   onboarding_complete
   subscription
+  trial_reminder
 }
 
 enum NotificationChannel {
@@ -138,7 +143,6 @@ model Therapist {
   // Nullable: unknown until onboarding wizard step 1 (spec 7.1); required before onboarding_completed=true.
   professionType      ProfessionType? @map("profession_type")
   clerkUserId         String?         @unique @map("clerk_user_id") @db.VarChar(255)
-  stripeCustomerId    String?         @unique @map("stripe_customer_id") @db.VarChar(255)
   timezone            String          @default("Asia/Jerusalem") @db.VarChar(100)
   // "en" | "he" — governs the dashboard, the public booking page and every
   // message to clients. English by default: the group site and the landing page
@@ -158,6 +162,7 @@ model Therapist {
   auditLogs         AuditLog[]
   slugRedirects     SlugRedirect[]
   integrations      Integration[]
+  payments          Payment[]
   notifications     Notification[]
 
   @@map("therapists")
@@ -178,23 +183,70 @@ model SlugRedirect {
 }
 
 model Subscription {
-  id                   String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  therapistId          String             @unique @map("therapist_id") @db.Uuid
-  tier                 SubscriptionTier   @default(free)
+  id                    String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId           String             @unique @map("therapist_id") @db.Uuid
+  tier                  SubscriptionTier   @default(free)
   // A brand-new signup has no card and no trial — Free is just permanently active (spec 7.5).
-  status               SubscriptionStatus @default(active)
-  stripeSubscriptionId String?            @unique @map("stripe_subscription_id") @db.VarChar(255)
-  billingCycle         BillingCycle       @default(monthly) @map("billing_cycle")
-  currentPeriodStart   DateTime?          @map("current_period_start") @db.Timestamptz
-  currentPeriodEnd     DateTime?          @map("current_period_end") @db.Timestamptz
-  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
-  trialEndsAt          DateTime?          @map("trial_ends_at") @db.Timestamptz
-  createdAt            DateTime           @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+  status                SubscriptionStatus @default(active)
+  // PayPlus's handle on the recurring charge — what a cancellation is sent to.
+  payplusRecurringUid   String?            @unique @map("payplus_recurring_uid") @db.VarChar(255)
+  payplusCustomerUid    String?            @map("payplus_customer_uid") @db.VarChar(255)
+  payplusTokenUid       String?            @map("payplus_token_uid") @db.VarChar(255)
+  // The checkout link most recently handed to this therapist. Lets the callback
+  // find the account even when more_info did not round-trip.
+  pendingPageRequestUid String?            @map("pending_page_request_uid") @db.VarChar(255)
+  // After the trial (or a failed renewal) the dashboard stays open until this
+  // moment, then locks. Stored, not derived, so the grace length can change
+  // without moving anybody's deadline retroactively.
+  graceEndsAt           DateTime?          @map("grace_ends_at") @db.Timestamptz
+  // Which trial countdown mail went out last (23, 28 or 30), so each is sent once.
+  lastTrialReminderDay  Int?               @map("last_trial_reminder_day")
+  billingCycle          BillingCycle       @default(monthly) @map("billing_cycle")
+  currentPeriodStart    DateTime?          @map("current_period_start") @db.Timestamptz
+  currentPeriodEnd      DateTime?          @map("current_period_end") @db.Timestamptz
+  cancelAtPeriodEnd     Boolean            @default(false) @map("cancel_at_period_end")
+  trialEndsAt           DateTime?          @map("trial_ends_at") @db.Timestamptz
+  createdAt             DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
 
   @@map("subscriptions")
+}
+
+enum PaymentStatus {
+  succeeded
+  failed
+  refunded
+}
+
+// One row per charge PayPlus reported and we verified — the therapist's receipt
+// history and the audit trail behind every change to their subscription.
+model Payment {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId    String        @map("therapist_id") @db.Uuid
+  provider       String        @default("payplus") @db.VarChar(20)
+  // PayPlus's transaction id. Unique so a redelivered callback is a no-op.
+  transactionUid String        @unique @map("transaction_uid") @db.VarChar(255)
+  pageRequestUid String?       @map("page_request_uid") @db.VarChar(255)
+  recurringUid   String?       @map("recurring_uid") @db.VarChar(255)
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("ILS") @db.VarChar(3)
+  status         PaymentStatus
+  // PayPlus's own code ("000" is success) for support conversations.
+  statusCode     String?       @map("status_code") @db.VarChar(10)
+  paidAt         DateTime?     @map("paid_at") @db.Timestamptz
+  // The subscription period this charge paid for.
+  periodStart    DateTime?     @map("period_start") @db.Timestamptz
+  periodEnd      DateTime?     @map("period_end") @db.Timestamptz
+  // The verified transaction as PayPlus returned it, for audits.
+  raw            Json?
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId, createdAt])
+  @@map("payments")
 }
 
 model TherapistSettings {

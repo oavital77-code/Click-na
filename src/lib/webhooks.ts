@@ -2,6 +2,7 @@ import { Prisma } from "@/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { generateFallbackSlug } from "@/lib/slug";
 import { isUniqueViolation } from "@/lib/prisma-errors";
+import { trialEndFor } from "@/lib/access";
 
 const MAX_SLUG_ATTEMPTS = 5;
 
@@ -78,7 +79,9 @@ export async function handleUserCreated(data: ClerkUserCreatedData): Promise<str
           email: primaryEmail,
           fullName,
           slug: generateFallbackSlug(),
-          subscription: { create: {} },
+          // Every account starts on the 30-day trial; the daily cron moves it on
+          // from there (see src/lib/billing-lifecycle.ts).
+          subscription: { create: { status: "trialing", trialEndsAt: trialEndFor(new Date()) } },
           settings: { create: {} },
         },
       });
