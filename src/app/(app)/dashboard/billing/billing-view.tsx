@@ -177,7 +177,7 @@ export function BillingView({
               </div>
             )}
           </div>
-          {showActivate && canPay && <p className="text-muted-foreground text-xs">{b.securePayment}</p>}
+          {showActivate && <p className="text-muted-foreground text-xs">{canPay ? b.securePayment : b.noPrice}</p>}
         </CardContent>
       </Card>
 

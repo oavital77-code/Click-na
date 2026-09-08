@@ -4,7 +4,7 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { accessState } from "@/lib/access";
 import { billingAvailability } from "@/lib/billing";
-import { formatPriceIls } from "@/lib/plan";
+import { formatPriceIls, planPriceIls } from "@/lib/plan";
 import { getMessages, toLocale } from "@/i18n";
 import { BillingView } from "./billing-view";
 
@@ -25,6 +25,9 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
 
   const { returned } = await searchParams;
   const availability = billingAvailability();
+  // The price is shown whenever one is decided, even before the payment
+  // provider is wired up — a therapist on trial should know what comes next.
+  const price = planPriceIls();
   const payments = await prisma.payment.findMany({
     where: { therapistId: therapist.id },
     orderBy: { createdAt: "desc" },
@@ -36,7 +39,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
       <PageHeader kicker={m.billing.kicker} title={m.billing.title} meta={m.billing.meta} />
       <BillingView
         state={accessState(therapist.subscription)}
-        price={availability.ok ? formatPriceIls(availability.priceIls, locale) : null}
+        price={price === null ? null : formatPriceIls(price, locale)}
         canPay={availability.ok}
         timezone={therapist.timezone}
         returned={typeof returned === "string" ? returned : null}
