@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
 import { handleUserCreated } from "@/lib/webhooks";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
+import { applyVerifiedTransaction } from "@/lib/billing";
 
 const created: string[] = [];
 afterEach(async () => {
@@ -10,6 +11,7 @@ afterEach(async () => {
   const therapists = await prisma.therapist.findMany({ where: { clerkUserId: { in: created } } });
   const ids = therapists.map((t) => t.id);
   await prisma.notification.deleteMany({ where: { therapistId: { in: ids } } });
+  await prisma.payment.deleteMany({ where: { therapistId: { in: ids } } });
   await prisma.therapistSettings.deleteMany({ where: { therapistId: { in: ids } } });
   await prisma.subscription.deleteMany({ where: { therapistId: { in: ids } } });
   await prisma.therapist.deleteMany({ where: { id: { in: ids } } });
@@ -97,6 +99,49 @@ describe("runBillingLifecycle (against a live database)", () => {
     expect(await mailCount(id)).toBe(2); // ended + locked
   });
 
+  it("turns a paid period that ended without a renewal into grace, and a late callback heals it", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    vi.stubEnv("PLAN_PRICE_ILS", "89.90");
+    const id = await trialStarted(60, now);
+    const periodEnd = new Date(now.getTime() - 3 * DAY);
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "plus", currentPeriodStart: new Date(periodEnd.getTime() - 30 * DAY), currentPeriodEnd: periodEnd, payplusRecurringUid: "rec_x" },
+    });
+
+    const s = await runBillingLifecycle(now);
+    expect(s.unconfirmed).toBe(1);
+    let sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
+    expect(sub.status).toBe("past_due");
+    expect(sub.graceEndsAt).toEqual(new Date(periodEnd.getTime() + 7 * DAY));
+    expect(await prisma.notification.count({ where: { therapistId: id, type: "subscription" } })).toBe(1);
+
+    // Running again does not double up.
+    expect((await runBillingLifecycle(now)).unconfirmed).toBe(0);
+
+    // The renewal callback arrives late: active again, grace gone.
+    await applyVerifiedTransaction(
+      { transactionUid: "tx_late", pageRequestUid: null, statusCode: "000", amount: 89.9, moreInfo: id, recurringUid: "rec_x", tokenUid: null, customerUid: null },
+      {},
+      now
+    );
+    sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
+    expect(sub.status).toBe("active");
+    expect(sub.graceEndsAt).toBeNull();
+    expect(sub.currentPeriodEnd!.getTime()).toBeGreaterThan(now.getTime());
+  });
+
+  it("gives a renewal two days to confirm before acting", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    const id = await trialStarted(60, now);
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "plus", currentPeriodEnd: new Date(now.getTime() - 1 * DAY) },
+    });
+    expect((await runBillingLifecycle(now)).unconfirmed).toBe(0);
+    expect((await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } })).status).toBe("active");
+  });
+
   it("leaves paying customers alone", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const id = await trialStarted(40, now);
@@ -105,7 +150,7 @@ describe("runBillingLifecycle (against a live database)", () => {
       data: { status: "active", tier: "plus", currentPeriodEnd: new Date(now.getTime() + 20 * DAY) },
     });
     const s = await runBillingLifecycle(now);
-    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0 });
+    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0, unconfirmed: 0 });
     expect(await mailCount(id)).toBe(0);
   });
 });

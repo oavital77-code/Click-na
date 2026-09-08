@@ -11,6 +11,13 @@ export const PLAN_TIER = "plus" as const;
 export const TRIAL_DAYS = 30;
 /** Days after the trial (or a failed renewal) before the dashboard locks. */
 export const GRACE_DAYS = 7;
+/**
+ * Days after a paid period ends before an unconfirmed renewal is treated as
+ * unpaid. PayPlus charges on the day and calls back within minutes; two days
+ * covers a retry or an outage without letting a lost callback mean free
+ * service forever.
+ */
+export const RENEWAL_CONFIRMATION_DAYS = 2;
 /** Trial days on which a countdown email goes out. */
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
 

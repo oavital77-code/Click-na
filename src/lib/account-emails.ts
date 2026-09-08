@@ -159,5 +159,11 @@ export async function sendTrialEmail(therapistId: string, stage: TrialEmailInput
     billingUrl: `${appUrl()}/dashboard/billing`,
   });
 
-  await record({ therapistId, type: "trial_reminder", recipient: therapist.email, subject, html });
+  await record({
+    therapistId,
+    type: stage.kind === "renewal_unconfirmed" ? "subscription" : "trial_reminder",
+    recipient: therapist.email,
+    subject,
+    html,
+  });
 }

@@ -295,7 +295,11 @@ export function subscriptionEmail(input: SubscriptionEmailInput) {
 export type TrialEmailInput = Localized & {
   therapistFullName: string;
   /** Where the therapist is in the countdown. */
-  stage: { kind: "reminder"; daysLeft: number } | { kind: "ended"; graceDays: number } | { kind: "locked" };
+  stage:
+    | { kind: "reminder"; daysLeft: number }
+    | { kind: "ended"; graceDays: number }
+    | { kind: "locked" }
+    | { kind: "renewal_unconfirmed"; graceDays: number };
   /** The monthly price, already formatted for the locale. Null when none is configured. */
   price: string | null;
   billingUrl: string;
@@ -323,6 +327,8 @@ export function trialEmail(input: TrialEmailInput) {
         return { subject: t.endedSubject, lead: t.endedLead(input.stage.graceDays), note: t.endedNote };
       case "locked":
         return { subject: t.lockedSubject, lead: t.lockedLead, note: t.lockedNote };
+      case "renewal_unconfirmed":
+        return { subject: t.unconfirmedSubject, lead: t.unconfirmedLead(input.stage.graceDays), note: t.unconfirmedNote };
     }
   })();
 

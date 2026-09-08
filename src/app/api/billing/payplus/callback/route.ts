@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { parseTransaction, payplusConfig, verifyCallbackSignature } from "@/lib/payplus";
 import { applyVerifiedTransaction, verifyWithPayPlus } from "@/lib/billing";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { tooManyRequests } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,16 @@ export const dynamic = "force-dynamic";
 export async function POST(request: NextRequest) {
   const cfg = payplusConfig();
   if (!cfg) return NextResponse.json({ error: "billing_not_configured" }, { status: 503 });
+
+  // Every accepted body costs a lookup at PayPlus, so a flood is their bill and
+  // our quota. PayPlus itself sends a handful a day and retries later on a 429.
+  const limit = await checkRateLimit({
+    scope: "payplus-callback",
+    identifier: clientIp(request.headers),
+    limit: 120,
+    windowMs: 60 * 1000,
+  });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
 
   const rawBody = await request.text();
   const hash = request.headers.get("hash");

@@ -269,6 +269,10 @@ export const en = {
       lockedSubject: "Your dashboard is locked",
       lockedLead: "The grace period has ended and your dashboard is now locked.",
       lockedNote: "Nothing was deleted. Activate the subscription and everything is exactly where you left it. Your booking link keeps working meanwhile.",
+      unconfirmedSubject: "We could not confirm this month's payment",
+      unconfirmedLead: (graceDays: number) =>
+        `Your paid period has ended and no renewal payment has reached us. Your dashboard stays open for ${graceDays} more days.`,
+      unconfirmedNote: "If you were charged, nothing is needed — the confirmation usually arrives within a day and clears this by itself. If not, activating the subscription again does.",
       cta: "Activate subscription",
     },
     signupAlert: {
