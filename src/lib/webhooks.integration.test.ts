@@ -171,3 +171,85 @@ describe("handleUserDeleted (against a live database)", () => {
     await expect(handleUserDeleted({})).resolves.not.toThrow();
   });
 });
+
+describe("handleUserCreated — the same person under a new Clerk identity", () => {
+  const verified = { status: "verified" };
+
+  it("adopts the existing therapist on a verified email instead of creating a second one", async () => {
+    const oldId = clerkUserId("adopt-old");
+    await handleUserCreated({
+      id: oldId,
+      email_addresses: [{ id: "ea_1", email_address: "adopt@example.com", verification: verified }],
+      primary_email_address_id: "ea_1",
+      first_name: "Noa",
+      last_name: "Levi",
+    });
+    const before = await prisma.therapist.findUniqueOrThrow({ where: { clerkUserId: oldId } });
+
+    const newId = clerkUserId("adopt-new");
+    const returned = await handleUserCreated({
+      id: newId,
+      email_addresses: [{ id: "ea_9", email_address: "adopt@example.com", verification: verified }],
+      primary_email_address_id: "ea_9",
+      first_name: "Noa",
+      last_name: "Levi",
+    });
+
+    expect(returned).toBe(before.id); // the caller still gets an id: this is a real sign-up
+    const after = await prisma.therapist.findUniqueOrThrow({ where: { id: before.id } });
+    expect(after.clerkUserId).toBe(newId);
+    expect(after.slug).toBe(before.slug); // their booking link survives
+    expect(await prisma.therapist.count({ where: { email: "adopt@example.com" } })).toBe(1);
+    expect(await prisma.therapist.findUnique({ where: { clerkUserId: oldId } })).toBeNull();
+  });
+
+  it("brings a soft-deleted practice back to life on adoption", async () => {
+    const oldId = clerkUserId("revive-old");
+    await handleUserCreated({
+      id: oldId,
+      email_addresses: [{ id: "ea_1", email_address: "revive@example.com", verification: verified }],
+      primary_email_address_id: "ea_1",
+      first_name: "Back",
+      last_name: null,
+    });
+    await handleUserDeleted({ id: oldId });
+
+    const newId = clerkUserId("revive-new");
+    await handleUserCreated({
+      id: newId,
+      email_addresses: [{ id: "ea_2", email_address: "revive@example.com", verification: verified }],
+      primary_email_address_id: "ea_2",
+      first_name: "Back",
+      last_name: null,
+    });
+
+    const therapist = await prisma.therapist.findUniqueOrThrow({ where: { clerkUserId: newId } });
+    expect(therapist.status).toBe("active");
+  });
+
+  it("refuses to adopt on an unverified email and leaves the existing row untouched", async () => {
+    const oldId = clerkUserId("guard-old");
+    await handleUserCreated({
+      id: oldId,
+      email_addresses: [{ id: "ea_1", email_address: "guard@example.com", verification: verified }],
+      primary_email_address_id: "ea_1",
+      first_name: "Owner",
+      last_name: null,
+    });
+
+    const attackerId = clerkUserId("guard-new");
+    await expect(
+      handleUserCreated({
+        id: attackerId,
+        email_addresses: [{ id: "ea_2", email_address: "guard@example.com", verification: { status: "unverified" } }],
+        primary_email_address_id: "ea_2",
+        first_name: "Someone",
+        last_name: null,
+      })
+    ).rejects.toThrow(/not verified/);
+
+    const therapist = await prisma.therapist.findUniqueOrThrow({ where: { email: "guard@example.com" } });
+    expect(therapist.clerkUserId).toBe(oldId);
+    expect(await prisma.therapist.findUnique({ where: { clerkUserId: attackerId } })).toBeNull();
+  });
+});

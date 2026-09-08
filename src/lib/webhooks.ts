@@ -7,7 +7,12 @@ const MAX_SLUG_ATTEMPTS = 5;
 
 export type ClerkUserCreatedData = {
   id: string;
-  email_addresses: { id: string; email_address: string }[];
+  email_addresses: {
+    id: string;
+    email_address: string;
+    /** Clerk's own verification record for the address; null when it never ran. */
+    verification?: { status: string } | null;
+  }[];
   primary_email_address_id: string | null;
   first_name: string | null;
   last_name: string | null;
@@ -19,12 +24,46 @@ export type ClerkUserCreatedData = {
  * retries webhooks, and a second delivery must not mail the same person twice.
  */
 export async function handleUserCreated(data: ClerkUserCreatedData): Promise<string | null> {
-  const primaryEmail =
-    data.email_addresses.find((e) => e.id === data.primary_email_address_id)?.email_address ??
-    data.email_addresses[0]?.email_address;
+  const primary =
+    data.email_addresses.find((e) => e.id === data.primary_email_address_id) ??
+    data.email_addresses[0];
+  const primaryEmail = primary?.email_address;
 
   if (!primaryEmail) {
     throw new Error(`Clerk user ${data.id} has no email address`);
+  }
+
+  // The same person coming back under a new Clerk identity — after deleting
+  // their account, or after the Clerk instance itself was replaced (development
+  // to production migrates no users). Their practice — slug, clients, bookings —
+  // is keyed by email, and they should get it back rather than a second, empty
+  // one; and without this the create below would trip the unique email index
+  // and Clerk would retry the webhook forever, leaving them signed in with no
+  // therapist row at all.
+  //
+  // Adoption is only granted on an address Clerk has verified: that is the
+  // same proof of ownership a password reset accepts. An unverified match is
+  // refused loudly instead of silently taking over someone's practice.
+  const existing = await prisma.therapist.findUnique({
+    where: { email: primaryEmail },
+    select: { id: true, clerkUserId: true, status: true },
+  });
+  if (existing) {
+    if (existing.clerkUserId === data.id) return null; // duplicate delivery
+    if (primary.verification?.status !== "verified") {
+      throw new Error(
+        `Clerk user ${data.id} signed up with ${primaryEmail}, which belongs to an existing therapist, but the address is not verified`
+      );
+    }
+    await prisma.therapist.update({
+      where: { id: existing.id },
+      data: {
+        clerkUserId: data.id,
+        // A soft-deleted practice comes back to life; a suspended one stays suspended.
+        status: existing.status === "deleted" ? "active" : existing.status,
+      },
+    });
+    return existing.id;
   }
 
   const fullName =
