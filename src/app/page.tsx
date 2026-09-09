@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Briefcase, Brain, HandHeart, Building2, Compass } from "lucide-react";
+import { Briefcase, Brain, Check, HandHeart, Building2, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SiteFooter } from "@/components/site-footer";
 import { BrandMark } from "@/components/brand-mark";
@@ -62,6 +62,17 @@ const OMISSIONS = [
   "No add-ons that unlock what should have been included.",
   "No commission. What your clients pay you is yours.",
   "No dashboard of numbers you were never going to act on.",
+];
+
+/** What the one plan includes — the pricing card's checklist. */
+const INCLUDED = [
+  "Your own booking link, in your name",
+  "A calendar that never double-books",
+  "Email confirmations and reminders, automatic",
+  "WhatsApp reminders from your own phone, one tap",
+  "Client list, built as they book",
+  "Syncs to Google, Apple and Outlook calendars",
+  "Hebrew and English, for you and for your clients",
 ];
 
 const FAQ = [
@@ -163,37 +174,69 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="border-border/60 border-t">
-          <div className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-5 py-16 md:px-8 md:py-24 lg:py-32">
+        <section className="border-border/60 relative overflow-hidden border-t">
+          <div
+            aria-hidden
+            className="bg-accent/15 pointer-events-none absolute -bottom-40 start-1/2 hidden h-[28rem] w-[44rem] -translate-x-1/2 rounded-full blur-3xl md:block"
+          />
+          <div className="relative mx-auto flex w-full max-w-5xl flex-col items-center gap-10 px-5 py-16 md:px-8 md:py-24 lg:py-32">
             <div className="flex flex-col items-center gap-4 text-center">
-              <h2 className="text-3xl font-normal md:text-4xl lg:text-5xl">
-                One plan. Everything in it.
-              </h2>
+              <span className="kicker">The plan</span>
+              <h2 className="text-3xl font-normal md:text-4xl lg:text-5xl">One plan. Everything in it.</h2>
               <p className="text-muted-foreground max-w-lg text-base leading-relaxed">
                 You are not paying for a pile of features you will never open. There is one
                 version of Cleana+, every practitioner has all of it, and the price does not move
                 as your practice does.
               </p>
-              {PRICE && (
-                <p className="num pt-2 text-4xl font-medium">
-                  {PRICE.amount}
-                  <span className="text-muted-foreground text-base font-normal">
-                    {" "}
-                    / {PRICE.period}
+            </div>
+
+            {/* The card. One price, said once, large; everything else supports it. */}
+            <div className="border-primary/25 bg-card shadow-xl shadow-primary/5 relative w-full max-w-3xl overflow-hidden rounded-3xl border">
+              <div aria-hidden className="from-primary via-accent to-primary absolute inset-x-0 top-0 h-1 bg-gradient-to-r" />
+              <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                <div className="border-border/60 flex flex-col items-center justify-center gap-5 px-6 py-10 text-center md:items-start md:border-e md:px-10 md:text-start">
+                  <span className="bg-st-open-bg/70 text-st-open border-st-open/35 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium">
+                    <Check className="size-3.5" aria-hidden />
+                    First 30 days free · no card
                   </span>
-                </p>
-              )}
-              <p className="text-muted-foreground text-sm leading-relaxed">
-                The first 30 days are free, with no card and nothing to cancel. After that it is one
-                monthly payment, and you can stop it any time from your dashboard.
-              </p>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-muted-foreground text-sm">Cleana+</span>
+                    {PRICE ? (
+                      <p className="flex flex-wrap items-baseline justify-center gap-x-2 md:justify-start">
+                        <span className="num text-5xl font-medium tracking-tight md:text-6xl">{PRICE.amount}</span>
+                        <span className="text-muted-foreground text-sm">/ {PRICE.period}</span>
+                      </p>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">Price coming soon</p>
+                    )}
+                  </div>
+                  <p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
+                    One monthly payment after your free month. Stop it any time from your
+                    dashboard — no call, no form.
+                  </p>
+                  <Button asChild size="lg" variant="accent" className="w-full font-medium md:w-auto">
+                    <Link href="/signup">Start your free month</Link>
+                  </Button>
+                </div>
+
+                <ul className="flex flex-col gap-3 px-6 py-10 md:px-10">
+                  {INCLUDED.map((line) => (
+                    <li key={line} className="flex items-start gap-3 text-sm leading-relaxed">
+                      <span className="bg-primary/10 text-primary-strong mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full">
+                        <Check className="size-3" aria-hidden />
+                      </span>
+                      <span>{line}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
 
             <ul className="mx-auto flex max-w-xl flex-col gap-3">
               {OMISSIONS.map((line) => (
                 <li
                   key={line}
-                  className="border-border/60 text-muted-foreground border-t pt-3 text-sm leading-relaxed first:border-t-0 first:pt-0"
+                  className="border-border/60 text-muted-foreground border-t pt-3 text-center text-sm leading-relaxed first:border-t-0 first:pt-0"
                 >
                   {line}
                 </li>

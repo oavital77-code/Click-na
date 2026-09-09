@@ -575,6 +575,7 @@ export const en = {
     meta: "One plan, every feature. A free month first, cancel whenever you like.",
     planName: "Cleana+",
     perMonth: (price: string) => `${price} / month`,
+    perMonthSuffix: "/ month",
     inclVat: "VAT included",
     noPrice: "Payments are not available yet.",
     state: {
@@ -622,6 +623,14 @@ export const en = {
       cta: "Activate",
       details: "Details",
     },
+    included: [
+      "Your own booking link",
+      "A calendar that never double-books",
+      "Email confirmations and reminders",
+      "WhatsApp reminders in one tap",
+      "Client list, built as they book",
+      "Google, Apple and Outlook calendar sync",
+    ],
     writeBlocked: "This needs an active subscription.",
     publicClosed: "This practice is not taking new bookings right now.",
   },

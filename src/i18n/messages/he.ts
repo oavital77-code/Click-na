@@ -564,6 +564,7 @@ export const he: Messages = {
     meta: "מסלול אחד, כל היכולות. חודש חינם קודם, ביטול בכל רגע.",
     planName: "Cleana+",
     perMonth: (price) => `${price} לחודש`,
+    perMonthSuffix: "לחודש",
     inclVat: "כולל מע״מ",
     noPrice: "תשלומים עדיין לא זמינים.",
     state: {
@@ -605,6 +606,14 @@ export const he: Messages = {
       cta: "הפעלה",
       details: "פרטים",
     },
+    included: [
+      "קישור הזמנה משלך",
+      "יומן שלא מכפיל תורים",
+      "אישורים ותזכורות במייל",
+      "תזכורת וואטסאפ בלחיצה",
+      "רשימת לקוחות שנבנית לבד",
+      "סנכרון ליומן Google / Apple / Outlook",
+    ],
     writeBlocked: "הפעולה הזו דורשת מנוי פעיל.",
     publicClosed: "המטפל/ת לא מקבל/ת תורים חדשים כרגע.",
   },

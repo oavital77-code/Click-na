@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
@@ -128,35 +130,45 @@ export function BillingView({
         </p>
       )}
 
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col items-center gap-3 md:flex-row md:items-start md:justify-between">
-            <div className="flex flex-col gap-1">
-              <CardTitle className="text-xl">{b.planName}</CardTitle>
-              <CardDescription>
-                {price ? (
-                  <>
-                    <span className="text-foreground text-2xl font-medium" dir="ltr">
-                      {b.perMonth(price)}
-                    </span>{" "}
-                    <span className="text-xs">{b.inclVat}</span>
-                  </>
-                ) : (
-                  b.noPrice
-                )}
-              </CardDescription>
+      {/* The plan card: one price, said once, large — everything else supports it. */}
+      <Card className="border-primary/25 shadow-primary/5 relative overflow-hidden shadow-xl">
+        <div aria-hidden className="from-primary via-accent to-primary absolute inset-x-0 top-0 h-1 bg-gradient-to-r" />
+        <CardHeader className="pb-2">
+          <div className="flex flex-col items-center gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="flex flex-col items-center gap-2 md:items-start">
+              <CardTitle className="text-2xl">{b.planName}</CardTitle>
+              {price ? (
+                <p className="flex flex-wrap items-baseline justify-center gap-x-2 md:justify-start" dir="ltr">
+                  <span className="num text-4xl font-medium tracking-tight md:text-5xl">{price}</span>
+                  <span className="text-muted-foreground text-sm">{b.perMonthSuffix}</span>
+                  <span className="text-muted-foreground text-xs">· {b.inclVat}</span>
+                </p>
+              ) : (
+                <CardDescription>{b.noPrice}</CardDescription>
+              )}
             </div>
-            <span className={statusBadgeClass(headline.tone)}>{headline.title}</span>
+            <span className={cn(statusBadgeClass(headline.tone), "px-3 py-1 text-sm")}>{headline.title}</span>
           </div>
         </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {headline.hint && <p className="text-muted-foreground text-sm">{headline.hint}</p>}
+        <CardContent className="flex flex-col gap-5">
+          {headline.hint && <p className="text-muted-foreground text-sm leading-relaxed">{headline.hint}</p>}
+
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {b.included.map((line) => (
+              <li key={line} className="flex items-start gap-2.5 text-sm leading-relaxed">
+                <span className="bg-primary/10 text-primary-strong mt-0.5 inline-flex size-5 shrink-0 items-center justify-center rounded-full">
+                  <Check className="size-3" aria-hidden />
+                </span>
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
 
           {error && <p className="text-st-danger text-sm">{error}</p>}
 
           <div className="flex flex-col items-center gap-3 md:flex-row md:items-center">
             {showActivate && (
-              <Button onClick={activate} disabled={!canPay || busy !== null} className="min-h-11 px-6">
+              <Button onClick={activate} disabled={!canPay || busy !== null} size="lg" variant="accent" className="w-full font-medium md:w-auto">
                 {busy === "activate" ? b.activating : state.kind === "canceling" ? b.reactivate : b.activate}
               </Button>
             )}
