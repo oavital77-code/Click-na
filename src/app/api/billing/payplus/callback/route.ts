@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { parseTransaction, payplusConfig, verifyCallbackSignature } from "@/lib/payplus";
+import { mergeVerifiedWithHints, parseTransaction, payplusConfig, verifyCallbackSignature } from "@/lib/payplus";
 import { applyVerifiedTransaction, verifyWithPayPlus } from "@/lib/billing";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/http";
@@ -53,13 +53,9 @@ export async function POST(request: NextRequest) {
   if (!verified) return NextResponse.json({ ok: false, reason: "unverified" });
 
   // Whatever the callback claimed, only what PayPlus confirmed counts — with the
-  // hints used to fill identifiers PayPlus's reply may omit.
-  const transaction = {
-    ...verified.transaction,
-    moreInfo: verified.transaction.moreInfo ?? hinted.moreInfo,
-    pageRequestUid: verified.transaction.pageRequestUid ?? hinted.pageRequestUid,
-    recurringUid: verified.transaction.recurringUid ?? hinted.recurringUid,
-  };
+  // hints used to fill identifiers PayPlus's reply may omit, and the account
+  // hint only from a body PayPlus signed (see mergeVerifiedWithHints).
+  const transaction = mergeVerifiedWithHints(verified.transaction, hinted, { signed: hash !== null });
 
   const result = await applyVerifiedTransaction(transaction, verified.raw);
   return NextResponse.json(result);

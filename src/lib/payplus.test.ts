@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   createRecurringCheckout,
   fetchTransaction,
+  mergeVerifiedWithHints,
   parseTransaction,
   payplusConfig,
   stopRecurring,
@@ -177,5 +178,38 @@ describe("stopRecurring", () => {
     await stopRecurring(cfg, "rec 1", impl);
     expect(calls[0].url).toBe(`${cfg.baseUrl}/RecurringPayments/rec%201/Valid`);
     expect(JSON.parse(String(calls[0].init.body))).toEqual({ valid: false });
+  });
+});
+
+describe("mergeVerifiedWithHints", () => {
+  const base = {
+    transactionUid: "tx_1",
+    pageRequestUid: null,
+    statusCode: "000",
+    amount: 79,
+    moreInfo: null,
+    recurringUid: null,
+    tokenUid: null,
+    customerUid: null,
+  };
+  const hints = { ...base, moreInfo: "therapist_from_body", pageRequestUid: "page_from_body", recurringUid: "rec_from_body" };
+
+  it("takes the account hint only from a signed body", () => {
+    expect(mergeVerifiedWithHints(base, hints, { signed: true }).moreInfo).toBe("therapist_from_body");
+    expect(mergeVerifiedWithHints(base, hints, { signed: false }).moreInfo).toBeNull();
+  });
+
+  it("fills stored identifiers from any body, since they must match what we saved", () => {
+    const merged = mergeVerifiedWithHints(base, hints, { signed: false });
+    expect(merged.pageRequestUid).toBe("page_from_body");
+    expect(merged.recurringUid).toBe("rec_from_body");
+  });
+
+  it("never lets a hint override what PayPlus confirmed", () => {
+    const verified = { ...base, moreInfo: "therapist_from_payplus", pageRequestUid: "page_from_payplus" };
+    const merged = mergeVerifiedWithHints(verified, hints, { signed: true });
+    expect(merged.moreInfo).toBe("therapist_from_payplus");
+    expect(merged.pageRequestUid).toBe("page_from_payplus");
+    expect(merged.amount).toBe(79);
   });
 });

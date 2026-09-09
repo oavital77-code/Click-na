@@ -177,6 +177,29 @@ export type CallbackTransaction = {
 };
 
 /**
+ * What the callback decided from, once PayPlus confirmed the transaction.
+ *
+ * Only PayPlus's own reply is believed; the callback body fills identifiers the
+ * reply may omit, with a hierarchy: `page_request_uid` and `recurring_uid` must
+ * match a value we stored when we opened the page, so a forged one finds
+ * nothing. `more_info` names an account outright, so an unsigned body may not
+ * supply it — otherwise whoever knows a real transaction id could aim someone
+ * else's payment at an account of their choosing.
+ */
+export function mergeVerifiedWithHints(
+  verified: CallbackTransaction,
+  hinted: CallbackTransaction,
+  options: { signed: boolean }
+): CallbackTransaction {
+  return {
+    ...verified,
+    moreInfo: verified.moreInfo ?? (options.signed ? hinted.moreInfo : null),
+    pageRequestUid: verified.pageRequestUid ?? hinted.pageRequestUid,
+    recurringUid: verified.recurringUid ?? hinted.recurringUid,
+  };
+}
+
+/**
  * Reads the fields we care about from a callback body or an ipn response.
  * PayPlus nests them under `transaction` in callbacks and under `data` in ipn
  * replies — and, for some payment types, the other way round — so both are tried.
