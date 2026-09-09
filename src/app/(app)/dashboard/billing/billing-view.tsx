@@ -111,7 +111,9 @@ export function BillingView({
     }
   })();
 
-  const showActivate = state.kind !== "active";
+  // An account from before billing existed is "active" with no paid period —
+  // it can subscribe like anyone else; only a paid, running subscription cannot.
+  const showActivate = state.kind !== "active" || state.periodEnd === null;
   // A paid subscription has a period end; an account from before billing does not, and has nothing to cancel.
   const showCancel = state.kind === "active" && state.periodEnd !== null;
 
