@@ -1,12 +1,14 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
-  createRecurringCheckout,
+  chargeToken,
+  createTokenCheckout,
   fetchTransaction,
+  listTokens,
   mergeVerifiedWithHints,
+  MORE_INFO_MAX,
   parseTransaction,
   payplusConfig,
-  stopRecurring,
   verifyCallbackSignature,
   type PayPlusConfig,
 } from "./payplus";
@@ -16,6 +18,8 @@ const cfg: PayPlusConfig = {
   secretKey: "s",
   paymentPageUid: "page-1",
   baseUrl: "https://restapidev.payplus.co.il/api/v1.0",
+  terminalUid: null,
+  cashierUid: null,
 };
 
 function fakeFetch(reply: unknown, status = 200) {
@@ -45,16 +49,16 @@ describe("payplusConfig", () => {
   });
 });
 
-describe("createRecurringCheckout", () => {
-  it("asks for a monthly recurring charge and returns the page link", async () => {
+describe("createTokenCheckout", () => {
+  it("asks for a plain charge that stores the card, and returns the page link", async () => {
     const { impl, calls } = fakeFetch({
       results: { status: "success" },
       data: { payment_page_link: "https://pay.example/x", page_request_uid: "req-1" },
     });
-    const out = await createRecurringCheckout(
+    const out = await createTokenCheckout(
       cfg,
       {
-        therapistId: "t-1",
+        reference: "Cleana+ monthly",
         amountIls: 89.9,
         description: "Cleana+ monthly",
         customer: { name: "Noa", email: "noa@example.com", phone: "0501234567" },
@@ -72,25 +76,41 @@ describe("createRecurringCheckout", () => {
     const body = JSON.parse(String(calls[0].init.body));
     expect(body).toMatchObject({
       payment_page_uid: "page-1",
-      charge_method: 3,
+      charge_method: 1,
       amount: 89.9,
       currency_code: "ILS",
       payments: 1,
-      recurring_settings: { instant_first_payment: true, recurring_type: 2, recurring_range: 1, number_of_charges: 0 },
       create_token: true,
-      more_info: "t-1",
+      more_info: "Cleana+ monthly",
       refURL_callback: "https://a/cb",
     });
+    expect(body.recurring_settings).toBeUndefined();
     expect(body.customer).toEqual({ customer_name: "Noa", email: "noa@example.com", phone: "0501234567" });
+  });
+
+  it("never sends a more_info PayPlus would truncate", async () => {
+    const { impl, calls } = fakeFetch({ data: { payment_page_link: "u", page_request_uid: "r" } });
+    await createTokenCheckout(
+      cfg,
+      {
+        reference: "x".repeat(40),
+        amountIls: 10,
+        description: "x",
+        customer: { name: "n", email: "e@x" },
+        urls: { success: "s", failure: "f", cancel: "c", callback: "cb" },
+      },
+      impl
+    );
+    expect(JSON.parse(String(calls[0].init.body)).more_info).toHaveLength(MORE_INFO_MAX);
   });
 
   it("fails loudly when PayPlus returns no link", async () => {
     const { impl } = fakeFetch({ results: { status: "error", description: "bad page" } });
     await expect(
-      createRecurringCheckout(
+      createTokenCheckout(
         cfg,
         {
-          therapistId: "t",
+          reference: "t",
           amountIls: 10,
           description: "x",
           customer: { name: "n", email: "e@x" },
@@ -126,7 +146,6 @@ describe("parseTransaction", () => {
         status_code: "000",
         amount: 89.9,
         more_info: "t-1",
-        recurring_charge_information: { recurring_uid: "rec-1" },
         token_uid: "tok-1",
         customer_uid: "cus-1",
         payment_request_uid: "req-1",
@@ -138,9 +157,29 @@ describe("parseTransaction", () => {
       statusCode: "000",
       amount: 89.9,
       moreInfo: "t-1",
-      recurringUid: "rec-1",
       tokenUid: "tok-1",
       customerUid: "cus-1",
+      terminalUid: null,
+      cashierUid: null,
+    });
+  });
+  it("reads PayPlus's documented callback shape, with the account ids under data.data", () => {
+    const t = parseTransaction({
+      results: { status: "success", code: 0 },
+      data: {
+        transaction: { uid: "tx-3", status_code: "000", amount: 79, more_info: "Cleana+ monthly", payment_request_uid: "req-3" },
+        data: { customer_uid: "cus-3", terminal_uid: "term-3", cashier_uid: "cash-3", card_information: { token: "tok-3", four_digits: "1234" } },
+      },
+    });
+    expect(t).toMatchObject({
+      transactionUid: "tx-3",
+      pageRequestUid: "req-3",
+      statusCode: "000",
+      amount: 79,
+      tokenUid: "tok-3",
+      customerUid: "cus-3",
+      terminalUid: "term-3",
+      cashierUid: "cash-3",
     });
   });
   it("reads an ipn reply (nested under data) and tolerates strings for numbers", () => {
@@ -150,7 +189,11 @@ describe("parseTransaction", () => {
     });
     expect(t.transactionUid).toBe("tx-2");
     expect(t.amount).toBe(49.9);
-    expect(t.recurringUid).toBeNull();
+    expect(t.tokenUid).toBeNull();
+  });
+  it("never mistakes the results envelope for the charge", () => {
+    const t = parseTransaction({ results: { status: "success", token: "not-a-card" }, data: { uid: "tx-4", status_code: "000" } });
+    expect(t.tokenUid).toBeNull();
   });
   it("gives nulls, not throws, for garbage", () => {
     expect(parseTransaction(null).transactionUid).toBeNull();
@@ -172,12 +215,52 @@ describe("fetchTransaction", () => {
   });
 });
 
-describe("stopRecurring", () => {
-  it("invalidates the recurring order", async () => {
-    const { impl, calls } = fakeFetch({ results: { status: "success" } });
-    await stopRecurring(cfg, "rec 1", impl);
-    expect(calls[0].url).toBe(`${cfg.baseUrl}/RecurringPayments/rec%201/Valid`);
-    expect(JSON.parse(String(calls[0].init.body))).toEqual({ valid: false });
+describe("chargeToken", () => {
+  const input = { terminalUid: "term-1", cashierUid: "cash-1", tokenUid: "tok-1", customerUid: "cus-1", amountIls: 79, description: "Cleana+ monthly renewal" };
+
+  it("charges the stored card as a regular single payment and returns the transaction", async () => {
+    const { impl, calls } = fakeFetch({
+      results: { status: "success" },
+      data: { transaction: { uid: "tx-r1", status_code: "000", amount: 79 } },
+    });
+    const out = await chargeToken(cfg, input, impl);
+    expect(calls[0].url).toBe(`${cfg.baseUrl}/Transactions/Charge`);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({
+      terminal_uid: "term-1",
+      cashier_uid: "cash-1",
+      amount: 79,
+      currency_code: "ILS",
+      credit_terms: 1,
+      use_token: true,
+      token: "tok-1",
+      customer_uid: "cus-1",
+      more_info_1: "Cleana+ monthly renewal",
+    });
+    expect(out.transaction).toMatchObject({ transactionUid: "tx-r1", statusCode: "000", amount: 79 });
+  });
+
+  it("returns a declined charge as a transaction, so it is recorded like any other", async () => {
+    const { impl } = fakeFetch({ results: { status: "success" }, data: { transaction_uid: "tx-r2", status_code: "004" } });
+    const out = await chargeToken(cfg, input, impl);
+    expect(out.transaction).toMatchObject({ transactionUid: "tx-r2", statusCode: "004" });
+  });
+
+  it("throws when PayPlus refuses the request outright", async () => {
+    const { impl } = fakeFetch({ results: { status: "error", description: "credit-terms-incorrect" } });
+    await expect(chargeToken(cfg, input, impl)).rejects.toThrow(/credit-terms-incorrect/);
+  });
+});
+
+describe("listTokens", () => {
+  it("lists the customer's stored cards on the terminal, oldest first", async () => {
+    const { impl, calls } = fakeFetch({ results: { status: "success" }, data: [{ token: "old" }, { token: "new" }] });
+    expect(await listTokens(cfg, { terminalUid: "term-1", customerUid: "cus-1" }, impl)).toEqual(["old", "new"]);
+    expect(calls[0].url).toBe(`${cfg.baseUrl}/Token/List`);
+    expect(JSON.parse(String(calls[0].init.body))).toEqual({ terminal_uid: "term-1", customer_uid: "cus-1" });
+  });
+  it("is empty, not an error, when there are none", async () => {
+    const { impl } = fakeFetch({ results: { status: "success" }, data: [] });
+    expect(await listTokens(cfg, { terminalUid: "t", customerUid: "c" }, impl)).toEqual([]);
   });
 });
 
@@ -188,11 +271,12 @@ describe("mergeVerifiedWithHints", () => {
     statusCode: "000",
     amount: 79,
     moreInfo: null,
-    recurringUid: null,
     tokenUid: null,
     customerUid: null,
+    terminalUid: null,
+    cashierUid: null,
   };
-  const hints = { ...base, moreInfo: "therapist_from_body", pageRequestUid: "page_from_body", recurringUid: "rec_from_body" };
+  const hints = { ...base, moreInfo: "therapist_from_body", pageRequestUid: "page_from_body", tokenUid: "tok_from_body" };
 
   it("takes the account hint only from a signed body", () => {
     expect(mergeVerifiedWithHints(base, hints, { signed: true }).moreInfo).toBe("therapist_from_body");
@@ -202,7 +286,7 @@ describe("mergeVerifiedWithHints", () => {
   it("fills stored identifiers from any body, since they must match what we saved", () => {
     const merged = mergeVerifiedWithHints(base, hints, { signed: false });
     expect(merged.pageRequestUid).toBe("page_from_body");
-    expect(merged.recurringUid).toBe("rec_from_body");
+    expect(merged.tokenUid).toBe("tok_from_body");
   });
 
   it("never lets a hint override what PayPlus confirmed", () => {

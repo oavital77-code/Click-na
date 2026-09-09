@@ -106,7 +106,7 @@ describe("runBillingLifecycle (against a live database)", () => {
     const periodEnd = new Date(now.getTime() - 3 * DAY);
     await prisma.subscription.update({
       where: { therapistId: id },
-      data: { status: "active", tier: "plus", currentPeriodStart: new Date(periodEnd.getTime() - 30 * DAY), currentPeriodEnd: periodEnd, payplusRecurringUid: "rec_x" },
+      data: { status: "active", tier: "plus", currentPeriodStart: new Date(periodEnd.getTime() - 30 * DAY), currentPeriodEnd: periodEnd, payplusTokenUid: null },
     });
 
     const s = await runBillingLifecycle(now);
@@ -121,9 +121,10 @@ describe("runBillingLifecycle (against a live database)", () => {
 
     // The renewal callback arrives late: active again, grace gone.
     await applyVerifiedTransaction(
-      { transactionUid: "tx_late", pageRequestUid: null, statusCode: "000", amount: 89.9, moreInfo: id, recurringUid: "rec_x", tokenUid: null, customerUid: null },
+      { transactionUid: "tx_late", pageRequestUid: null, statusCode: "000", amount: 89.9, moreInfo: null, tokenUid: null, customerUid: null, terminalUid: null, cashierUid: null },
       {},
-      now
+      now,
+      { therapistId: id }
     );
     sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
     expect(sub.status).toBe("active");
@@ -150,7 +151,7 @@ describe("runBillingLifecycle (against a live database)", () => {
       data: { status: "active", tier: "plus", currentPeriodEnd: new Date(now.getTime() + 20 * DAY) },
     });
     const s = await runBillingLifecycle(now);
-    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0, unconfirmed: 0 });
+    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0, unconfirmed: 0, renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 } });
     expect(await mailCount(id)).toBe(0);
   });
 });

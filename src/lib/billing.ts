@@ -4,11 +4,13 @@ import { formatPriceIls, planPriceIls, PLAN_TIER } from "@/lib/plan";
 import { accessState, graceEndFor } from "@/lib/access";
 import { changeSubscription } from "@/lib/subscriptions";
 import {
-  createRecurringCheckout,
+  chargeToken,
+  createTokenCheckout,
   fetchTransaction,
+  listTokens,
   payplusConfig,
+  PayPlusError,
   PAYPLUS_SUCCESS_CODE,
-  stopRecurring,
   type CallbackTransaction,
   type PayPlusConfig,
 } from "@/lib/payplus";
@@ -21,8 +23,11 @@ import { getMessages, toLocale } from "@/i18n";
  * each is enforced in exactly one function here:
  *  - A charge is applied once. The Payment row is unique on PayPlus's
  *    transaction id, and the row is written before the subscription is touched.
- *  - The subscription changes only from a transaction PayPlus confirmed with our
- *    keys (see the callback route), never from a browser redirect.
+ *  - The subscription changes only from a transaction PayPlus confirmed — one
+ *    we verified with our keys (the callback route) or one PayPlus answered to
+ *    our own charge request — never from a browser redirect.
+ *  - Renewals are ours: the first payment stores the card as a token, and
+ *    chargeDueRenewals charges it at each period end, at most once a day.
  *  - The therapist is told about every change, by the same function that makes
  *    it (changeSubscription), so the two cannot drift apart.
  */
@@ -38,9 +43,12 @@ export function billingAvailability(): { ok: true; cfg: PayPlusConfig; priceIls:
   return { ok: true, cfg, priceIls };
 }
 
+/** What PayPlus shows as more_info (19 characters at most, so a label, not an id). */
+export const CHECKOUT_REFERENCE = "Cleana+ monthly";
+
 /**
  * Opens a PayPlus payment page for the signed-in therapist and remembers which
- * one, so the callback can find the account even if more_info goes missing.
+ * one: the page request id is how the callback finds the account.
  */
 export async function startCheckout(
   therapistId: string,
@@ -56,10 +64,10 @@ export async function startCheckout(
   const m = getMessages(locale).billing;
   const base = appUrl();
 
-  const checkout = await createRecurringCheckout(
+  const checkout = await createTokenCheckout(
     availability.cfg,
     {
-      therapistId: therapist.id,
+      reference: CHECKOUT_REFERENCE,
       amountIls: availability.priceIls,
       description: `${m.planName} — ${m.perMonth(formatPriceIls(availability.priceIls, locale))}`,
       customer: { name: therapist.fullName, email: therapist.email, phone: therapist.phone },
@@ -83,7 +91,7 @@ export async function startCheckout(
 
 /**
  * The month a successful charge pays for. Calendar months, anchored on the
- * charge: 31 Jan pays through 28 Feb, the way PayPlus itself schedules it.
+ * charge: 31 Jan pays through 28 Feb.
  */
 export function periodAfter(paidAt: Date): { start: Date; end: Date } {
   const end = new Date(paidAt);
@@ -95,31 +103,34 @@ export type ApplyResult =
   | { applied: true; outcome: "activated" | "failed" }
   | { applied: false; reason: "duplicate" | "unknown_therapist" | "unverified" | "amount_mismatch" };
 
+export type ApplyDeps = {
+  /** The account, when the caller already knows it — our own renewal charges do. */
+  therapistId?: string;
+  fetchImpl?: typeof fetch;
+};
+
 /**
  * Records a transaction PayPlus has confirmed and moves the subscription
  * accordingly. Idempotent: the same transaction twice is a no-op the second time.
  *
- * `verified` must come from fetchTransaction, never from the callback body.
+ * `verified` must come from fetchTransaction or chargeToken, never from the
+ * callback body.
  */
 export async function applyVerifiedTransaction(
   verified: CallbackTransaction,
   raw: unknown,
-  now: Date = new Date()
+  now: Date = new Date(),
+  deps: ApplyDeps = {}
 ): Promise<ApplyResult> {
   if (!verified.transactionUid || !verified.statusCode) return { applied: false, reason: "unverified" };
 
-  // Find whose payment this is: more_info carries the therapist id; the page
-  // request id is the fallback for a callback where it did not round-trip.
+  // Whose payment: the page we opened for them, or the card we stored for them.
   const subscription =
-    (verified.moreInfo
-      ? await prisma.subscription.findFirst({ where: { therapistId: verified.moreInfo } })
-      : null) ??
+    (deps.therapistId ? await prisma.subscription.findUnique({ where: { therapistId: deps.therapistId } }) : null) ??
     (verified.pageRequestUid
       ? await prisma.subscription.findFirst({ where: { pendingPageRequestUid: verified.pageRequestUid } })
       : null) ??
-    (verified.recurringUid
-      ? await prisma.subscription.findFirst({ where: { payplusRecurringUid: verified.recurringUid } })
-      : null);
+    (verified.tokenUid ? await prisma.subscription.findFirst({ where: { payplusTokenUid: verified.tokenUid } }) : null);
   if (!subscription) return { applied: false, reason: "unknown_therapist" };
 
   const succeeded = verified.statusCode === PAYPLUS_SUCCESS_CODE;
@@ -136,7 +147,6 @@ export async function applyVerifiedTransaction(
         therapistId: subscription.therapistId,
         transactionUid: verified.transactionUid,
         pageRequestUid: verified.pageRequestUid,
-        recurringUid: verified.recurringUid,
         amount: verified.amount ?? 0,
         status: succeeded ? "succeeded" : "failed",
         statusCode: verified.statusCode,
@@ -154,15 +164,24 @@ export async function applyVerifiedTransaction(
   if (succeeded && !amountOk) return { applied: false, reason: "amount_mismatch" };
 
   if (succeeded && period) {
+    const customerUid = verified.customerUid ?? subscription.payplusCustomerUid;
+    const terminalUid = verified.terminalUid ?? subscription.payplusTerminalUid;
+    const cashierUid = verified.cashierUid ?? subscription.payplusCashierUid;
+    const tokenUid =
+      verified.tokenUid ??
+      subscription.payplusTokenUid ??
+      (await tokenFromPayPlus({ terminalUid, customerUid }, deps.fetchImpl));
+
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: {
         currentPeriodStart: period.start,
         graceEndsAt: null,
         pendingPageRequestUid: null,
-        payplusRecurringUid: verified.recurringUid ?? subscription.payplusRecurringUid,
-        payplusTokenUid: verified.tokenUid ?? subscription.payplusTokenUid,
-        payplusCustomerUid: verified.customerUid ?? subscription.payplusCustomerUid,
+        payplusTokenUid: tokenUid,
+        payplusCustomerUid: customerUid,
+        payplusTerminalUid: terminalUid,
+        payplusCashierUid: cashierUid,
         trialEndsAt: subscription.trialEndsAt,
       },
     });
@@ -175,7 +194,8 @@ export async function applyVerifiedTransaction(
   }
 
   // A failed charge. During the trial nothing changes — they simply have not
-  // paid yet. On an active subscription it is a failed renewal: grace begins.
+  // paid yet. On an active subscription it is a failed renewal: grace begins;
+  // during grace a retry that fails again leaves the deadline where it was.
   const state = accessState(subscription, now);
   if (state.kind === "active" || state.kind === "canceling") {
     await prisma.subscription.update({
@@ -191,27 +211,118 @@ export async function applyVerifiedTransaction(
   return { applied: true, outcome: "failed" };
 }
 
+/** Token/List, for a confirmed create_token payment whose callback carried no token. */
+async function tokenFromPayPlus(
+  ids: { terminalUid: string | null; customerUid: string | null },
+  fetchImpl?: typeof fetch
+): Promise<string | null> {
+  const cfg = payplusConfig();
+  const terminalUid = cfg?.terminalUid ?? ids.terminalUid;
+  if (!cfg || !terminalUid || !ids.customerUid) return null;
+  try {
+    const tokens = await listTokens(cfg, { terminalUid, customerUid: ids.customerUid }, fetchImpl);
+    return tokens[tokens.length - 1] ?? null;
+  } catch (error) {
+    console.error("[billing] Token/List failed", error instanceof PayPlusError ? error.body : error);
+    return null;
+  }
+}
+
+/** How long after an attempt the next one may run: daily, with slack for cron jitter. */
+const CHARGE_RETRY_MS = 20 * 60 * 60 * 1000;
+
+export type RenewalSummary = { charged: number; declined: number; errors: number; noToken: number };
+
+/**
+ * Charges every stored card whose paid period has ended — and, during grace
+ * after a decline, tries again once a day until grace runs out.
+ *
+ * Safe to run twice: a row is claimed by stamping lastChargeAttemptAt in a
+ * conditional update before PayPlus is called, so two overlapping runs cannot
+ * both charge it.
+ */
+export async function chargeDueRenewals(
+  now: Date = new Date(),
+  deps: { fetchImpl?: typeof fetch } = {}
+): Promise<RenewalSummary> {
+  const summary: RenewalSummary = { charged: 0, declined: 0, errors: 0, noToken: 0 };
+  const availability = billingAvailability();
+  if (!availability.ok) return summary;
+  const { cfg, priceIls } = availability;
+
+  const retryBefore = new Date(now.getTime() - CHARGE_RETRY_MS);
+  const due = await prisma.subscription.findMany({
+    where: {
+      cancelAtPeriodEnd: false,
+      currentPeriodEnd: { not: null, lte: now },
+      OR: [{ lastChargeAttemptAt: null }, { lastChargeAttemptAt: { lte: retryBefore } }],
+      AND: [
+        {
+          OR: [
+            { status: "active" },
+            // Grace after a failed renewal: keep trying while it lasts.
+            { status: "past_due", graceEndsAt: { gt: now }, currentPeriodStart: { not: null } },
+          ],
+        },
+      ],
+    },
+  });
+
+  for (const sub of due) {
+    const claimed = await prisma.subscription.updateMany({
+      where: { id: sub.id, lastChargeAttemptAt: sub.lastChargeAttemptAt },
+      data: { lastChargeAttemptAt: now },
+    });
+    if (claimed.count === 0) continue; // another run got here first
+
+    const terminalUid = cfg.terminalUid ?? sub.payplusTerminalUid;
+    const cashierUid = cfg.cashierUid ?? sub.payplusCashierUid;
+    if (!sub.payplusTokenUid || !terminalUid || !cashierUid) {
+      summary.noToken++;
+      continue; // the lifecycle's unconfirmed-renewal rule takes it from here
+    }
+
+    try {
+      const charge = await chargeToken(
+        cfg,
+        {
+          terminalUid,
+          cashierUid,
+          tokenUid: sub.payplusTokenUid,
+          customerUid: sub.payplusCustomerUid,
+          amountIls: priceIls,
+          description: `${CHECKOUT_REFERENCE} renewal`,
+        },
+        deps.fetchImpl
+      );
+      const result = await applyVerifiedTransaction(charge.transaction, charge.raw, now, {
+        therapistId: sub.therapistId,
+        fetchImpl: deps.fetchImpl,
+      });
+      if (result.applied && result.outcome === "activated") summary.charged++;
+      else summary.declined++;
+    } catch (error) {
+      summary.errors++;
+      console.error("[billing] renewal charge failed", sub.therapistId, error instanceof PayPlusError ? error.body : error);
+    }
+  }
+  return summary;
+}
+
 /**
  * Stops future charges. The subscription keeps working until the period that
- * was paid for ends — that is what the therapist paid for.
+ * was paid for ends — that is what the therapist paid for. Nothing to tell
+ * PayPlus: the schedule is ours, and a cancelled row is never charged.
  */
-export async function requestCancellation(
-  therapistId: string,
-  deps: { fetchImpl?: typeof fetch } = {}
-): Promise<{ ok: true } | { ok: false; reason: "not_active" | "not_configured" }> {
+export async function requestCancellation(therapistId: string): Promise<{ ok: true } | { ok: false; reason: "not_active" }> {
   const subscription = await prisma.subscription.findUnique({ where: { therapistId } });
   if (!subscription || subscription.status !== "active" || subscription.cancelAtPeriodEnd) {
     return { ok: false, reason: "not_active" };
   }
   // An account from before billing existed is "active" on the free tier with no
   // paid period. There is nothing to cancel — and cancelling it would lock it.
-  if (subscription.tier === "free" && !subscription.payplusRecurringUid) {
+  if (subscription.tier === "free" && !subscription.currentPeriodStart) {
     return { ok: false, reason: "not_active" };
-  }
-  const cfg = payplusConfig();
-  if (subscription.payplusRecurringUid) {
-    if (!cfg) return { ok: false, reason: "not_configured" };
-    await stopRecurring(cfg, subscription.payplusRecurringUid, deps.fetchImpl);
   }
   await changeSubscription(therapistId, {
     tier: subscription.tier,

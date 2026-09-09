@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { graceEndFor } from "@/lib/access";
 import { GRACE_DAYS, RENEWAL_CONFIRMATION_DAYS, TRIAL_DAYS, TRIAL_REMINDER_DAYS } from "@/lib/plan";
 import { sendTrialEmail } from "@/lib/account-emails";
+import { chargeDueRenewals, type RenewalSummary } from "@/lib/billing";
 
 /**
  * The daily pass over every subscription that is not simply "paid and fine".
@@ -12,19 +13,33 @@ import { sendTrialEmail } from "@/lib/account-emails";
  *  - Trial countdown mail on days 23, 28 and 30 of the trial — each once.
  *  - A trial that has ended becomes past_due with a grace deadline, and says so.
  *  - Grace that has run out becomes unpaid — the dashboard locks — and says so.
- *  - A paid period that ended without a renewal callback becomes grace too,
- *    so a lost callback can never mean free service forever. A late callback
- *    reactivates the row by itself (applyVerifiedTransaction clears grace).
- *
- * Renewals themselves are PayPlus's: it runs the schedule and reports each
- * charge to the callback, which is where paying rows normally change.
+ *  - Renewals: every stored card whose period has ended is charged, and a
+ *    declined one is retried daily through grace (chargeDueRenewals).
+ *  - A paid period that ended with no successful renewal in two days becomes
+ *    grace too — the net under a card we could not charge at all (no token,
+ *    PayPlus unreachable), so it can never mean free service forever.
  */
-export type LifecycleSummary = { reminders: number; ended: number; locked: number; unconfirmed: number };
+export type LifecycleSummary = {
+  reminders: number;
+  ended: number;
+  locked: number;
+  unconfirmed: number;
+  renewals: RenewalSummary;
+};
 
 const DAY = 24 * 60 * 60 * 1000;
 
-export async function runBillingLifecycle(now: Date = new Date()): Promise<LifecycleSummary> {
-  const summary: LifecycleSummary = { reminders: 0, ended: 0, locked: 0, unconfirmed: 0 };
+export async function runBillingLifecycle(
+  now: Date = new Date(),
+  deps: { fetchImpl?: typeof fetch } = {}
+): Promise<LifecycleSummary> {
+  const summary: LifecycleSummary = {
+    reminders: 0,
+    ended: 0,
+    locked: 0,
+    unconfirmed: 0,
+    renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 },
+  };
 
   // 1. Trials still running: which countdown day is it?
   const trialing = await prisma.subscription.findMany({
@@ -51,7 +66,11 @@ export async function runBillingLifecycle(now: Date = new Date()): Promise<Lifec
     summary.reminders++;
   }
 
-  // 3. Grace that has run out — after a trial or after a failed renewal.
+  // 3. Renewals: charge the stored cards whose period has ended (and retry
+  //    through grace). A success moves the period on; a decline starts grace.
+  summary.renewals = await chargeDueRenewals(now, deps);
+
+  // 4. Grace that has run out — after a trial or after a failed renewal.
   const lapsed = await prisma.subscription.findMany({
     where: { status: "past_due", graceEndsAt: { lte: now } },
     select: { id: true, therapistId: true },
@@ -62,7 +81,7 @@ export async function runBillingLifecycle(now: Date = new Date()): Promise<Lifec
     summary.locked++;
   }
 
-  // 4. Paid periods that ended with no renewal confirmed — see RENEWAL_CONFIRMATION_DAYS.
+  // 5. Paid periods that ended with no renewal confirmed — see RENEWAL_CONFIRMATION_DAYS.
   const unconfirmed = await prisma.subscription.findMany({
     where: {
       status: "active",

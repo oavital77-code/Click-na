@@ -188,10 +188,15 @@ model Subscription {
   tier                  SubscriptionTier   @default(free)
   // A brand-new signup has no card and no trial — Free is just permanently active (spec 7.5).
   status                SubscriptionStatus @default(active)
-  // PayPlus's handle on the recurring charge — what a cancellation is sent to.
-  payplusRecurringUid   String?            @unique @map("payplus_recurring_uid") @db.VarChar(255)
-  payplusCustomerUid    String?            @map("payplus_customer_uid") @db.VarChar(255)
+  // The stored card our daily job charges at each period end, and the ids the
+  // charge needs beside it — all captured from the first payment's callback.
   payplusTokenUid       String?            @map("payplus_token_uid") @db.VarChar(255)
+  payplusCustomerUid    String?            @map("payplus_customer_uid") @db.VarChar(255)
+  payplusTerminalUid    String?            @map("payplus_terminal_uid") @db.VarChar(255)
+  payplusCashierUid     String?            @map("payplus_cashier_uid") @db.VarChar(255)
+  // When we last tried to charge the token, so a retry is at most daily and two
+  // overlapping cron runs cannot both charge.
+  lastChargeAttemptAt   DateTime?          @map("last_charge_attempt_at") @db.Timestamptz
   // The checkout link most recently handed to this therapist. Lets the callback
   // find the account even when more_info did not round-trip.
   pendingPageRequestUid String?            @map("pending_page_request_uid") @db.VarChar(255)
@@ -229,7 +234,6 @@ model Payment {
   // PayPlus's transaction id. Unique so a redelivered callback is a no-op.
   transactionUid String        @unique @map("transaction_uid") @db.VarChar(255)
   pageRequestUid String?       @map("page_request_uid") @db.VarChar(255)
-  recurringUid   String?       @map("recurring_uid") @db.VarChar(255)
   amount         Decimal       @db.Decimal(10, 2)
   currency       String        @default("ILS") @db.VarChar(3)
   status         PaymentStatus
