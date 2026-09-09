@@ -55,11 +55,12 @@ export function BillingView({
     setError(null);
     try {
       const res = await fetch("/api/billing/checkout", { method: "POST" });
-      const json = (await res.json()) as { url?: string; error?: string };
-      if (!res.ok || !json.url) throw new Error(json.error ?? "failed");
+      const json = (await res.json()) as { url?: string; error?: string; detail?: string | null };
+      if (!res.ok || !json.url) throw new Error(json.detail ? `${json.error ?? "failed"} (${json.detail})` : (json.error ?? "failed"));
       window.location.assign(json.url);
-    } catch {
-      setError(m.common.genericError);
+    } catch (err) {
+      const detail = err instanceof Error && err.message !== "failed" ? err.message : null;
+      setError(detail ? `${m.common.genericError} — ${detail}` : m.common.genericError);
       setBusy(null);
     }
   }
