@@ -160,3 +160,14 @@
     color: hsl(var(--primary-strong));
   }
 }
+
+/* Marketing pages: the faint squared paper behind the hero and the mockups,
+   fading out towards the edges so it never competes with the content. */
+.grid-paper {
+  background-image:
+    linear-gradient(to right, hsl(var(--border) / 0.55) 1px, transparent 1px),
+    linear-gradient(to bottom, hsl(var(--border) / 0.55) 1px, transparent 1px);
+  background-size: 3rem 3rem;
+  mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 40%, transparent 100%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 40%, transparent 100%);
+}
