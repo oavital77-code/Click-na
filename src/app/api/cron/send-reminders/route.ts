@@ -17,6 +17,9 @@ function isAuthorized(header: string | null, secret: string): boolean {
   return timingSafeEqual(provided, expected);
 }
 
+// The longest a plan allows without erroring the build on Hobby; raise on Pro.
+export const maxDuration = 60;
+
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
   if (!secret) {

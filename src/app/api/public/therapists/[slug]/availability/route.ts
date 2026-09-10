@@ -4,6 +4,8 @@ import { formatInTimeZone } from "date-fns-tz";
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { accessState, acceptsNewBookings } from "@/lib/access";
+import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { tooManyRequests } from "@/lib/http";
 
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
@@ -15,6 +17,10 @@ export async function GET(
   ctx: RouteContext<"/api/public/therapists/[slug]/availability">
 ) {
   const { slug } = await ctx.params;
+  // Read-only, but every call is two queries and a calendar computation, and it
+  // sits behind every public booking link. A generous ceiling per address.
+  const limit = await checkRateLimit({ scope: "availability", identifier: clientIp(request.headers), limit: 120, windowMs: 60 * 1000 });
+  if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
   const parsed = querySchema.safeParse(Object.fromEntries(request.nextUrl.searchParams));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });

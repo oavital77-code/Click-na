@@ -383,10 +383,21 @@ export type SendDueRemindersSummary = { sent: number; failed: number };
  * therapist and nobody found out. Each cron run is one further attempt.
  */
 const REMINDER_ATTEMPT_LIMIT = 3;
+/**
+ * How many reminders one cron run takes on, and how many it sends at once. The
+ * run has a minute at most; a serial loop over an unbounded list would be cut
+ * off part-way and the rest silently never sent. Whatever exceeds the batch
+ * waits for the next run, oldest first. Concurrency stays low because Resend
+ * rate-limits per second.
+ */
+export const REMINDER_BATCH = 150;
+const REMINDER_CONCURRENCY = 3;
 
 /** Cron entry point (spec 8.6: reminders go out `reminder_hours_before` ahead of the session). */
 export async function sendDueReminders(now = new Date()): Promise<SendDueRemindersSummary> {
   const due = await prisma.notification.findMany({
+    take: REMINDER_BATCH,
+    orderBy: { scheduledFor: "asc" },
     where: {
       type: "reminder",
       scheduledFor: { lte: now },
@@ -407,11 +418,11 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
 
   const summary: SendDueRemindersSummary = { sent: 0, failed: 0 };
 
-  for (const notification of due) {
+  await mapWithConcurrency(due, REMINDER_CONCURRENCY, async (notification) => {
     const { booking } = notification;
     if (!booking || booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") {
       await prisma.notification.update({ where: { id: notification.id }, data: { status: "canceled" } });
-      continue;
+      return;
     }
 
     const location = resolveLocation(
@@ -439,7 +450,7 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
           where: { id: notification.id },
           data: { status: "canceled" },
         });
-        continue;
+        return;
       }
       result = await sendWhatsApp(credentials, {
         to: notification.recipient,
@@ -458,7 +469,23 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
     });
     if (result.ok) summary.sent++;
     else summary.failed++;
-  }
+  });
 
   return summary;
+}
+
+/** Runs `fn` over `items` with at most `limit` in flight; a failure in one never stops the others. */
+export async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const item = items[next++];
+      try {
+        await fn(item);
+      } catch (error) {
+        console.error("[notifications] reminder failed", error);
+      }
+    }
+  });
+  await Promise.all(workers);
 }
