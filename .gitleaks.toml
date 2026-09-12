@@ -1,0 +1,32 @@
+# Gitleaks configuration. Starts from the bundled ruleset and narrows only where
+# a *placeholder* is supposed to live. Verified against the full history: with
+# this file removed entirely the scan still reports zero findings, so nothing
+# real is being suppressed here.
+#
+# Deliberately absent: a blanket exemption for `*.test.ts`. Test fixtures use
+# obviously fake keys that the default rules already ignore, and exempting every
+# test file would mean a real key pasted into one sails through. If a fixture
+# ever does trip a rule, mark that single line with a `gitleaks:allow` comment
+# instead of widening this file.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders and vendored documentation"
+
+paths = [
+  # Lists which variables exist; every value is empty or an obvious sample.
+  '''^\.env\.example$''',
+  # Vendored Prisma skill documentation, full of sample connection strings.
+  '''^\.claude/skills/.*''',
+  # Integrity hashes, not credentials.
+  '''^skills-lock\.json$''',
+  '''^package-lock\.json$''',
+]
+
+regexes = [
+  # The local development database, which is literally postgres/postgres.
+  '''postgresql://postgres:postgres@localhost''',
+  # Placeholder connection strings in documentation and .env.example.
+  '''postgres(ql)?://(USER|user):(PASSWORD|password|pass|key)@''',
+]

@@ -1,0 +1,27 @@
+Copyright (c) 2026 CleanaGroup. All rights reserved.
+
+This source code is published for transparency, review and automated security
+scanning. Publishing it does not place it in the public domain and does not
+grant a licence to use it.
+
+You MAY: read the code, and quote short excerpts when reporting a bug or a
+security issue to us.
+
+You MAY NOT, without prior written permission: copy, modify, merge, publish,
+distribute, sublicense or sell this software or any substantial part of it, or
+run it — whether as a service, internally, or in a derivative work.
+
+No warranty of any kind is given. The software is provided "as is".
+
+For permission, or for anything this notice does not cover, open a discussion
+in this repository.
+
+---
+
+Why this and not MIT: the goal of making this repository public is free
+security scanning (CodeQL, secret scanning, dependency review), and none of
+those require a permissive licence — only public visibility. An open-source
+licence is a separate, one-way decision: once code ships under MIT that version
+is licensed forever and cannot be recalled. Reserving rights keeps the option
+open. Replacing this file with a real OSS licence is a one-commit change on the
+day that becomes the intent.

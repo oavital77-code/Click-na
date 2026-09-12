@@ -1,0 +1,37 @@
+# Blocks a pull request that introduces a dependency with a known high or
+# critical advisory, before it is ever merged. Public repositories get this for
+# free; on a private repository the action needs GitHub Code Security, so the
+# `npm audit` job below is the part that always runs.
+name: Dependencies
+
+on:
+  pull_request:
+  schedule:
+    - cron: "0 5 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # No install: `npm audit` reads the lockfile, and a full install would
+      # only add a chance of failing for an unrelated reason.
+      - run: npm audit --audit-level=high
