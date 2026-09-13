@@ -459,6 +459,9 @@ cleanas.cleanagroup.app/superadmin/owner
    שלא ניתן לבטל אחר כך: קומיט שפורסם, פורסם.
 2. אין קובץ `.env` במעקב. `git ls-files | grep '\.env'` מחזיר רק
    `.env.example`.
-3. Settings → Code security: להפעיל **Private vulnerability reporting**,
-   **Dependabot alerts**, ו-**Secret scanning + push protection**.
+3. Settings → Advanced Security: להפעיל **Private vulnerability reporting**,
+   **Dependabot alerts**, **Secret scanning + push protection**, ו-**Code
+   scanning**. ל-CodeQL עדיף **default setup** — GitHub מתחזק אותו ואין קובץ
+   workflow שיכול להירקב. שימו לב שהפעלתו משביתה אוטומטית כל workflow
+   CodeQL שבריפו, וזו הסיבה שאין כאן אחד.
 4. Branch protection על `main`: לדרוש ש-CI יעבור.
