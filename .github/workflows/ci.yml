@@ -52,6 +52,14 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # `PageProps`, `LayoutProps` and `RouteContext` are globals Next generates
+      # from the route tree — normally as a side effect of `next dev` or
+      # `next build`. A clean checkout has never run either, so `tsc` alone
+      # would fail on every dynamic route with "Cannot find name". `typegen`
+      # emits exactly those types without paying for a full build.
+      - name: Generate route types
+        run: npx next typegen
+
       - name: Typecheck
         run: npx tsc --noEmit
 

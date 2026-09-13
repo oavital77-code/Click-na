@@ -34,4 +34,10 @@ jobs:
           cache: npm
       # No install: `npm audit` reads the lockfile, and a full install would
       # only add a chance of failing for an unrelated reason.
-      - run: npm audit --audit-level=high
+      #
+      # Not bare `npm audit --audit-level=high`: that stays red on advisories we
+      # have already analysed and cannot act on, and a permanently red check is
+      # one nobody reads. The gate accepts only what .audit-allowlist.json
+      # justifies, and fails on anything new, anything past its review date, and
+      # any excuse that has outlived its advisory.
+      - run: node scripts/audit.mjs
