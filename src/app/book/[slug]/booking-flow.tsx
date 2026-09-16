@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
+import { formatPriceIls } from "@/lib/plan";
 import { fmt } from "@/i18n/dates";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
 
@@ -53,6 +54,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [manageToken, setManageToken] = useState<string | null>(null);
+  const [payment, setPayment] = useState<{ url: string; amountIls: number | null } | null>(null);
 
   const gridStart = startOfWeekUtc(monthAnchor);
   const gridDays = useMemo(
@@ -126,6 +128,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
         return;
       }
       setManageToken(data.booking.manageToken);
+      setPayment(data.booking.paymentUrl ? { url: data.booking.paymentUrl, amountIls: data.booking.paymentAmountIls ?? null } : null);
       setStep("confirmed");
     } catch {
       setFormError(m.common.networkError);
@@ -149,6 +152,18 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
             <br />
             {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
           </p>
+          {payment && (
+            <div className="flex flex-col items-center gap-1">
+              {/* A new tab: the provider's page is theirs, and this screen with
+                  the calendar and manage links stays behind it. */}
+              <Button asChild size="lg" className="w-full sm:w-fit">
+                <a href={payment.url} target="_blank" rel="noreferrer noopener">
+                  {payment.amountIls ? b.payNowAmount(formatPriceIls(payment.amountIls, locale)) : b.payNow}
+                </a>
+              </Button>
+              <p className="text-muted-foreground text-xs">{b.payLater}</p>
+            </div>
+          )}
           {manageToken && (
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a

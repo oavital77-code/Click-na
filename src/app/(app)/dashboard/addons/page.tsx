@@ -32,6 +32,7 @@ export default async function AddonsPage() {
       />
       <AddonsView
         initial={{ integrations, credentialStorageReady: credentialStorageReady() }}
+        sessionPriceSet={therapist.settings?.sessionPriceIls != null}
       />
     </main>
   );

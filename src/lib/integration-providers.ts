@@ -1,7 +1,11 @@
 import { z } from "zod";
 import { getMessages, type Locale } from "@/i18n";
 
-export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp"] as const;
+export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp", "payplus", "paymentLink"] as const;
+
+/** The add-ons through which a client pays a therapist. At most one is used per booking. */
+export const PAYMENT_PROVIDERS = ["payplus", "paymentLink"] as const satisfies readonly IntegrationProvider[];
+export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
 export type IntegrationProvider = (typeof INTEGRATION_PROVIDERS)[number];
 
 export type CredentialField = {
@@ -24,6 +28,12 @@ export type ProviderSpec = {
   setupHint: string;
   /** Anything the therapist should know that the summary would overstate. */
   note?: string;
+  /**
+   * Walk the therapist through the fields one at a time, each with its own
+   * hint, instead of one form of empty boxes. For the add-ons a non-technical
+   * person is most likely to give up on.
+   */
+  guided?: boolean;
 };
 
 /**
@@ -72,6 +82,36 @@ export function getProviderSpecs(locale: Locale): Record<IntegrationProvider, Pr
       docsUrl: "https://console.twilio.com",
       setupHint: m.whatsapp.setupHint,
     },
+    payplus: {
+      provider: "payplus",
+      label: m.payplus.label,
+      summary: m.payplus.summary,
+      // The same three values the platform's own billing uses. PayPlus sends
+      // its callback to whatever URL each payment page is created with, so
+      // there is no fourth step of registering our address on their side.
+      fields: [
+        { name: "apiKey", label: m.payplus.fields.apiKey, secret: true, help: m.payplus.help.apiKey },
+        { name: "secretKey", label: m.payplus.fields.secretKey, secret: true, help: m.payplus.help.secretKey },
+        { name: "paymentPageUid", label: m.payplus.fields.paymentPageUid, secret: false, help: m.payplus.help.paymentPageUid },
+      ],
+      // PayPlus's merchant site; the API-keys screen is under its settings.
+      // A deeper link is not documented publicly, so this stays the landing.
+      docsUrl: "https://www.payplus.co.il",
+      setupHint: m.payplus.setupHint,
+      note: m.payplus.note,
+      guided: true,
+    },
+    paymentLink: {
+      provider: "paymentLink",
+      label: m.paymentLink.label,
+      summary: m.paymentLink.summary,
+      fields: [
+        { name: "url", label: m.paymentLink.fields.url, secret: false, placeholder: "https://", help: m.paymentLink.help.url },
+      ],
+      docsUrl: null,
+      setupHint: m.paymentLink.setupHint,
+      note: m.paymentLink.note,
+    },
   };
 }
 
@@ -92,6 +132,21 @@ export const CREDENTIAL_SCHEMAS = {
     accountSid: z.string().trim().min(1, "validation.required"),
     authToken: z.string().trim().min(1, "validation.required"),
     fromNumber: z.string().trim().min(1, "validation.required"),
+  }),
+  payplus: z.object({
+    apiKey: z.string().trim().min(1, "validation.required"),
+    secretKey: z.string().trim().min(1, "validation.required"),
+    paymentPageUid: z.string().trim().min(1, "validation.required"),
+  }),
+  // The link is rendered as an href on a page clients open, so the scheme is
+  // pinned: `.url()` alone accepts javascript: and data:.
+  paymentLink: z.object({
+    url: z
+      .string()
+      .trim()
+      .url("validation.urlInvalid")
+      .max(500)
+      .refine((value) => /^https:\/\//i.test(value), "validation.urlScheme"),
   }),
 } satisfies Record<IntegrationProvider, z.ZodType>;
 

@@ -111,6 +111,11 @@ enum IntegrationProvider {
   // app-level catalogue in src/lib/integration-providers.ts is the source of
   // truth for which add-ons exist.
   payments
+  // The therapist's own PayPlus account: clients pay per booking into it.
+  payplus
+  // Any hosted payment page the therapist already has (Bit, PayBox, Morning…)
+  // — shown to the client as a link, no API involved.
+  paymentLink
 }
 
 // Only what a therapist actually did. "Unavailable" (the server has no API
@@ -163,6 +168,7 @@ model Therapist {
   slugRedirects     SlugRedirect[]
   integrations      Integration[]
   payments          Payment[]
+  clientPayments    ClientPayment[]
   notifications     Notification[]
 
   @@map("therapists")
@@ -279,6 +285,9 @@ model TherapistSettings {
   brandLogoUrl            String?      @map("brand_logo_url")
   bookingPageHeadline     String?      @map("booking_page_headline") @db.VarChar(255)
   bookingPageDescription  String?      @map("booking_page_description")
+  // Price of one session, shekels with VAT — what the client is asked to pay
+  // online. Null means no online payment is offered; booking is unaffected.
+  sessionPriceIls         Decimal?     @map("session_price_ils") @db.Decimal(10, 2)
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
 
@@ -360,15 +369,61 @@ model Booking {
   manageToken         String        @unique @map("manage_token") @db.VarChar(64)
   canceledAt          DateTime?     @map("canceled_at") @db.Timestamptz
   cancellationReason  String?       @map("cancellation_reason")
+  // Whether the client has paid for this session. Set by a verified provider
+  // callback, or by the therapist's hand for providers that cannot tell us.
+  paymentStatus         BookingPaymentStatus @default(unpaid) @map("payment_status")
+  paidAt                DateTime?            @map("paid_at") @db.Timestamptz
+  // Where the client goes to pay: a page generated for this booking, or the
+  // therapist's standing payment link. Stored so every email can show the same one.
+  paymentUrl            String?              @map("payment_url")
+  // The provider's id for the payment page we opened for this booking. Unique so
+  // a callback can be traced to exactly one booking — and a forged one to none.
+  paymentPageRequestUid String?              @unique @map("payment_page_request_uid") @db.VarChar(255)
+  // The price at the moment of booking. The therapist may change their price
+  // later; the callback is checked against what this client was actually asked.
+  paymentAmountIls      Decimal?             @map("payment_amount_ils") @db.Decimal(10, 2)
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
-  therapist     Therapist      @relation(fields: [therapistId], references: [id])
-  session       Session        @relation(fields: [sessionId], references: [id])
-  client        Client         @relation(fields: [clientId], references: [id])
-  notifications Notification[]
+  therapist      Therapist       @relation(fields: [therapistId], references: [id])
+  session        Session         @relation(fields: [sessionId], references: [id])
+  client         Client          @relation(fields: [clientId], references: [id])
+  notifications  Notification[]
+  clientPayments ClientPayment[]
 
   @@index([therapistId, status])
   @@map("bookings")
+}
+
+enum BookingPaymentStatus {
+  unpaid
+  paid
+}
+
+// A client's payment for a booking, as the provider confirmed it. Distinct from
+// Payment, which is the therapist paying for Cleana+ itself. One row per
+// provider transaction; the unique transaction id is what makes a redelivered
+// callback a no-op.
+model ClientPayment {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId    String        @map("therapist_id") @db.Uuid
+  bookingId      String        @map("booking_id") @db.Uuid
+  provider       String        @db.VarChar(20)
+  transactionUid String        @unique @map("transaction_uid") @db.VarChar(255)
+  amount         Decimal       @db.Decimal(10, 2)
+  currency       String        @default("ILS") @db.VarChar(3)
+  status         PaymentStatus
+  // The provider's own code ("000" is PayPlus success) for support conversations.
+  statusCode     String?       @map("status_code") @db.VarChar(10)
+  // The verified transaction as the provider returned it, for audits.
+  raw            Json?
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+  booking   Booking   @relation(fields: [bookingId], references: [id])
+
+  @@index([therapistId, createdAt])
+  @@index([bookingId])
+  @@map("client_payments")
 }
 
 // Every message the system sends, on any channel, with what happened to it.

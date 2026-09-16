@@ -73,6 +73,7 @@ export const en = {
     nameTooShort: "Name is too short",
     phoneInvalid: "Phone number is not valid",
     urlInvalid: "Link is not valid",
+    priceInvalid: "Invalid price — a positive number, up to two decimals.",
     urlScheme: "The link must start with http:// or https://",
     slugFormat: "3–40 characters: lowercase Latin letters, digits and hyphens only",
     slugReserved: "This address is reserved",
@@ -129,6 +130,9 @@ export const en = {
     bookingHeadline: "Booking page headline",
     bookingDescription: "Short description",
     brandColor: "Brand colour",
+    sessionPrice: "Session price (₪, incl. VAT)",
+    sessionPriceHelp:
+      "What the client is asked to pay online. Empty = no online payment offered; booking works as usual.",
     brandLogoUrl: "Logo link",
     saveSettings: "Save settings",
     privacyCard: "Privacy",
@@ -161,6 +165,29 @@ export const en = {
       fields: { accountSid: "Account SID", authToken: "Auth Token", fromNumber: "Sender number" },
       fromNumberHelp: "The number approved for WhatsApp in Twilio. In the sandbox this is the number Twilio gives you for testing.",
     },
+    payplus: {
+      label: "PayPlus — card payments",
+      summary:
+        "Clients pay for the session by card, straight into your PayPlus account. The booking is marked paid automatically the moment the payment goes through.",
+      setupHint:
+        "All three values are in your PayPlus account under Settings → API. Nothing of ours needs pasting into PayPlus — we pass our address along with every payment.",
+      fields: { apiKey: "API Key", secretKey: "Secret Key", paymentPageUid: "Payment Page UID" },
+      help: {
+        apiKey: "A long string of letters and digits. Copy all of it.",
+        secretKey: "Shown only once in PayPlus. If you did not keep it, you can create a new one there.",
+        paymentPageUid: "The id of the payment page you created in PayPlus (under \"Payment pages\"). Every page has its own.",
+      },
+      note: "Your PayPlus account needs API access enabled. If it is not, ask PayPlus support to turn it on.",
+    },
+    paymentLink: {
+      label: "Payment link",
+      summary:
+        "Already have a payment page (Bit, PayBox, Morning or any other service)? Paste the link and clients get it with the booking and the reminder.",
+      setupHint: "Paste the public link to your payment page — that is all. You mark the payment as received yourself, on the booking.",
+      fields: { url: "Link to your payment page" },
+      help: { url: "A full address starting with https://. The client opens it and pays through your service." },
+      note: "With no API connection we cannot tell when a payment lands — you mark \"paid\" by hand on the bookings page.",
+    },
     errors: {
       fillAllFields: "Please fill in every field.",
       storageNotConfigured:
@@ -177,6 +204,12 @@ export const en = {
       zoomMissingScope: "The app is missing the meeting:write:admin permission in Zoom.",
       whatsappWindow:
         "WhatsApp blocked a free-form message to a client who has not written to you in the last 24 hours. An approved template is required.",
+      payplusBadCredentials: "The API Key or Secret Key is wrong, or the payment page does not belong to this account.",
+      payplusNoApiPermission:
+        "PayPlus refused the connection: your account has no API access. Ask PayPlus support to enable REST API access — it is set on their side, not ours.",
+      payplusError: (detail: string) => `PayPlus returned an error: ${detail}`,
+      payplusNoLink: "PayPlus did not return a payment page link. Check that the Payment Page UID is right.",
+      paymentLinkInvalid: "A full address starting with https:// is needed.",
     },
   },
 
@@ -206,6 +239,12 @@ export const en = {
       whatsappLead: (therapist: string) => `A reminder of your appointment with ${therapist}:`,
       cancelLine: "Need to cancel?",
       manageLink: "open your booking",
+    },
+    payment: {
+      line: (amount: string) => `To pay for the session (${amount}):`,
+      lineNoAmount: "To pay for the session:",
+      link: "Go to payment",
+      whatsapp: (url: string, amount: string | null) => (amount ? `To pay (${amount}): ${url}` : `To pay: ${url}`),
     },
     canceledByClient: {
       subject: (client: string) => `Cancellation: ${client}`,
@@ -318,6 +357,11 @@ export const en = {
     cancelReasonPlaceholder: "Reason for cancelling (optional, sent to the client)",
     confirmCancel: "Confirm cancellation",
     cancelBooking: "Cancel appointment",
+    paid: "Paid ✓",
+    unpaid: "Unpaid",
+    markPaid: "Mark as paid",
+    markUnpaid: "Undo paid",
+    paidAmount: (amount: string) => `Paid ${amount} ✓`,
   },
 
   clients: {
@@ -381,6 +425,13 @@ export const en = {
     showUrl: "Another calendar? Show the address to paste",
     copyUrl: "Copy address",
     delayNote: "The calendar does not update instantly — it pulls changes every few hours, on its own schedule.",
+    guidedStep: (n: number, total: number) => `Step ${n} of ${total}`,
+    guidedNext: "Next",
+    guidedBack: "Back",
+    paymentsTitle: "Client payments",
+    paymentsLead:
+      "Pick one. Connecting PayPlus marks payments automatically; a payment link works with any service and you mark them yourself. Morning — coming soon.",
+    priceMissing: "For clients to pay, set a session price in Settings.",
   },
 
   onboarding: {
@@ -522,6 +573,9 @@ export const en = {
     confirmed: "Your appointment is booked!",
     addToCalendar: "Add to calendar",
     changeOrCancel: "Change / cancel",
+    payNow: "Pay now",
+    payNowAmount: (amount: string) => `Pay ${amount}`,
+    payLater: "You can also pay through the link in the confirmation email.",
     heldFor: (mmss: string) => `This time is held for you for ${mmss} minutes`,
     holdExpired: "The hold on this time ran out. Pick a time again.",
     pickAnother: "Pick another time",
@@ -558,6 +612,10 @@ export const en = {
     loadingTimes: "Loading available times…",
     pickAnotherDate: "Pick another date",
     noTimesSoon: "No available times coming up",
+    payNow: "Pay now",
+    payNowAmount: (amount: string) => `Pay ${amount}`,
+    paid: "Payment received ✓",
+    paidThanks: "Thank you! The payment for the session was received.",
   },
 
   og: {

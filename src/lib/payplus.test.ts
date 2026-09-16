@@ -2,6 +2,7 @@ import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
   chargeToken,
+  createCheckout,
   createTokenCheckout,
   fetchTransaction,
   listTokens,
@@ -119,6 +120,52 @@ describe("createTokenCheckout", () => {
         impl
       )
     ).rejects.toThrow(/payment page link/);
+  });
+});
+
+describe("createCheckout", () => {
+  it("opens a one-off page that stores no card and mails no receipt, for a client paying a therapist", async () => {
+    const { impl, calls } = fakeFetch({
+      data: { payment_page_link: "https://pay.example/once", page_request_uid: "req-9" },
+    });
+    const out = await createCheckout(
+      cfg,
+      {
+        reference: "Session 12.9",
+        amountIls: 350,
+        description: "Therapy session",
+        customer: { name: "Dana", email: "dana@example.com" },
+        urls: { success: "https://a/s", failure: "https://a/f", cancel: "https://a/c", callback: "https://a/cb" },
+      },
+      { createToken: false, sendEmailApproval: false },
+      impl
+    );
+    expect(out).toEqual({ url: "https://pay.example/once", pageRequestUid: "req-9" });
+    const body = JSON.parse(String(calls[0].init.body));
+    expect(body).toMatchObject({
+      charge_method: 1,
+      amount: 350,
+      create_token: false,
+      sendEmailApproval: false,
+      refURL_callback: "https://a/cb",
+    });
+  });
+
+  it("keeps PayPlus's receipt mail on by default", async () => {
+    const { impl, calls } = fakeFetch({ data: { payment_page_link: "u", page_request_uid: "r" } });
+    await createCheckout(
+      cfg,
+      {
+        reference: "x",
+        amountIls: 1,
+        description: "x",
+        customer: { name: "n", email: "e@x" },
+        urls: { success: "s", failure: "f", cancel: "c", callback: "cb" },
+      },
+      { createToken: false },
+      impl
+    );
+    expect(JSON.parse(String(calls[0].init.body)).sendEmailApproval).toBe(true);
   });
 });
 

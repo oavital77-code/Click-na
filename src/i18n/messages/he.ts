@@ -67,6 +67,7 @@ export const he: Messages = {
     nameTooShort: "שם קצר מדי",
     phoneInvalid: "טלפון לא תקין",
     urlInvalid: "קישור לא תקין",
+    priceInvalid: "מחיר לא תקין — מספר חיובי, עד שתי ספרות אחרי הנקודה.",
     urlScheme: "הקישור חייב להתחיל ב-http:// או https://",
     slugFormat: "3-40 תווים: אותיות לטיניות קטנות, ספרות ומקפים בלבד",
     slugReserved: "כתובת זו שמורה",
@@ -123,6 +124,9 @@ export const he: Messages = {
     bookingHeadline: "כותרת בדף ההזמנה",
     bookingDescription: "תיאור קצר",
     brandColor: "צבע מותג",
+    sessionPrice: "מחיר לפגישה (₪, כולל מע\"מ)",
+    sessionPriceHelp:
+      "הסכום שהלקוח יתבקש לשלם אונליין. ריק = לא מוצע תשלום אונליין; קביעת תור עובדת כרגיל.",
     brandLogoUrl: "קישור ללוגו",
     saveSettings: "שמור הגדרות",
     privacyCard: "פרטיות",
@@ -155,6 +159,29 @@ export const he: Messages = {
       fields: { accountSid: "Account SID", authToken: "Auth Token", fromNumber: "מספר השולח" },
       fromNumberHelp: "המספר שאושר לוואטסאפ ב-Twilio. בסנדבוקס זה המספר שטוויליו נותנת לבדיקות.",
     },
+    payplus: {
+      label: "PayPlus — תשלום בכרטיס",
+      summary:
+        "הלקוח משלם על הפגישה בכרטיס אשראי, ישר לחשבון ה-PayPlus שלך. התור מסומן כשולם אוטומטית ברגע שהתשלום עובר.",
+      setupHint:
+        "שלושת הערכים נמצאים בחשבון ה-PayPlus שלך, תחת הגדרות ← API. אין צורך להדביק אצלם שום כתובת שלנו — אנחנו מעבירים אותה בכל תשלום.",
+      fields: { apiKey: "API Key", secretKey: "Secret Key", paymentPageUid: "מזהה דף התשלום (Payment Page UID)" },
+      help: {
+        apiKey: "מחרוזת ארוכה שמתחילה באותיות ומספרים. העתק אותה במלואה.",
+        secretKey: "מוצג פעם אחת בלבד ב-PayPlus. אם לא שמרת — אפשר ליצור חדש שם.",
+        paymentPageUid: "המזהה של דף התשלום שיצרת ב-PayPlus (בדף \"דפי תשלום\"). כל דף תשלום מקבל מזהה משלו.",
+      },
+      note: "דורש שחשבון ה-PayPlus שלך יהיה עם גישת API פעילה. אם לא — פונים לתמיכה של PayPlus ומבקשים להפעיל.",
+    },
+    paymentLink: {
+      label: "קישור לתשלום",
+      summary:
+        "יש לך כבר דף תשלום (Bit, PayBox, Morning, או כל שירות אחר)? הדבק את הקישור והלקוח יקבל אותו בהזמנה ובתזכורת.",
+      setupHint: "מדביקים את הקישור הציבורי לדף התשלום שלך — זה הכול. את אישור התשלום מסמנים ידנית בתור.",
+      fields: { url: "הקישור לדף התשלום" },
+      help: { url: "כתובת מלאה שמתחילה ב-https://. הלקוח פותח אותה ומשלם בשירות שלך." },
+      note: "בלי חיבור API אנחנו לא יודעים מתי שולם — מסמנים \"שולם\" ביד בדף ההזמנות.",
+    },
     errors: {
       fillAllFields: "יש להשלים את כל השדות.",
       storageNotConfigured:
@@ -171,6 +198,12 @@ export const he: Messages = {
       zoomMissingScope: "לאפליקציה חסרה ההרשאה meeting:write:admin ב-Zoom.",
       whatsappWindow:
         "וואטסאפ חסמה הודעה חופשית ללקוח שלא כתב לך ב-24 השעות האחרונות. נדרשת תבנית מאושרת.",
+      payplusBadCredentials: "ה-API Key או ה-Secret Key שגויים, או שדף התשלום לא שייך לחשבון הזה.",
+      payplusNoApiPermission:
+        "PayPlus דחו את החיבור: לחשבון שלך אין גישת API. פונים לתמיכה של PayPlus ומבקשים להפעיל גישת REST API — זה מוגדר אצלם, לא אצלנו.",
+      payplusError: (detail) => `PayPlus החזירה שגיאה: ${detail}`,
+      payplusNoLink: "PayPlus לא החזירה קישור לדף תשלום. בדוק שמזהה דף התשלום נכון.",
+      paymentLinkInvalid: "צריך כתובת מלאה שמתחילה ב-https://.",
     },
   },
 
@@ -199,6 +232,12 @@ export const he: Messages = {
       whatsappLead: (therapist) => `תזכורת לתור אצל ${therapist}:`,
       cancelLine: "צריכים לבטל?",
       manageLink: "היכנסו לניהול ההזמנה",
+    },
+    payment: {
+      line: (amount) => `לתשלום על הפגישה (${amount}):`,
+      lineNoAmount: "לתשלום על הפגישה:",
+      link: "מעבר לתשלום",
+      whatsapp: (url, amount) => (amount ? `לתשלום (${amount}): ${url}` : `לתשלום: ${url}`),
     },
     canceledByClient: {
       subject: (client) => `ביטול תור: ${client}`,
@@ -307,6 +346,11 @@ export const he: Messages = {
     cancelReasonPlaceholder: "סיבת ביטול (אופציונלי, יישלח ללקוח)",
     confirmCancel: "אשר ביטול",
     cancelBooking: "בטל תור",
+    paid: "שולם ✓",
+    unpaid: "לא שולם",
+    markPaid: "סמן כשולם",
+    markUnpaid: "בטל סימון תשלום",
+    paidAmount: (amount) => `שולם ${amount} ✓`,
   },
 
   clients: {
@@ -370,6 +414,13 @@ export const he: Messages = {
     showUrl: "יומן אחר? הצג את הכתובת להדבקה",
     copyUrl: "העתק כתובת",
     delayNote: "העדכון ביומן אינו מיידי — היומן מושך את השינויים פעם בכמה שעות, בקצב שלו.",
+    guidedStep: (n, total) => `שלב ${n} מתוך ${total}`,
+    guidedNext: "הבא",
+    guidedBack: "חזרה",
+    paymentsTitle: "תשלומים מלקוחות",
+    paymentsLead:
+      "בוחרים דרך אחת. חיבור PayPlus מסמן תשלומים אוטומטית; קישור לתשלום עובד עם כל שירות ומסמנים ידנית. Morning — בקרוב.",
+    priceMissing: "כדי שלקוחות יוכלו לשלם צריך להגדיר מחיר לפגישה בהגדרות.",
   },
 
   onboarding: {
@@ -511,6 +562,9 @@ export const he: Messages = {
     confirmed: "התור נקבע!",
     addToCalendar: "הוסף ליומן",
     changeOrCancel: "שנה / בטל תור",
+    payNow: "לתשלום",
+    payNowAmount: (amount) => `לתשלום ${amount}`,
+    payLater: "אפשר לשלם גם דרך הקישור במייל האישור.",
     heldFor: (mmss) => `המועד שמור לך למשך ${mmss} דקות`,
     holdExpired: "הזמן לתפיסת המועד פג. בחר מועד שוב.",
     pickAnother: "בחר מועד אחר",
@@ -547,6 +601,10 @@ export const he: Messages = {
     loadingTimes: "טוען זמנים פנויים...",
     pickAnotherDate: "בחר תאריך אחר",
     noTimesSoon: "אין זמנים פנויים בקרוב",
+    payNow: "לתשלום",
+    payNowAmount: (amount) => `לתשלום ${amount}`,
+    paid: "התשלום התקבל ✓",
+    paidThanks: "תודה! התשלום על הפגישה התקבל.",
   },
 
   og: {

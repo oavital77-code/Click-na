@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { bookingStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { reminderWhatsApp } from "@/lib/whatsapp-templates";
 import { whatsappLink } from "@/lib/whatsapp-link";
+import { formatPriceIls } from "@/lib/plan";
 import { MessageCircle } from "lucide-react";
 
 const CANCELABLE = new Set(["pending", "confirmed"]);
@@ -27,6 +28,11 @@ type Booking = {
   reminderSentAt: string | null;
   /** False when no reminder was ever queued: the booking came in too close to the time. */
   hasScheduledReminder: boolean;
+  paid: boolean;
+  /** What the client was asked for, or null when no online payment was set up. */
+  paymentAmountIls: number | null;
+  /** Whether a pay link went out — the only case "unpaid" is worth showing. */
+  hasPaymentUrl: boolean;
 };
 
 type Props = {
@@ -43,6 +49,22 @@ export function BookingsView({ timezone, slug, therapistFullName, location, init
   const { m, locale } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState<Filter>("today");
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  async function togglePaid(booking: Booking) {
+    setPayingId(booking.id);
+    try {
+      const res = await fetch(`/api/bookings/${booking.id}/payment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paid: !booking.paid }),
+      });
+      if (!res.ok) return;
+      setBookings((prev) => prev.map((b) => (b.id === booking.id ? { ...b, paid: !booking.paid } : b)));
+    } finally {
+      setPayingId(null);
+    }
+  }
   const [canceling, setCanceling] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -161,6 +183,30 @@ export function BookingsView({ timezone, slug, therapistFullName, location, init
                       {m.bookings.status[booking.status as keyof typeof m.bookings.status] ?? booking.status}
                     </span>
                   </div>
+                  {/* Money is only worth a word where it is expected: paid, or
+                      unpaid with a link the client was actually sent. */}
+                  {CANCELABLE.has(booking.status) && (booking.paid || booking.hasPaymentUrl) && (
+                    <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                      {booking.paid ? (
+                        <span className={statusBadgeClass("open")}>
+                          {booking.paymentAmountIls
+                            ? m.bookings.paidAmount(formatPriceIls(booking.paymentAmountIls, locale))
+                            : m.bookings.paid}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">{m.bookings.unpaid}</span>
+                      )}
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        disabled={payingId === booking.id}
+                        onClick={() => togglePaid(booking)}
+                      >
+                        {booking.paid ? m.bookings.markUnpaid : m.bookings.markPaid}
+                      </Button>
+                    </div>
+                  )}
                   <p className="font-medium">{booking.clientName}</p>
                   {booking.clientPhone && (
                     <p className="text-muted-foreground text-sm">{booking.clientPhone}</p>

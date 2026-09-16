@@ -1,5 +1,7 @@
 import type { AnyCredentials, IntegrationProvider } from "@/lib/integration-providers";
 import { DEFAULT_LOCALE, getMessages, type Locale } from "@/i18n";
+import { appUrl } from "@/lib/public-url";
+import { PAYPLUS_PRODUCTION, PayPlusError, createCheckout, type PayPlusConfig } from "@/lib/payplus";
 
 /**
  * "Connected" has to mean the credentials actually work. Saving whatever was
@@ -98,11 +100,73 @@ async function verifyZoom(creds: AnyCredentials, locale: Locale): Promise<Verify
   }
 }
 
+/** A therapist's PayPlus credentials as the adapter wants them. Production only: a client pays real money. */
+export function payplusConfigFor(creds: AnyCredentials): PayPlusConfig {
+  return {
+    apiKey: creds.apiKey,
+    secretKey: creds.secretKey,
+    paymentPageUid: creds.paymentPageUid,
+    baseUrl: PAYPLUS_PRODUCTION,
+    terminalUid: null,
+    cashierUid: null,
+  };
+}
+
+/** What PayPlus said, when it said anything legible; else the HTTP status. */
+function payplusDetail(err: PayPlusError): string {
+  const body = err.body as Record<string, unknown> | string | null;
+  const results = body && typeof body === "object" ? (body.results as Record<string, unknown> | undefined) : undefined;
+  const message = results?.message ?? results?.description ?? (typeof body === "string" ? body : null);
+  return typeof message === "string" && message.trim() ? `${err.status}: ${message.trim()}` : String(err.status);
+}
+
+/**
+ * The only honest check is the call we will actually make: open a payment page.
+ * It exercises all three credentials at once and charges nobody — a page that
+ * is never visited is just a row on PayPlus's side. Receipt mail is off so the
+ * ₪1 test does not email a "customer" that is us.
+ */
+async function verifyPayPlus(creds: AnyCredentials, locale: Locale): Promise<VerifyResult> {
+  const m = getMessages(locale).integrations.errors;
+  const cfg = payplusConfigFor(creds);
+  const base = appUrl();
+  try {
+    await createCheckout(
+      cfg,
+      {
+        reference: "Cleana+ check",
+        amountIls: 1,
+        description: "Connection check",
+        customer: { name: "Cleana+", email: "noreply@cleanagroup.app" },
+        urls: { success: base, failure: base, cancel: base, callback: `${base}/api/public/payments/payplus/callback` },
+      },
+      { createToken: false, sendEmailApproval: false },
+      (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(TIMEOUT_MS) })
+    );
+    return { ok: true, accountLabel: `…${creds.paymentPageUid.slice(-6)}` };
+  } catch (err) {
+    if (err instanceof PayPlusError) {
+      const detail = payplusDetail(err);
+      // The exact refusal a fresh PayPlus account gives until support flips a
+      // switch. Named, because "422" would send the therapist looking at us.
+      if (/PERMISSION/i.test(detail)) return { ok: false, error: m.payplusNoApiPermission };
+      if (err.status === 401 || err.status === 403) return { ok: false, error: m.payplusBadCredentials };
+      if (err.status === 502) return { ok: false, error: m.payplusNoLink };
+      return { ok: false, error: m.payplusError(detail) };
+    }
+    return { ok: false, error: networkError(err, locale) };
+  }
+}
+
 const VERIFIERS: Record<IntegrationProvider, (creds: AnyCredentials, locale: Locale) => Promise<VerifyResult>> = {
   // Nothing to verify: the feed is served by this app, from data it already has.
   calendar: async () => ({ ok: true, accountLabel: "" }),
   whatsapp: verifyTwilio,
   zoom: verifyZoom,
+  payplus: verifyPayPlus,
+  // The schema already insisted on https; there is no service to ask. The
+  // host is the label, so the therapist sees which page they connected.
+  paymentLink: async (creds) => ({ ok: true, accountLabel: new URL(creds.url).hostname }),
 };
 
 export function verifyCredentials(

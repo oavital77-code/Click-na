@@ -7,7 +7,9 @@ import {
   CalendarPlus,
   Check,
   Copy,
+  CreditCard,
   ExternalLink,
+  Link2,
   MessageCircle,
   Video,
 } from "lucide-react";
@@ -20,22 +22,36 @@ import { statusBadgeClass } from "@/lib/status-badge";
 import { subscribeLinks } from "@/lib/calendar-subscribe";
 import { cn } from "@/lib/utils";
 import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
+import { PAYMENT_PROVIDERS } from "@/lib/integration-providers";
 import { useI18n } from "@/i18n/client";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
   zoom: Video,
   whatsapp: MessageCircle,
+  payplus: CreditCard,
+  paymentLink: Link2,
 };
+
+const PAYMENT: ReadonlySet<string> = new Set(PAYMENT_PROVIDERS);
 
 type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolean };
 
-export function AddonsView({ initial }: { initial: Payload }) {
+export function AddonsView({
+  initial,
+  sessionPriceSet,
+}: {
+  initial: Payload;
+  /** Whether Settings has a session price. A card payment cannot be asked for without one. */
+  sessionPriceSet: boolean;
+}) {
   const { m } = useI18n();
   const [payload, setPayload] = useState(initial);
+  const general = payload.integrations.filter((i) => !PAYMENT.has(i.provider));
+  const payments = payload.integrations.filter((i) => PAYMENT.has(i.provider));
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       {!payload.credentialStorageReady && (
         <div className="border-st-held/50 bg-st-held/10 flex flex-col gap-1 rounded-md border p-3 text-sm">
           <p className="font-medium">{m.addons.setupBannerTitle}</p>
@@ -49,10 +65,33 @@ export function AddonsView({ initial }: { initial: Payload }) {
         </div>
       )}
       <div className="grid gap-4 lg:grid-cols-2">
-        {payload.integrations.map((integration) => (
+        {general.map((integration) => (
           <AddonCard key={integration.provider} integration={integration} onChange={setPayload} />
         ))}
       </div>
+
+      {/* Taking money is one decision, so the two ways of doing it sit together
+          under one heading rather than scattered among the other add-ons. */}
+      <section className="flex flex-col gap-3">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-base font-medium">{m.addons.paymentsTitle}</h2>
+          <p className="text-muted-foreground text-sm">{m.addons.paymentsLead}</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          {payments.map((integration) => (
+            <AddonCard
+              key={integration.provider}
+              integration={integration}
+              onChange={setPayload}
+              hint={
+                integration.provider === "payplus" && integration.state === "connected" && !sessionPriceSet
+                  ? m.addons.priceMissing
+                  : null
+              }
+            />
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -60,9 +99,12 @@ export function AddonsView({ initial }: { initial: Payload }) {
 function AddonCard({
   integration,
   onChange,
+  hint = null,
 }: {
   integration: IntegrationCard;
   onChange: (payload: Payload) => void;
+  /** Something the therapist still has to do elsewhere for this add-on to matter. */
+  hint?: string | null;
 }) {
   const { m } = useI18n();
   const Icon = ICONS[integration.provider];
@@ -172,6 +214,10 @@ function AddonCard({
 
         {connected && integration.feedUrl && <CalendarFeed url={integration.feedUrl} />}
 
+        {connected && hint && (
+          <p className="border-st-held/50 bg-st-held/10 rounded-md border p-2 text-xs">{hint}</p>
+        )}
+
         {error && <p className="text-destructive text-sm">{error}</p>}
 
         {!connected && integration.lastError && !error && (
@@ -276,17 +322,32 @@ function CredentialForm({
   onCancel: () => void;
 }) {
   const { m } = useI18n();
+  // Guided: one field at a time. The form of empty boxes is what a
+  // non-technical person abandons; a single question with its own hint is not.
+  const guided = !!integration.guided && integration.fields.length > 1;
+  const [stepIdx, setStepIdx] = useState(0);
+  const total = integration.fields.length;
+  // The server names the field that failed; land on it instead of the last one.
+  const failedIdx = integration.fields.findIndex((f) => !!fieldErrors[f.name]);
+  const current = guided ? (failedIdx >= 0 && failedIdx < stepIdx ? failedIdx : stepIdx) : -1;
+  const visibleFields = guided ? [integration.fields[current]] : integration.fields;
+  const lastStep = !guided || current === total - 1;
+
   return (
     <form
       className="border-border flex min-w-0 flex-col gap-3 rounded-md border p-3 text-center md:text-start"
       onSubmit={(e) => {
         e.preventDefault();
-        onSubmit();
+        if (lastStep) onSubmit();
+        else setStepIdx(current + 1);
       }}
     >
+      {guided && (
+        <p className="text-muted-foreground text-xs font-medium">{m.addons.guidedStep(current + 1, total)}</p>
+      )}
       <p className="text-muted-foreground text-xs">{integration.setupHint}</p>
 
-      {integration.docsUrl && (
+      {integration.docsUrl && (!guided || current === 0) && (
         <a
           href={integration.docsUrl}
           target="_blank"
@@ -298,7 +359,7 @@ function CredentialForm({
         </a>
       )}
 
-      {integration.fields.map((field) => (
+      {visibleFields.map((field) => (
         <div key={field.name} className="flex flex-col gap-1 text-start">
           <Label htmlFor={`${integration.provider}-${field.name}`} className="text-xs">
             {field.label}
@@ -324,8 +385,13 @@ function CredentialForm({
 
       <div className="flex flex-col justify-center gap-2 sm:flex-row md:justify-start">
         <Button type="submit" disabled={busy}>
-          {busy ? m.addons.checking : m.addons.saveAndEnable}
+          {busy ? m.addons.checking : lastStep ? m.addons.saveAndEnable : m.addons.guidedNext}
         </Button>
+        {guided && current > 0 && (
+          <Button type="button" variant="outline" onClick={() => setStepIdx(current - 1)} disabled={busy}>
+            {m.addons.guidedBack}
+          </Button>
+        )}
         <Button type="button" variant="ghost" onClick={onCancel} disabled={busy}>
           {m.common.cancel}
         </Button>

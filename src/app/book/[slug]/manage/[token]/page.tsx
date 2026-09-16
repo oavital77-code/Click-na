@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/prisma";
+import { ensurePaymentUrl } from "@/lib/client-payments";
+import { formatPriceIls } from "@/lib/plan";
 import { ManageBooking } from "./manage-booking";
 import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
@@ -10,8 +12,13 @@ function isWithinCancellationWindow(startsAt: Date, cancellationPolicyHours: num
 
 export default async function ManageBookingPage({
   params,
+  searchParams,
 }: PageProps<"/book/[slug]/manage/[token]">) {
   const { token } = await params;
+  // PayPlus sends the client back here with ?paid=1 the moment they finish.
+  // Its callback to us can land a beat later, so this is read as the client's
+  // word that they paid, not as ours that we saw the money.
+  const justPaid = (await searchParams).paid === "1";
 
   const booking = await prisma.booking.findUnique({
     where: { manageToken: token },
@@ -28,6 +35,16 @@ export default async function ManageBookingPage({
 
   const locale = toLocale(booking.therapist.locale);
   const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
+
+  // The client's second chance to pay: the link from booking time, or one more
+  // try at a page if there was none. Nothing to do once it is paid.
+  const active = booking.status !== "canceled_by_client" && booking.status !== "canceled_by_therapist";
+  const payment =
+    active && booking.paymentStatus === "unpaid" && !justPaid
+      ? booking.paymentUrl
+        ? { url: booking.paymentUrl, amountIls: booking.paymentAmountIls === null ? null : Number(booking.paymentAmountIls) }
+        : await ensurePaymentUrl(booking.id)
+      : null;
 
   return (
     <I18nProvider locale={locale}>
@@ -46,6 +63,10 @@ export default async function ManageBookingPage({
         status={booking.status}
         therapistFullName={booking.therapist.fullName}
         therapistPhone={booking.therapist.phone}
+        paymentUrl={payment?.url ?? null}
+        paymentAmount={payment?.amountIls ? formatPriceIls(payment.amountIls, locale) : null}
+        paid={booking.paymentStatus === "paid"}
+        justPaid={justPaid}
         withinPolicyWindow={isWithinCancellationWindow(
           booking.session.startsAt,
           cancellationPolicyHours

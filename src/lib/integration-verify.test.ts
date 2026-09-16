@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { verifyCredentials, zoomAccessToken } from "@/lib/integration-verify";
+import { payplusConfigFor, verifyCredentials, zoomAccessToken } from "@/lib/integration-verify";
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -114,6 +114,58 @@ describe("verifyCredentials — failure handling", () => {
 
   it("treats the calendar as needing no verification at all", async () => {
     expect(await verifyCredentials("calendar", {})).toEqual({ ok: true, accountLabel: "" });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});
+
+
+const PAYPLUS = { apiKey: "key", secretKey: "sec", paymentPageUid: "page-abc123" };
+
+describe("verifyCredentials — PayPlus", () => {
+  it("opens a ₪1 page as the check, mails nobody, and labels the connection by page", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(200, { data: { payment_page_link: "https://pay/x", page_request_uid: "r" } })
+    );
+    expect(await verifyCredentials("payplus", PAYPLUS)).toEqual({ ok: true, accountLabel: "…abc123" });
+
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://restapi.payplus.co.il/api/v1.0/PaymentPages/generateLink");
+    const body = JSON.parse(String(init.body));
+    expect(body).toMatchObject({ payment_page_uid: "page-abc123", amount: 1, create_token: false, sendEmailApproval: false });
+    expect(body.refURL_callback).toMatch(/\/api\/public\/payments\/payplus\/callback$/);
+  });
+
+  it("names the missing-API-permission refusal, so the therapist knows to call PayPlus and not us", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse(422, { results: { status: "error", message: "THIS COMPANY DONT HAVE THE PERMISSION TO USE THE API" } })
+    );
+    const out = await verifyCredentials("payplus", PAYPLUS);
+    expect(out.ok).toBe(false);
+    if (!out.ok) expect(out.error).toMatch(/API/);
+  });
+
+  it("treats 401 as wrong keys", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(401, { results: { message: "Unauthorized" } }));
+    const out = await verifyCredentials("payplus", PAYPLUS);
+    expect(out).toMatchObject({ ok: false });
+  });
+
+  it("builds a production-only config from the therapist's keys", () => {
+    expect(payplusConfigFor(PAYPLUS)).toMatchObject({
+      apiKey: "key",
+      secretKey: "sec",
+      paymentPageUid: "page-abc123",
+      baseUrl: "https://restapi.payplus.co.il/api/v1.0",
+    });
+  });
+});
+
+describe("verifyCredentials — payment link", () => {
+  it("needs no network and labels the connection by host", async () => {
+    expect(await verifyCredentials("paymentLink", { url: "https://pay.example.co.il/oravital" })).toEqual({
+      ok: true,
+      accountLabel: "pay.example.co.il",
+    });
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });

@@ -62,6 +62,7 @@ export default async function SettingsPage() {
           brandLogoUrl: therapist.settings.brandLogoUrl ?? "",
           bookingPageHeadline: therapist.settings.bookingPageHeadline ?? "",
           bookingPageDescription: therapist.settings.bookingPageDescription ?? "",
+          sessionPriceIls: therapist.settings.sessionPriceIls === null ? null : Number(therapist.settings.sessionPriceIls),
         }}
       />
     </main>

@@ -73,6 +73,9 @@ export default async function BookingsPage() {
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
           hasScheduledReminder: hasReminder.has(b.id),
+          paid: b.paymentStatus === "paid",
+          paymentAmountIls: b.paymentAmountIls === null ? null : Number(b.paymentAmountIls),
+          hasPaymentUrl: !!b.paymentUrl,
         }))}
       />
     </main>

@@ -65,6 +65,9 @@ export const settingsSchema = z
     brandLogoUrl: httpUrl.optional().or(z.literal("")),
     bookingPageHeadline: z.string().trim().max(255).optional(),
     bookingPageDescription: z.string().trim().max(1000).optional(),
+    // Shekels with VAT, to the agora. Null is a real value — "no online
+    // payment" — and distinct from 0, which would ask a client to pay nothing.
+    sessionPriceIls: z.number().min(1, "validation.priceInvalid").max(100000, "validation.priceInvalid").multipleOf(0.01).nullable().optional(),
   })
   .refine((data) => data.locationType !== "online" || !!data.onlineMeetingUrl, {
     message: "validation.meetingUrlRequired",

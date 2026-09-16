@@ -17,6 +17,12 @@ type Props = {
   therapistFullName: string;
   therapistPhone: string | null;
   withinPolicyWindow: boolean;
+  /** Where to pay, when the therapist takes payment online and this one is unpaid. */
+  paymentUrl: string | null;
+  paymentAmount: string | null;
+  paid: boolean;
+  /** Came back from the provider's success page just now. */
+  justPaid: boolean;
 };
 
 type Slot = { id: string; startsAt: string; endsAt: string };
@@ -34,6 +40,10 @@ export function ManageBooking({
   therapistFullName,
   therapistPhone,
   withinPolicyWindow,
+  paymentUrl,
+  paymentAmount,
+  paid,
+  justPaid,
 }: Props) {
   const { m, locale, dir } = useI18n();
   const g = m.manage;
@@ -199,6 +209,18 @@ export function ManageBooking({
           >
             {g.addToCalendar}
           </a>
+        )}
+
+        {!isCanceled && (paid || justPaid) && (
+          <p className="text-st-open text-sm font-medium">{justPaid && !paid ? g.paidThanks : g.paid}</p>
+        )}
+
+        {!isCanceled && !paid && !justPaid && paymentUrl && (
+          <Button asChild size="lg" className="w-full md:w-fit">
+            <a href={paymentUrl} target="_blank" rel="noreferrer noopener">
+              {paymentAmount ? g.payNowAmount(paymentAmount) : g.payNow}
+            </a>
+          </Button>
         )}
 
         {isCanceled ? (

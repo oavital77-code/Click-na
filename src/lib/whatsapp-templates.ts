@@ -11,7 +11,16 @@ export type BookingMessageInput = {
   timezone: string;
   location: string | null;
   manageUrl: string;
+  /** Where to pay, when the therapist takes payment online and this one is unpaid. */
+  paymentUrl?: string | null;
+  /** Already formatted for the locale, or null when the page decides the amount. */
+  paymentAmount?: string | null;
 };
+
+function paymentLine(input: BookingMessageInput): string | null {
+  if (!input.paymentUrl) return null;
+  return getMessages(input.locale).messages.payment.whatsapp(input.paymentUrl, input.paymentAmount ?? null);
+}
 
 export function confirmationWhatsApp(input: BookingMessageInput): string {
   const m = getMessages(input.locale).messages;
@@ -20,6 +29,7 @@ export function confirmationWhatsApp(input: BookingMessageInput): string {
     m.confirmation.lead(input.therapistFullName),
     fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale),
     input.location ? m.location(input.location) : null,
+    paymentLine(input),
     m.confirmation.whatsappManage(input.manageUrl),
   ]
     .filter(Boolean)
@@ -33,6 +43,7 @@ export function reminderWhatsApp(input: BookingMessageInput): string {
     m.reminder.whatsappLead(input.therapistFullName),
     fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale),
     input.location ? m.location(input.location) : null,
+    paymentLine(input),
     m.confirmation.whatsappManage(input.manageUrl),
   ]
     .filter(Boolean)

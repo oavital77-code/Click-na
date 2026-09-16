@@ -118,23 +118,49 @@ export type Checkout = { url: string; pageRequestUid: string };
 /** PayPlus truncates more_info past this; a longer value is a bug, not a wish. */
 export const MORE_INFO_MAX = 19;
 
+export type CheckoutOptions = {
+  /**
+   * Store the card as a token for charges we run later ourselves. On for the
+   * therapist's subscription, where renewals are our job; off for a client
+   * paying a therapist, where the card is theirs and stored nowhere.
+   */
+  createToken: boolean;
+  /** PayPlus's own receipt mail on success. Off for a connection check, which pays nobody. */
+  sendEmailApproval?: boolean;
+};
+
 /**
  * A hosted payment page that charges the first month now and stores the card
  * as a token for the months after. Returns the URL to send the therapist to.
  */
-export async function createTokenCheckout(
+export function createTokenCheckout(
   cfg: PayPlusConfig,
   input: CheckoutInput,
   fetchImpl: FetchLike = fetch
 ): Promise<Checkout> {
+  return createCheckout(cfg, input, { createToken: true }, fetchImpl);
+}
+
+/**
+ * A hosted payment page for one charge. Returns the URL to send the payer to.
+ * Whatever is wired into `urls.callback` is where PayPlus reports the outcome —
+ * per page, with no registration on PayPlus's side, which is what lets a
+ * therapist connect an account without ever pasting our address into theirs.
+ */
+export async function createCheckout(
+  cfg: PayPlusConfig,
+  input: CheckoutInput,
+  options: CheckoutOptions,
+  fetchImpl: FetchLike = fetch
+): Promise<Checkout> {
   const body = {
     payment_page_uid: cfg.paymentPageUid,
-    charge_method: 1, // a plain charge; the schedule is ours
+    charge_method: 1, // a plain charge; any schedule is ours
     amount: round2(input.amountIls),
     currency_code: "ILS",
     payments: 1,
-    create_token: true,
-    sendEmailApproval: true,
+    create_token: options.createToken,
+    sendEmailApproval: options.sendEmailApproval ?? true,
     sendEmailFailure: false,
     more_info: input.reference.slice(0, MORE_INFO_MAX),
     customer: {
