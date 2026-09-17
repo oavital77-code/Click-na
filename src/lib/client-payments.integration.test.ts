@@ -10,7 +10,7 @@ vi.mock("@/lib/integration-verify", async (importOriginal) => ({
 }));
 
 const { connectIntegration } = await import("@/lib/integrations");
-const { applyClientPayment, ensurePaymentUrl, markBookingPaidByTherapist } = await import("@/lib/client-payments");
+const { applyClientPayment, markBookingPaidByTherapist, requestPayment } = await import("@/lib/client-payments");
 
 const KEY = Buffer.alloc(32, 7).toString("base64");
 const PAYPLUS = { apiKey: "k", secretKey: "s", paymentPageUid: "page-1" };
@@ -36,7 +36,7 @@ describe("client payments (against a live database)", () => {
         slug: "client-payments-integration-test",
         timezone: "Asia/Jerusalem",
         subscription: { create: {} },
-        settings: { create: { sessionPriceIls: 350 } },
+        settings: { create: {} },
       },
     });
     therapistId = therapist.id;
@@ -83,51 +83,75 @@ describe("client payments (against a live database)", () => {
     await prisma.therapist.delete({ where: { id: therapistId } });
   });
 
-  it("is nothing without a payment add-on: the booking stands, there is just no link", async () => {
-    expect(await ensurePaymentUrl(bookingId)).toBeNull();
+  it("asks for nothing when no payment add-on is connected, and says which", async () => {
+    expect(await requestPayment(therapistId, bookingId, { amountIls: 350, label: null })).toEqual({
+      ok: false,
+      error: "NOT_CONNECTED",
+    });
   });
 
-  it("hands out the therapist's standing link, with the price for the message", async () => {
+  it("hands out the standing link with the chosen sum and name, and records the ask", async () => {
     await connectIntegration(therapistId, "paymentLink", { url: "https://pay.example/dr-x" });
-    expect(await ensurePaymentUrl(bookingId)).toEqual({ url: "https://pay.example/dr-x", amountIls: 350 });
+    const out = await requestPayment(therapistId, bookingId, { amountIls: 200, label: "Initial consultation" });
+    expect(out).toEqual({ ok: true, url: "https://pay.example/dr-x", amountIls: 200 });
     const row = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
     expect(row.paymentUrl).toBe("https://pay.example/dr-x");
+    expect(Number(row.paymentAmountIls)).toBe(200);
+    expect(row.paymentLabel).toBe("Initial consultation");
+    expect(row.paymentRequestedAt).not.toBeNull();
     expect(row.paymentPageRequestUid).toBeNull();
   });
 
-  it("opens a PayPlus page once and remembers it, so every message shows the same one", async () => {
+  it("opens a PayPlus page for exactly the sum the therapist chose, named after the treatment", async () => {
     await connectIntegration(therapistId, "payplus", PAYPLUS);
     const { impl, calls } = fakeFetch({ data: { payment_page_link: "https://pay/once", page_request_uid: "req-42" } });
 
-    const first = await ensurePaymentUrl(bookingId, { fetchImpl: impl });
-    const second = await ensurePaymentUrl(bookingId, { fetchImpl: impl });
+    const out = await requestPayment(therapistId, bookingId, { amountIls: 600, label: "Double session" }, { fetchImpl: impl });
 
-    expect(first).toEqual({ url: "https://pay/once", amountIls: 350 });
-    expect(second).toEqual(first);
+    expect(out).toEqual({ ok: true, url: "https://pay/once", amountIls: 600 });
     expect(calls).toHaveLength(1);
-    expect(calls[0].body).toMatchObject({ amount: 350, create_token: false, payment_page_uid: "page-1" });
+    expect(calls[0].body).toMatchObject({ amount: 600, create_token: false, payment_page_uid: "page-1" });
+    expect(String((calls[0].body.items as { name: string }[])[0].name)).toMatch(/^Double session/);
     expect(String(calls[0].body.refURL_callback)).toMatch(/\/api\/public\/payments\/payplus\/callback$/);
 
     const row = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
     expect(row.paymentPageRequestUid).toBe("req-42");
-    expect(Number(row.paymentAmountIls)).toBe(350);
+    expect(Number(row.paymentAmountIls)).toBe(600);
   });
 
-  it("asks PayPlus for nothing when the therapist has no price, and says so nowhere the client can see", async () => {
-    await prisma.therapistSettings.update({ where: { therapistId }, data: { sessionPriceIls: null } });
+  it("asking again replaces the earlier request, sum and page alike", async () => {
     await connectIntegration(therapistId, "payplus", PAYPLUS);
-    const { impl, calls } = fakeFetch({});
-    expect(await ensurePaymentUrl(bookingId, { fetchImpl: impl })).toBeNull();
-    expect(calls).toHaveLength(0);
-    await prisma.therapistSettings.update({ where: { therapistId }, data: { sessionPriceIls: 350 } });
+    const first = fakeFetch({ data: { payment_page_link: "https://pay/1", page_request_uid: "req-1" } });
+    await requestPayment(therapistId, bookingId, { amountIls: 350, label: null }, { fetchImpl: first.impl });
+    const second = fakeFetch({ data: { payment_page_link: "https://pay/2", page_request_uid: "req-2" } });
+    await requestPayment(therapistId, bookingId, { amountIls: 400, label: "Extended" }, { fetchImpl: second.impl });
+    const row = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+    expect(row.paymentUrl).toBe("https://pay/2");
+    expect(row.paymentPageRequestUid).toBe("req-2");
+    expect(Number(row.paymentAmountIls)).toBe(400);
   });
 
-  it("keeps the booking when PayPlus is down, and tells the therapist on the add-on", async () => {
+  it("refuses to ask for a booking that is already paid", async () => {
+    await connectIntegration(therapistId, "paymentLink", { url: "https://pay.example/x" });
+    await prisma.booking.update({ where: { id: bookingId }, data: { paymentStatus: "paid" } });
+    expect(await requestPayment(therapistId, bookingId, { amountIls: 100, label: null })).toEqual({ ok: false, error: "ALREADY_PAID" });
+  });
+
+  it("is scoped to the therapist's own bookings", async () => {
+    await connectIntegration(therapistId, "paymentLink", { url: "https://pay.example/x" });
+    expect(await requestPayment("00000000-0000-0000-0000-000000000000", bookingId, { amountIls: 100, label: null })).toEqual({
+      ok: false,
+      error: "NOT_FOUND",
+    });
+  });
+
+  it("reports a provider failure to the therapist and on the add-on, and leaves the booking as it was", async () => {
     await connectIntegration(therapistId, "payplus", PAYPLUS);
     const { impl } = fakeFetch({ results: { message: "boom" } }, 500);
-    expect(await ensurePaymentUrl(bookingId, { fetchImpl: impl })).toBeNull();
+    const out = await requestPayment(therapistId, bookingId, { amountIls: 350, label: null }, { fetchImpl: impl });
+    expect(out).toMatchObject({ ok: false, error: "PROVIDER", detail: "PayPlus 500" });
     const booking = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
-    expect(booking.status).toBe("confirmed");
+    expect(booking.paymentRequestedAt).toBeNull();
     const addon = await prisma.integration.findUniqueOrThrow({
       where: { therapistId_provider: { therapistId, provider: "payplus" } },
     });

@@ -2,14 +2,14 @@ import { prisma } from "@/lib/prisma";
 import { sendEmail } from "@/lib/email";
 import { generateBookingIcs } from "@/lib/ics";
 import { appUrl as getAppUrl } from "@/lib/public-url";
-import { ensurePaymentUrl } from "@/lib/client-payments";
 import { formatPriceIls } from "@/lib/plan";
 import { getCredentials, recordIntegrationFailure } from "@/lib/integrations";
 import { createZoomMeeting } from "@/lib/zoom";
 import { sendWhatsApp } from "@/lib/whatsapp";
-import { confirmationWhatsApp, reminderWhatsApp } from "@/lib/whatsapp-templates";
+import { confirmationWhatsApp, paymentRequestWhatsApp, reminderWhatsApp } from "@/lib/whatsapp-templates";
 import {
   confirmationEmailForClient,
+  paymentRequestEmailForClient,
   newBookingEmailForTherapist,
   reminderEmailForClient,
   cancellationEmailForTherapist,
@@ -218,11 +218,6 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
   const meetingUrl = await createMeetingFor(booking);
   const location = meetingUrl ?? resolveLocation(settings);
   const manageUrl = `${getAppUrl()}/book/${therapist.slug}/manage/${booking.manageToken}`;
-  // Idempotent: this is the link the confirmation screen already showed, or a
-  // second attempt at one if the provider was down a moment ago.
-  const payment = await ensurePaymentUrl(booking.id);
-  const paymentUrl = payment?.url ?? null;
-  const paymentAmount = payment?.amountIls ? formatPriceIls(payment.amountIls, locale) : null;
 
   if (booking.clientEmailSnapshot && settings?.sendEmailConfirmation) {
     const { subject, html } = confirmationEmailForClient({
@@ -234,8 +229,6 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
       timezone: therapist.timezone,
       location,
       manageUrl,
-      paymentUrl,
-      paymentAmount,
     });
     const ics = generateBookingIcs({
       uid: booking.id,
@@ -287,12 +280,51 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
       timezone: therapist.timezone,
       location,
       manageUrl,
-      paymentUrl,
-      paymentAmount,
     })
   );
 
   await scheduleReminders(booking);
+}
+
+/**
+ * After the therapist asked for payment: the client hears about it by email
+ * and, with the WhatsApp add-on, by WhatsApp too. The therapist's own wa.me
+ * tap is separate and needs nothing from here. Recorded like every other
+ * message, so a failed send is a row somebody can find.
+ */
+export async function sendPaymentRequestNotifications(bookingId: string) {
+  const booking = await prisma.booking.findUnique({
+    where: { id: bookingId },
+    include: { session: true, therapist: { include: { settings: true } } },
+  });
+  if (!booking || !booking.paymentUrl || booking.paymentAmountIls === null) return;
+
+  const { session, therapist } = booking;
+  const locale = toLocale(therapist.locale);
+  const input = {
+    locale,
+    clientFullName: booking.clientNameSnapshot,
+    therapistFullName: therapist.fullName,
+    startsAt: session.startsAt,
+    endsAt: session.endsAt,
+    timezone: therapist.timezone,
+    label: booking.paymentLabel,
+    paymentUrl: booking.paymentUrl,
+    paymentAmount: formatPriceIls(Number(booking.paymentAmountIls), locale),
+  };
+
+  if (booking.clientEmailSnapshot) {
+    const { subject, html } = paymentRequestEmailForClient(input);
+    await recordNotification({
+      therapistId: therapist.id,
+      bookingId,
+      type: "payment_request",
+      recipient: booking.clientEmailSnapshot,
+      send: () => sendEmail({ to: booking.clientEmailSnapshot!, subject, html }),
+    });
+  }
+
+  await sendWhatsAppToClient(booking, "payment_request", paymentRequestWhatsApp(input));
 }
 
 /** Fires the immediate side effects of a cancellation (spec 8.6) and cancels any
@@ -440,17 +472,6 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
       await prisma.therapistSettings.findUnique({ where: { therapistId: booking.therapistId } })
     );
     const locale = toLocale(booking.therapist.locale);
-    // A reminder is the natural second ask. Only while unpaid, and only where a
-    // way to pay exists — the stored link, or one more try at opening a page.
-    let paymentUrl: string | null = null;
-    let paymentAmount: string | null = null;
-    if (booking.paymentStatus === "unpaid") {
-      const payment = booking.paymentUrl
-        ? { url: booking.paymentUrl, amountIls: booking.paymentAmountIls === null ? null : Number(booking.paymentAmountIls) }
-        : await ensurePaymentUrl(booking.id);
-      paymentUrl = payment?.url ?? null;
-      paymentAmount = payment?.amountIls ? formatPriceIls(payment.amountIls, locale) : null;
-    }
     const message = {
       locale,
       clientFullName: booking.clientNameSnapshot,
@@ -460,8 +481,6 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
       timezone: booking.therapist.timezone,
       location,
       manageUrl: `${getAppUrl()}/book/${booking.therapist.slug}/manage/${booking.manageToken}`,
-      paymentUrl,
-      paymentAmount,
     };
 
     let result: { ok: true } | { ok: false; error: string };

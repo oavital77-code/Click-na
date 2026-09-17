@@ -22,14 +22,12 @@ import { formatInTimeZone } from "date-fns-tz";
  * therapist's own account at their provider, and we only ever learn that it
  * did. That is what keeps this a feature and not a regulated activity.
  *
- * Two rules the rest of the app can rely on:
- *  - Payment never blocks a booking. No price, no provider, a provider that is
- *    down — the client still gets their appointment; they just get no pay link.
- *  - Nothing here throws to a caller on the booking path. A provider error is
- *    recorded on the add-on (so the therapist sees it) and swallowed.
+ * Payment is asked for after the session, by the therapist, for an amount they
+ * choose then — a treatment from their menu or a sum typed by hand. Nothing is
+ * asked at booking time, so booking never depends on any of this.
  */
 
-/** How long the booking response may wait on a provider before going without a pay link. */
+/** How long the therapist's click may wait on a provider before we give up and say so. */
 const PROVIDER_TIMEOUT_MS = 10_000;
 
 const timedFetch: typeof fetch = (url, init) =>
@@ -61,64 +59,72 @@ export function isPaymentProvider(value: string): value is PaymentProvider {
   return (PAYMENT_PROVIDERS as readonly string[]).includes(value);
 }
 
+export type PaymentRequestResult =
+  | { ok: true; url: string; amountIls: number }
+  | { ok: false; error: "NOT_FOUND" | "CANCELED" | "ALREADY_PAID" | "NOT_CONNECTED" | "PROVIDER"; detail?: string };
+
 /**
- * The URL the client pays at, generating it if this booking has none yet.
- * Idempotent: the same booking always yields the same URL, so the success
- * screen, the confirmation mail, the reminder and the manage page agree.
- * Null when there is nothing to pay or no way to pay it.
+ * The therapist asks the client to pay `amountIls` for this booking: opens a
+ * page for that sum (PayPlus) or hands out their standing link, and records
+ * what was asked, under which name, and when. Asking again replaces the
+ * request — a client who still has the earlier PayPlus page finds it refers
+ * to a request we no longer recognise, which is the point of replacing it.
+ * Scoped to the therapist's own bookings.
  */
-export async function ensurePaymentUrl(
+export async function requestPayment(
+  therapistId: string,
   bookingId: string,
+  choice: { amountIls: number; label: string | null },
   deps: { fetchImpl?: typeof fetch } = {}
-): Promise<{ url: string; amountIls: number | null } | null> {
-  const booking = await prisma.booking.findUnique({
-    where: { id: bookingId },
+): Promise<PaymentRequestResult> {
+  const booking = await prisma.booking.findFirst({
+    where: { id: bookingId, therapistId },
     include: { session: true, therapist: { include: { settings: true } } },
   });
-  if (!booking) return null;
-  if (booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") return null;
-  if (booking.paymentStatus === "paid") return null;
+  if (!booking) return { ok: false, error: "NOT_FOUND" };
+  if (booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") return { ok: false, error: "CANCELED" };
+  if (booking.paymentStatus === "paid") return { ok: false, error: "ALREADY_PAID" };
 
-  if (booking.paymentUrl) {
-    return { url: booking.paymentUrl, amountIls: decimalToNumber(booking.paymentAmountIls) };
-  }
+  const connected = await connectedPaymentProvider(therapistId);
+  if (!connected) return { ok: false, error: "NOT_CONNECTED" };
 
-  const connected = await connectedPaymentProvider(booking.therapistId);
-  if (!connected) return null;
-
-  const priceIls = decimalToNumber(booking.therapist.settings?.sessionPriceIls ?? null);
+  const amountIls = Math.round(choice.amountIls * 100) / 100;
+  const label = choice.label?.trim() ? choice.label.trim().slice(0, 80) : null;
 
   if (connected.provider === "paymentLink") {
-    // A standing link: the amount, if the therapist set one, is for the
-    // message; the page itself is theirs and takes whatever it takes.
     await prisma.booking.update({
       where: { id: booking.id },
-      data: { paymentUrl: connected.url, paymentAmountIls: priceIls },
+      data: {
+        paymentUrl: connected.url,
+        paymentPageRequestUid: null,
+        paymentAmountIls: amountIls,
+        paymentLabel: label,
+        paymentRequestedAt: new Date(),
+      },
     });
-    return { url: connected.url, amountIls: priceIls };
+    return { ok: true, url: connected.url, amountIls };
   }
 
-  // A card charge needs a number to charge.
-  if (priceIls === null || priceIls <= 0) return null;
-
   try {
-    const checkout = await createPayPlusPage(connected.cfg, booking, priceIls, deps.fetchImpl ?? timedFetch);
+    const checkout = await createPayPlusPage(connected.cfg, booking, amountIls, label, deps.fetchImpl ?? timedFetch);
     await prisma.booking.update({
       where: { id: booking.id },
       data: {
         paymentUrl: checkout.url,
         paymentPageRequestUid: checkout.pageRequestUid,
-        paymentAmountIls: priceIls,
+        paymentAmountIls: amountIls,
+        paymentLabel: label,
+        paymentRequestedAt: new Date(),
       },
     });
-    return { url: checkout.url, amountIls: priceIls };
+    return { ok: true, url: checkout.url, amountIls };
   } catch (error) {
-    // The client's appointment stands. The therapist finds out on the add-on
-    // card, where they can act on it; the client is simply not asked to pay online.
+    // The therapist is at the button, so they hear the provider's reason;
+    // the add-on card keeps it too, for when they look later.
     const detail = error instanceof PayPlusError ? `PayPlus ${error.status}` : error instanceof Error ? error.message : "error";
-    await recordIntegrationFailure(booking.therapistId, "payplus", detail);
-    console.error("[client-payments] payment page failed", { bookingId, error: detail });
-    return null;
+    await recordIntegrationFailure(therapistId, "payplus", detail);
+    console.error("[client-payments] payment request failed", { bookingId, error: detail });
+    return { ok: false, error: "PROVIDER", detail };
   }
 }
 
@@ -126,6 +132,7 @@ async function createPayPlusPage(
   cfg: PayPlusConfig,
   booking: BookingForPayment,
   amountIls: number,
+  label: string | null,
   fetchImpl: typeof fetch
 ) {
   const base = appUrl();
@@ -138,7 +145,7 @@ async function createPayPlusPage(
     {
       reference: `Session ${day}`,
       amountIls,
-      description: `${booking.therapist.fullName} · ${day}`,
+      description: label ? `${label} · ${day}` : `${booking.therapist.fullName} · ${day}`,
       customer: {
         name: booking.clientNameSnapshot,
         email: booking.clientEmailSnapshot ?? "",

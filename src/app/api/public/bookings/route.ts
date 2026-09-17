@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest, after } from "next/server";
 import { z } from "zod";
 import { createBooking } from "@/lib/bookings";
-import { ensurePaymentUrl } from "@/lib/client-payments";
 import { sendBookingCreatedNotifications } from "@/lib/notifications";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/http";
@@ -42,12 +41,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });
   }
 
-  // Before the response, not after: the pay button on the confirmation screen
-  // is the moment the client is most likely to pay. It costs one provider
-  // round-trip, bounded, and never fails the booking — a provider that is down
-  // simply means no button, and the same link is offered again in the email.
-  const payment = await ensurePaymentUrl(result.booking.id);
-
   after(() => sendBookingCreatedNotifications(result.booking.id));
 
   return NextResponse.json(
@@ -56,8 +49,6 @@ export async function POST(request: NextRequest) {
         manageToken: result.booking.manageToken,
         startsAt: result.session.startsAt.toISOString(),
         endsAt: result.session.endsAt.toISOString(),
-        paymentUrl: payment?.url ?? null,
-        paymentAmountIls: payment?.amountIls ?? null,
       },
     },
     { status: 201 }

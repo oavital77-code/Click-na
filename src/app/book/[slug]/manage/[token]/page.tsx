@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/prisma";
-import { ensurePaymentUrl } from "@/lib/client-payments";
 import { formatPriceIls } from "@/lib/plan";
 import { ManageBooking } from "./manage-booking";
 import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
@@ -36,14 +35,11 @@ export default async function ManageBookingPage({
   const locale = toLocale(booking.therapist.locale);
   const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
 
-  // The client's second chance to pay: the link from booking time, or one more
-  // try at a page if there was none. Nothing to do once it is paid.
+  // Only once the therapist asked, after the session — and only while unpaid.
   const active = booking.status !== "canceled_by_client" && booking.status !== "canceled_by_therapist";
   const payment =
-    active && booking.paymentStatus === "unpaid" && !justPaid
-      ? booking.paymentUrl
-        ? { url: booking.paymentUrl, amountIls: booking.paymentAmountIls === null ? null : Number(booking.paymentAmountIls) }
-        : await ensurePaymentUrl(booking.id)
+    active && booking.paymentStatus === "unpaid" && !justPaid && booking.paymentRequestedAt && booking.paymentUrl
+      ? { url: booking.paymentUrl, amountIls: booking.paymentAmountIls === null ? null : Number(booking.paymentAmountIls) }
       : null;
 
   return (

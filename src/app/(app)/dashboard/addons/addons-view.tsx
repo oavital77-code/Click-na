@@ -39,11 +39,11 @@ type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolea
 
 export function AddonsView({
   initial,
-  sessionPriceSet,
+  hasTreatments,
 }: {
   initial: Payload;
-  /** Whether Settings has a session price. A card payment cannot be asked for without one. */
-  sessionPriceSet: boolean;
+  /** Whether Settings has any treatment. Requests are picked from that menu. */
+  hasTreatments: boolean;
 }) {
   const { m } = useI18n();
   const [payload, setPayload] = useState(initial);
@@ -84,8 +84,8 @@ export function AddonsView({
               integration={integration}
               onChange={setPayload}
               hint={
-                integration.provider === "payplus" && integration.state === "connected" && !sessionPriceSet
-                  ? m.addons.priceMissing
+                integration.state === "connected" && !hasTreatments
+                  ? m.addons.templatesMissing
                   : null
               }
             />

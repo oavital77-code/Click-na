@@ -81,6 +81,7 @@ enum NotificationType {
   reminder
   cancellation
   reschedule
+  payment_request
   // About the therapist's own account, with no booking behind them.
   welcome
   onboarding_complete
@@ -169,6 +170,7 @@ model Therapist {
   integrations      Integration[]
   payments          Payment[]
   clientPayments    ClientPayment[]
+  treatmentTemplates TreatmentTemplate[]
   notifications     Notification[]
 
   @@map("therapists")
@@ -285,9 +287,6 @@ model TherapistSettings {
   brandLogoUrl            String?      @map("brand_logo_url")
   bookingPageHeadline     String?      @map("booking_page_headline") @db.VarChar(255)
   bookingPageDescription  String?      @map("booking_page_description")
-  // Price of one session, shekels with VAT — what the client is asked to pay
-  // online. Null means no online payment is offered; booking is unaffected.
-  sessionPriceIls         Decimal?     @map("session_price_ils") @db.Decimal(10, 2)
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
 
@@ -382,6 +381,12 @@ model Booking {
   // The price at the moment of booking. The therapist may change their price
   // later; the callback is checked against what this client was actually asked.
   paymentAmountIls      Decimal?             @map("payment_amount_ils") @db.Decimal(10, 2)
+  // Set when the therapist sent the client a request to pay — after the
+  // session, for the amount they chose then. Null: nothing has been asked for.
+  paymentRequestedAt    DateTime?            @map("payment_requested_at") @db.Timestamptz
+  // The treatment the amount came from ("Initial consultation"), or null for a
+  // sum typed by hand. For the therapist's own records and the client's message.
+  paymentLabel          String?              @map("payment_label") @db.VarChar(80)
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
 
   therapist      Therapist       @relation(fields: [therapistId], references: [id])
@@ -424,6 +429,24 @@ model ClientPayment {
   @@index([therapistId, createdAt])
   @@index([bookingId])
   @@map("client_payments")
+}
+
+// The therapist's menu of treatments and what each costs. Chosen per booking
+// when they ask the client to pay, so a first consultation and a double
+// session are not forced onto one price — and a sum outside the menu can
+// still be typed by hand.
+model TreatmentTemplate {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId String   @map("therapist_id") @db.Uuid
+  name        String   @db.VarChar(80)
+  priceIls    Decimal  @map("price_ils") @db.Decimal(10, 2)
+  sortOrder   Int      @default(0) @map("sort_order")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id])
+
+  @@index([therapistId, sortOrder])
+  @@map("treatment_templates")
 }
 
 // Every message the system sends, on any channel, with what happened to it.

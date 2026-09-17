@@ -62,8 +62,6 @@ type SettingsState = {
   brandLogoUrl: string;
   bookingPageHeadline: string;
   bookingPageDescription: string;
-  /** Null is "no online payment" — a real choice, kept apart from 0. */
-  sessionPriceIls: number | null;
 };
 
 function ToggleRow({
@@ -310,22 +308,6 @@ export function SettingsView({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="sessionPrice">{m.settings.sessionPrice}</Label>
-            <Input
-              id="sessionPrice"
-              type="number"
-              inputMode="decimal"
-              min={1}
-              step={0.01}
-              dir="ltr"
-              value={settings.sessionPriceIls ?? ""}
-              onChange={(e) =>
-                updateSettings("sessionPriceIls", e.target.value === "" ? null : Number(e.target.value))
-              }
-            />
-            <p className="text-muted-foreground text-xs">{m.settings.sessionPriceHelp}</p>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">

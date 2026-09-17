@@ -55,34 +55,47 @@ function wrap(locale: Locale, bodyHtml: string) {
 
 type Localized = { locale: Locale };
 
-/** Where to pay, when the therapist takes payment online. Both absent = no mention. */
-type PaymentLines = {
-  paymentUrl?: string | null;
-  /** Already formatted for the locale ("350 ₪"), or null when the page decides the amount. */
-  paymentAmount?: string | null;
+export type PaymentRequestEmailInput = Localized & {
+  clientFullName: string;
+  therapistFullName: string;
+  startsAt: Date;
+  endsAt: Date;
+  timezone: string;
+  /** The treatment the sum is for, when it came from the menu. */
+  label: string | null;
+  paymentUrl: string;
+  /** Already formatted for the locale ("350 ₪"). */
+  paymentAmount: string;
 };
 
-function paymentBlock(locale: Localized["locale"], input: PaymentLines): string {
-  if (!input.paymentUrl) return "";
-  const m = getMessages(locale).messages.payment;
-  const lead = input.paymentAmount ? m.line(input.paymentAmount) : m.lineNoAmount;
-  return `
-      <p style="font-size:15px;line-height:1.6;margin-top:24px;">${esc(lead)}</p>
+/** Sent by the therapist after a session: what it was, how much, and where to pay. */
+export function paymentRequestEmailForClient(input: PaymentRequestEmailInput) {
+  const m = getMessages(input.locale).messages;
+  const when = fmtRange(input.startsAt, input.endsAt, input.timezone, input.locale);
+  return {
+    subject: m.paymentRequest.subject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.paymentRequest.title)}</h1>
+      <p style="font-size:15px;line-height:1.6;">${esc(m.paymentRequest.lead(input.clientFullName, input.therapistFullName))}</p>
+      <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
+      ${input.label ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.paymentRequest.forLabel(input.label))}</p>` : ""}
+      <p style="font-size:15px;line-height:1.6;margin-top:24px;">${esc(m.payment.line(input.paymentAmount))}</p>
       <p style="margin:8px 0 0;">
-        <a href="${esc(input.paymentUrl)}" style="display:inline-block;background:#1f6feb;color:#fff;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:8px;">${esc(m.link)}</a>
-      </p>`;
+        <a href="${esc(input.paymentUrl)}" style="display:inline-block;background:#1f6feb;color:#fff;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:8px;">${esc(m.payment.link)}</a>
+      </p>
+    `),
+  };
 }
 
-export type ConfirmationEmailInput = Localized &
-  PaymentLines & {
-    clientFullName: string;
-    therapistFullName: string;
-    startsAt: Date;
-    endsAt: Date;
-    timezone: string;
-    location: string | null;
-    manageUrl: string;
-  };
+export type ConfirmationEmailInput = Localized & {
+  clientFullName: string;
+  therapistFullName: string;
+  startsAt: Date;
+  endsAt: Date;
+  timezone: string;
+  location: string | null;
+  manageUrl: string;
+};
 
 export function confirmationEmailForClient(input: ConfirmationEmailInput) {
   const m = getMessages(input.locale).messages;
@@ -94,7 +107,6 @@ export function confirmationEmailForClient(input: ConfirmationEmailInput) {
       <p style="font-size:15px;line-height:1.6;">${esc(m.confirmation.lead(input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
       ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
-      ${paymentBlock(input.locale, input)}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
         ${m.confirmation.icsAttached}
         ${m.confirmation.manageLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.confirmation.manageLink}</a>.
@@ -124,16 +136,15 @@ export function newBookingEmailForTherapist(input: TherapistNewBookingEmailInput
   };
 }
 
-export type ReminderEmailInput = Localized &
-  PaymentLines & {
-    clientFullName: string;
-    therapistFullName: string;
-    startsAt: Date;
-    endsAt: Date;
-    timezone: string;
-    location: string | null;
-    manageUrl: string;
-  };
+export type ReminderEmailInput = Localized & {
+  clientFullName: string;
+  therapistFullName: string;
+  startsAt: Date;
+  endsAt: Date;
+  timezone: string;
+  location: string | null;
+  manageUrl: string;
+};
 
 export function reminderEmailForClient(input: ReminderEmailInput) {
   const m = getMessages(input.locale).messages;
@@ -145,7 +156,6 @@ export function reminderEmailForClient(input: ReminderEmailInput) {
       <p style="font-size:15px;line-height:1.6;">${esc(m.reminder.lead(input.clientFullName, input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
       ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
-      ${paymentBlock(input.locale, input)}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
         ${m.reminder.cancelLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.reminder.manageLink}</a>.
       </p>

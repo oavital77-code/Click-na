@@ -124,9 +124,6 @@ export const he: Messages = {
     bookingHeadline: "כותרת בדף ההזמנה",
     bookingDescription: "תיאור קצר",
     brandColor: "צבע מותג",
-    sessionPrice: "מחיר לפגישה (₪, כולל מע\"מ)",
-    sessionPriceHelp:
-      "הסכום שהלקוח יתבקש לשלם אונליין. ריק = לא מוצע תשלום אונליין; קביעת תור עובדת כרגיל.",
     brandLogoUrl: "קישור ללוגו",
     saveSettings: "שמור הגדרות",
     privacyCard: "פרטיות",
@@ -239,6 +236,13 @@ export const he: Messages = {
       link: "מעבר לתשלום",
       whatsapp: (url, amount) => (amount ? `לתשלום (${amount}): ${url}` : `לתשלום: ${url}`),
     },
+    paymentRequest: {
+      subject: (therapist) => `בקשת תשלום מ${therapist}`,
+      title: "בקשת תשלום",
+      lead: (client, therapist) => `שלום ${client}, ${therapist} מבקש/ת תשלום על הטיפול:`,
+      whatsappLead: (therapist) => `${therapist} מבקש/ת תשלום על הטיפול:`,
+      forLabel: (label) => `עבור: ${label}`,
+    },
     canceledByClient: {
       subject: (client) => `ביטול תור: ${client}`,
       title: "תור בוטל",
@@ -334,7 +338,7 @@ export const he: Messages = {
       completed: "הושלם",
       no_show: "לא הגיע",
     },
-    filters: { today: "היום", tomorrow: "מחר", week: "השבוע", all: "הקרובים" },
+    filters: { today: "היום", tomorrow: "מחר", week: "השבוע", all: "הקרובים", recent: "אחרונים" },
     empty: "אין הזמנות בטווח הזה",
     whatsappReminder: "תזכורת בוואטסאפ",
     reminderSent: "תזכורת נשלחה ✓",
@@ -351,6 +355,21 @@ export const he: Messages = {
     markPaid: "סמן כשולם",
     markUnpaid: "בטל סימון תשלום",
     paidAmount: (amount) => `שולם ${amount} ✓`,
+    requestPayment: "בקשת תשלום",
+    choosePrice: "מה לגבות?",
+    freeAmount: "סכום אחר (₪)",
+    sendRequest: "צור קישור ושלח",
+    sending: "יוצר קישור...",
+    requested: (amount, label) => (label ? `בקשת תשלום נשלחה: ${amount} · ${label}` : `בקשת תשלום נשלחה: ${amount}`),
+    requestedOn: (date) => `נשלחה ${date}`,
+    sendAgain: "שלח שוב / שנה סכום",
+    openWhatsapp: "פתח בוואטסאפ",
+    copyLink: "העתק קישור",
+    copied: "הועתק ✓",
+    emailSent: "נשלח גם במייל ללקוח.",
+    requestFailed: "לא הצלחנו ליצור קישור לתשלום.",
+    alreadyPaid: "התור כבר שולם.",
+    noTemplates: "אין טיפולים מוגדרים — אפשר להקליד סכום, או להגדיר טיפולים בהגדרות.",
   },
 
   clients: {
@@ -420,7 +439,7 @@ export const he: Messages = {
     paymentsTitle: "תשלומים מלקוחות",
     paymentsLead:
       "בוחרים דרך אחת. חיבור PayPlus מסמן תשלומים אוטומטית; קישור לתשלום עובד עם כל שירות ומסמנים ידנית. Morning — בקרוב.",
-    priceMissing: "כדי שלקוחות יוכלו לשלם צריך להגדיר מחיר לפגישה בהגדרות.",
+    templatesMissing: "כדי לשלוח בקשות תשלום צריך להגדיר טיפולים ומחירים בהגדרות.",
   },
 
   onboarding: {
@@ -562,9 +581,6 @@ export const he: Messages = {
     confirmed: "התור נקבע!",
     addToCalendar: "הוסף ליומן",
     changeOrCancel: "שנה / בטל תור",
-    payNow: "לתשלום",
-    payNowAmount: (amount) => `לתשלום ${amount}`,
-    payLater: "אפשר לשלם גם דרך הקישור במייל האישור.",
     heldFor: (mmss) => `המועד שמור לך למשך ${mmss} דקות`,
     holdExpired: "הזמן לתפיסת המועד פג. בחר מועד שוב.",
     pickAnother: "בחר מועד אחר",
@@ -583,6 +599,18 @@ export const he: Messages = {
     pickMarkedDay: "בחרו יום מסומן כדי לראות שעות פנויות",
   },
 
+  treatments: {
+    title: "טיפולים ומחירים",
+    lead: "התפריט שממנו בוחרים כשמבקשים תשלום אחרי הטיפול. אפשר תמיד להקליד סכום אחר ביד.",
+    name: "שם הטיפול",
+    namePlaceholder: "למשל: פגישה רגילה",
+    price: "מחיר (₪, כולל מע\"מ)",
+    add: "הוסף טיפול",
+    adding: "מוסיף...",
+    remove: "הסר",
+    empty: "עדיין אין טיפולים. הוסף את הראשון כדי לבקש תשלום בלחיצה.",
+    invalid: "צריך שם ומחיר תקין.",
+  },
   manage: {
     notFound: "ההזמנה לא נמצאה",
     yourAppointmentWith: (therapist) => `התור שלך אצל ${therapist}`,

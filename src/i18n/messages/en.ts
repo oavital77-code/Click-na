@@ -130,9 +130,6 @@ export const en = {
     bookingHeadline: "Booking page headline",
     bookingDescription: "Short description",
     brandColor: "Brand colour",
-    sessionPrice: "Session price (₪, incl. VAT)",
-    sessionPriceHelp:
-      "What the client is asked to pay online. Empty = no online payment offered; booking works as usual.",
     brandLogoUrl: "Logo link",
     saveSettings: "Save settings",
     privacyCard: "Privacy",
@@ -246,6 +243,13 @@ export const en = {
       link: "Go to payment",
       whatsapp: (url: string, amount: string | null) => (amount ? `To pay (${amount}): ${url}` : `To pay: ${url}`),
     },
+    paymentRequest: {
+      subject: (therapist: string) => `Payment request from ${therapist}`,
+      title: "Payment request",
+      lead: (client: string, therapist: string) => `Hello ${client}, ${therapist} is requesting payment for your session:`,
+      whatsappLead: (therapist: string) => `${therapist} is requesting payment for your session:`,
+      forLabel: (label: string) => `For: ${label}`,
+    },
     canceledByClient: {
       subject: (client: string) => `Cancellation: ${client}`,
       title: "Appointment cancelled",
@@ -345,7 +349,7 @@ export const en = {
       completed: "Completed",
       no_show: "No-show",
     },
-    filters: { today: "Today", tomorrow: "Tomorrow", week: "This week", all: "Upcoming" },
+    filters: { today: "Today", tomorrow: "Tomorrow", week: "This week", all: "Upcoming", recent: "Recent" },
     empty: "No bookings in this range",
     whatsappReminder: "WhatsApp reminder",
     reminderSent: "Reminder sent ✓",
@@ -362,6 +366,21 @@ export const en = {
     markPaid: "Mark as paid",
     markUnpaid: "Undo paid",
     paidAmount: (amount: string) => `Paid ${amount} ✓`,
+    requestPayment: "Request payment",
+    choosePrice: "What to charge?",
+    freeAmount: "Other amount (₪)",
+    sendRequest: "Create link and send",
+    sending: "Creating link…",
+    requested: (amount: string, label: string | null) => (label ? `Payment requested: ${amount} · ${label}` : `Payment requested: ${amount}`),
+    requestedOn: (date: string) => `Sent ${date}`,
+    sendAgain: "Send again / change amount",
+    openWhatsapp: "Open in WhatsApp",
+    copyLink: "Copy link",
+    copied: "Copied ✓",
+    emailSent: "Also emailed to the client.",
+    requestFailed: "We could not create a payment link.",
+    alreadyPaid: "This booking is already paid.",
+    noTemplates: "No treatments set up — type an amount, or define treatments in Settings.",
   },
 
   clients: {
@@ -431,7 +450,7 @@ export const en = {
     paymentsTitle: "Client payments",
     paymentsLead:
       "Pick one. Connecting PayPlus marks payments automatically; a payment link works with any service and you mark them yourself. Morning — coming soon.",
-    priceMissing: "For clients to pay, set a session price in Settings.",
+    templatesMissing: "To send payment requests, set up treatments and prices in Settings.",
   },
 
   onboarding: {
@@ -573,9 +592,6 @@ export const en = {
     confirmed: "Your appointment is booked!",
     addToCalendar: "Add to calendar",
     changeOrCancel: "Change / cancel",
-    payNow: "Pay now",
-    payNowAmount: (amount: string) => `Pay ${amount}`,
-    payLater: "You can also pay through the link in the confirmation email.",
     heldFor: (mmss: string) => `This time is held for you for ${mmss} minutes`,
     holdExpired: "The hold on this time ran out. Pick a time again.",
     pickAnother: "Pick another time",
@@ -594,6 +610,18 @@ export const en = {
     pickMarkedDay: "Pick a marked day to see the available times",
   },
 
+  treatments: {
+    title: "Treatments and prices",
+    lead: "The menu you pick from when asking for payment after a session. A different sum can always be typed by hand.",
+    name: "Treatment name",
+    namePlaceholder: "e.g. Regular session",
+    price: "Price (₪, incl. VAT)",
+    add: "Add treatment",
+    adding: "Adding…",
+    remove: "Remove",
+    empty: "No treatments yet. Add the first one to request payment in a tap.",
+    invalid: "A name and a valid price are needed.",
+  },
   manage: {
     notFound: "Booking not found",
     yourAppointmentWith: (therapist: string) => `Your appointment with ${therapist}`,

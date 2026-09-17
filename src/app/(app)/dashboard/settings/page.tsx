@@ -2,6 +2,8 @@ import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { SettingsView } from "./settings-view";
+import { TreatmentTemplates } from "./treatment-templates";
+import { listTreatments } from "@/lib/treatments";
 import { getMessages, toLocale } from "@/i18n";
 
 export default async function SettingsPage() {
@@ -23,6 +25,8 @@ export default async function SettingsPage() {
     // Should never happen — settings row is created alongside the therapist row (webhook).
     redirect("/dashboard");
   }
+
+  const treatments = await listTreatments(therapist.id);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
@@ -62,9 +66,9 @@ export default async function SettingsPage() {
           brandLogoUrl: therapist.settings.brandLogoUrl ?? "",
           bookingPageHeadline: therapist.settings.bookingPageHeadline ?? "",
           bookingPageDescription: therapist.settings.bookingPageDescription ?? "",
-          sessionPriceIls: therapist.settings.sessionPriceIls === null ? null : Number(therapist.settings.sessionPriceIls),
         }}
       />
+      <TreatmentTemplates initial={treatments} />
     </main>
   );
 }

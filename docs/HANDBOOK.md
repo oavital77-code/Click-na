@@ -156,7 +156,9 @@ Therapist ─┬─ TherapistSettings   (1:1)  מדיניות: התראה מוק
            │    └─ Booking        (1:1)  ההזמנה שתפסה את המועד
            ├─ Client              (1:N)
            ├─ Integration         (1:N)  אישורי צד־שלישי, מוצפנים
-           ├─ Payment             (1:N)  תשלומי PayPlus
+           ├─ Payment             (1:N)  תשלומי המטפל לפלטפורמה (PayPlus)
+           ├─ TreatmentTemplate   (1:N)  תפריט טיפולים ומחירים — פרק 8ב
+           ├─ ClientPayment       (1:N)  תשלומי מטופלים למטפל — פרק 8ב
            ├─ Notification        (1:N)  כל מייל: מתוזמן / נשלח / נכשל
            ├─ SlugRedirect        (1:N)  קישור ישן ממשיך לעבוד אחרי שינוי slug
            └─ AuditLog            (1:N)
@@ -343,6 +345,43 @@ trialing ──(30 יום)──▶ grace ──(7 ימים)──▶ locked
 | סכום שגוי | הסכום נבדק מול המחיר המוגדר לפני הזיכוי |
 | שני cron מחייבים יחד | שורה נתפסת ב-`updateMany` מותנה על `lastChargeAttemptAt` לפני הקריאה ל-PayPlus |
 | callback שאבד | תקופה ששולמה ונגמרה בלי חידוש מאושר עוברת לחסד אחרי יומיים — לעולם לא שירות חינם לנצח |
+
+---
+
+## 8ב. תשלומי מטופלים (הכסף של המטפל)
+
+פרק 8 עוסק בכסף שהמטפל משלם **לנו**. כאן מדובר בכסף שהמטופל משלם
+**למטפל** — והוא לעולם לא עובר דרכנו.
+
+**העיקרון.** התשלום נשלח **בסיום הטיפול**, ביוזמת המטפל. שום מחיר לא מוצג
+בעמוד ההזמנה הציבורי. אחרי הפגישה המטפל פותח את ההזמנה ב"הזמנות", בוחר
+טיפול מהתפריט (`TreatmentTemplate`, מוגדר ב"הגדרות") **או** מקליד סכום
+חופשי, ולוחץ "שלח". המערכת יוצרת קישור, שומרת על ההזמנה צילום של הסכום
+והתיאור (`payment_amount_ils`, `payment_label`, `payment_requested_at`),
+שולחת מייל (`Notification` מסוג `payment_request`) ופותחת את הוואטסאפ
+של המטפל עם ההודעה כתובה. "מסך שקוף" — אין למטופל דרך לשנות את הסכום.
+
+**שני ספקים, ממשק אחד** (`src/lib/integration-providers.ts`,
+`PAYMENT_PROVIDERS`):
+
+| ספק | מה המטפל מזין | סימון "שולם" |
+| --- | --- | --- |
+| `payplus` | שלושת המפתחות שלו (מוצפנים ב-`Integration`, ר' פרק 7) | אוטומטי, מה-callback |
+| `paymentLink` | כתובת סטטית של כל דף תשלום (Morning, Bit, Grow…) | ידני, כפתור בהזמנה |
+
+החיבור ל-PayPlus מאומת ביצירת דף של ₪1 בלי שליחת מייל
+(`verifyPayPlus` ב-`src/lib/integration-verify.ts`); אם המפתחות שגויים
+המטפל רואה זאת מיד, לא בתשלום הראשון של מטופל.
+
+**ה-callback** (`src/app/api/public/payments/payplus/callback/route.ts`)
+מזהה את ההזמנה לפי `payment_page_request_uid`, מאמת HMAC עם הסוד **של אותו
+מטפל**, מאמת את העסקה מול PayPlus עם המפתחות שלו, משווה את הסכום לצילום
+שעל ההזמנה, ורושם `ClientPayment` ייחודי לפי `transaction_uid` — כפילות
+היא no-op. הלוגיקה כולה ב-`src/lib/client-payments.ts` (`requestPayment`,
+`applyClientPayment`, `markBookingPaidByTherapist`).
+
+**מה לא כאן בכוונה:** הפקת חשבוניות (זה של ספק הסליקה של המטפל) ומתאם
+Morning ייעודי (יגיע כשיהיה חשבון בדיקה; עד אז `paymentLink`).
 
 ---
 

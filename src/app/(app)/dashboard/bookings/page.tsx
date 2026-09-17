@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/page-header";
 import { redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
+import { listTreatments } from "@/lib/treatments";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { BookingsView } from "./bookings-view";
@@ -24,8 +25,11 @@ export default async function BookingsPage() {
   }
 
   const todayStr = formatInTimeZone(new Date(), therapist.timezone, "yyyy-MM-dd");
-  const from = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
-  const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
+  const todayStart = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
+  // Two weeks back as well as a month ahead: payment is asked for after the
+  // session, and a session that ended yesterday has to still be on this page.
+  const from = new Date(todayStart.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const to = new Date(todayStart.getTime() + 30 * 24 * 60 * 60 * 1000);
 
   const bookings = await prisma.booking.findMany({
     where: { therapistId: therapist.id, session: { startsAt: { gte: from, lt: to } } },
@@ -46,6 +50,8 @@ export default async function BookingsPage() {
       .filter((r) => r.channel === "whatsapp" && r.status === "sent")
       .map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null])
   );
+  const treatments = await listTreatments(therapist.id);
+
   const hasReminder = new Set(
     reminders.filter((r) => r.status !== "canceled").map((r) => r.bookingId)
   );
@@ -62,6 +68,7 @@ export default async function BookingsPage() {
         slug={therapist.slug}
         therapistFullName={therapist.fullName}
         location={therapist.settings?.locationAddress ?? therapist.settings?.onlineMeetingUrl ?? null}
+        treatments={treatments}
         initialBookings={bookings.map((b) => ({
           id: b.id,
           startsAt: b.session.startsAt.toISOString(),
@@ -73,9 +80,12 @@ export default async function BookingsPage() {
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
           hasScheduledReminder: hasReminder.has(b.id),
+          clientEmail: b.clientEmailSnapshot,
           paid: b.paymentStatus === "paid",
           paymentAmountIls: b.paymentAmountIls === null ? null : Number(b.paymentAmountIls),
-          hasPaymentUrl: !!b.paymentUrl,
+          paymentLabel: b.paymentLabel,
+          paymentUrl: b.paymentUrl,
+          paymentRequestedAt: b.paymentRequestedAt?.toISOString() ?? null,
         }))}
       />
     </main>

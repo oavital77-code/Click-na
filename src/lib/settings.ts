@@ -26,7 +26,6 @@ export async function updateSettings(therapistId: string, data: SettingsInput) {
       brandLogoUrl: data.brandLogoUrl || null,
       bookingPageHeadline: data.bookingPageHeadline || null,
       bookingPageDescription: data.bookingPageDescription || null,
-      sessionPriceIls: data.sessionPriceIls ?? null,
     },
   });
 }
