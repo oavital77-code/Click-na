@@ -130,7 +130,7 @@ Clerk האפליקציה לא עולה בכלל. אין חשבון Clerk? `npx c
 | `RESEND_API_KEY` · `EMAIL_FROM` | `EMAIL_FROM` חייב להיות דומיין מאומת **בחשבון הזה** |
 | `INTEGRATION_ENCRYPTION_KEY` | 32 בייטים base64. מצפין אישורי צד־שלישי של מטפלים |
 | `PAYPLUS_API_KEY` · `PAYPLUS_SECRET_KEY` · `PAYPLUS_PAYMENT_PAGE_UID` | שלושתם או שהתשלום לא מוצע |
-| `PLAN_PRICE_ILS` | מחיר חודשי בש"ח כולל מע"מ. ברירת מחדל בקוד: 79 |
+| `PLAN_PRICE_ILS` | מחיר חודשי בש"ח כולל מע"מ. ברירת מחדל בקוד: 59 |
 | `OWNER_STATS_SECRET` | סוד משותף לדשבורד הבעלים — ר' פרק 11 |
 
 ### אופציונלי
@@ -277,7 +277,7 @@ Therapist ─┬─ TherapistSettings   (1:1)  מדיניות: התראה מוק
 
 ### התוכנית
 
-תוכנית אחת. `PLAN_PRICE_ILS` ש"ח לחודש כולל מע"מ (ברירת מחדל 79),
+תוכנית אחת. `PLAN_PRICE_ILS` ש"ח לחודש כולל מע"מ (ברירת מחדל 59),
 **30 יום התנסות**, ואז **7 ימי חסד** לפני נעילה. כל הקבועים במקום אחד:
 [`src/lib/plan.ts`](../src/lib/plan.ts).
 

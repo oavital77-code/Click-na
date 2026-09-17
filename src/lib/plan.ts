@@ -21,7 +21,7 @@ export const RENEWAL_CONFIRMATION_DAYS = 2;
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
 
 /** The decided price, shekels with VAT. PLAN_PRICE_ILS overrides it without a deploy. */
-export const DEFAULT_PLAN_PRICE_ILS = 79;
+export const DEFAULT_PLAN_PRICE_ILS = 59;
 
 export function planPriceIls(env: Record<string, string | undefined> = process.env): number | null {
   const raw = env.PLAN_PRICE_ILS;
