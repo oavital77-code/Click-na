@@ -7,7 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { BookingsView } from "./bookings-view";
 import { getMessages, toLocale } from "@/i18n";
-import { locationLabel } from "@/lib/locations";
+import { listLocations, locationLabel } from "@/lib/locations";
 
 export default async function BookingsPage() {
   const therapist = await getCurrentTherapist();
@@ -51,7 +51,7 @@ export default async function BookingsPage() {
       .filter((r) => r.channel === "whatsapp" && r.status === "sent")
       .map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null])
   );
-  const treatments = await listTreatments(therapist.id);
+  const [treatments, locations] = await Promise.all([listTreatments(therapist.id), listLocations(therapist.id)]);
 
   const hasReminder = new Set(
     reminders.filter((r) => r.status !== "canceled").map((r) => r.bookingId)
@@ -69,6 +69,7 @@ export default async function BookingsPage() {
         slug={therapist.slug}
         therapistFullName={therapist.fullName}
         treatments={treatments}
+        locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
         initialBookings={bookings.map((b) => ({
           id: b.id,
           startsAt: b.session.startsAt.toISOString(),
@@ -78,6 +79,7 @@ export default async function BookingsPage() {
           clientPhone: b.clientPhoneSnapshot,
           clientNote: b.clientNote,
           location: b.meetingUrl ?? locationLabel(b.session.location),
+          locationId: b.session.location.id,
           locationName: b.session.location.name,
           locationColor: b.session.location.color,
           manageToken: b.manageToken,

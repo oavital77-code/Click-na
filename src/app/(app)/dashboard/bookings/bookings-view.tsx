@@ -13,6 +13,7 @@ import { whatsappLink } from "@/lib/whatsapp-link";
 import { formatPriceIls } from "@/lib/plan";
 import { Check, Copy, MessageCircle } from "lucide-react";
 import type { Treatment } from "@/lib/treatments";
+import { LocationDot, LocationFilter, type PlaceOption } from "@/components/location-filter";
 
 const CANCELABLE = new Set(["pending", "confirmed"]);
 
@@ -26,6 +27,7 @@ type Booking = {
   clientNote: string | null;
   /** Where it happens, as the message says it: the meeting link or the address. */
   location: string | null;
+  locationId: string;
   locationName: string;
   locationColor: string;
   manageToken: string;
@@ -47,15 +49,18 @@ type Props = {
   slug: string;
   therapistFullName: string;
   treatments: Treatment[];
+  locations: PlaceOption[];
   initialBookings: Booking[];
 };
 
 type Filter = "today" | "tomorrow" | "week" | "all" | "recent";
 
-export function BookingsView({ timezone, slug, therapistFullName, treatments, initialBookings }: Props) {
+export function BookingsView({ timezone, slug, therapistFullName, treatments, locations, initialBookings }: Props) {
   const { m, locale } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState<Filter>("today");
+  const [placeFilter, setPlaceFilter] = useState<string | null>(null);
+  const manyPlaces = locations.length > 1;
   const [canceling, setCanceling] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +72,7 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, in
 
   const filtered = useMemo(() => {
     return bookings.filter((b) => {
+      if (placeFilter && b.locationId !== placeFilter) return false;
       const dateStr = formatInTimeZone(new Date(b.startsAt), timezone, "yyyy-MM-dd");
       // Sessions already behind us, newest first below — the ones to bill.
       if (filter === "recent") return dateStr < today;
@@ -81,7 +87,7 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, in
       );
       return dateStr >= today && dateStr < weekEnd;
     });
-  }, [bookings, filter, timezone, today, tomorrow]);
+  }, [bookings, filter, placeFilter, timezone, today, tomorrow]);
 
   /**
    * The therapist's own WhatsApp, not ours: the button opens wa.me with the
@@ -152,6 +158,7 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, in
           </Button>
         ))}
       </div>
+      <LocationFilter locations={locations} value={placeFilter} onChange={setPlaceFilter} />
 
       {error && <p className="text-destructive text-sm">{error}</p>}
       {filter === "tomorrow" && filtered.length > 0 && (
@@ -167,7 +174,13 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, in
               <Card>
                 <CardContent className="flex flex-col gap-2">
                   <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
-                    <span className="text-sm">
+                    <span className="flex items-center gap-1.5 text-sm">
+                      {manyPlaces && (
+                        <span className="inline-flex items-center gap-1" title={booking.locationName}>
+                          <LocationDot color={booking.locationColor} />
+                          <span className="text-muted-foreground text-xs">{booking.locationName}</span>
+                        </span>
+                      )}
                       {fmt(booking.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
                       {fmt(booking.startsAt, timezone, locale, "time")}–
                       {fmt(booking.endsAt, timezone, locale, "time")}

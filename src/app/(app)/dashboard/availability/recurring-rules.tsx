@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
 import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
+import { LocationDot, LocationSelect, type PlaceOption } from "@/components/location-filter";
 
 type Rule = {
   id: string;
@@ -25,11 +26,15 @@ type Rule = {
   isActive: boolean;
   futureOpenCount: number;
   futureBookedCount: number;
+  locationId: string;
+  locationName: string;
+  locationColor: string;
 };
 
-export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
+export function RecurringRules({ initialRules, locations }: { initialRules: Rule[]; locations: PlaceOption[] }) {
   const { m } = useI18n();
   const r = m.availability.rules;
+  const manyPlaces = locations.length > 1;
   const [rules, setRules] = useState(initialRules);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
@@ -39,11 +44,13 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
   const [editStart, setEditStart] = useState("09:00");
   const [editEnd, setEditEnd] = useState("17:00");
   const [editDuration, setEditDuration] = useState(50);
+  const [editPlace, setEditPlace] = useState("");
 
   const [addingDays, setAddingDays] = useState<number[]>([]);
   const [addStart, setAddStart] = useState("09:00");
   const [addEnd, setAddEnd] = useState("17:00");
   const [addDuration, setAddDuration] = useState(50);
+  const [addPlace, setAddPlace] = useState(locations[0]?.id ?? "");
   const [adding, setAdding] = useState(false);
 
   function startEdit(rule: Rule) {
@@ -51,6 +58,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
     setEditStart(rule.startTime);
     setEditEnd(rule.endTime);
     setEditDuration(rule.slotDurationMinutes);
+    setEditPlace(rule.locationId);
     setError(null);
   }
 
@@ -66,16 +74,24 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
           endTime: editEnd,
           slotDurationMinutes: editDuration,
           isActive: rule.isActive,
+          locationId: manyPlaces && editPlace !== rule.locationId ? editPlace : undefined,
         }),
       });
       if (!res.ok) {
         setError(r.saveError);
         return;
       }
+      const place = locations.find((l) => l.id === editPlace);
       setRules((prev) =>
         prev.map((r) =>
           r.id === rule.id
-            ? { ...r, startTime: editStart, endTime: editEnd, slotDurationMinutes: editDuration }
+            ? {
+                ...r,
+                startTime: editStart,
+                endTime: editEnd,
+                slotDurationMinutes: editDuration,
+                ...(place ? { locationId: place.id, locationName: place.name, locationColor: place.color } : {}),
+              }
             : r
         )
       );
@@ -152,6 +168,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
           startTime: addStart,
           endTime: addEnd,
           slotDurationMinutes: addDuration,
+          locationId: manyPlaces ? addPlace : undefined,
         }),
       });
       if (!res.ok) {
@@ -220,6 +237,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                           </SelectContent>
                         </Select>
                       </div>
+                      <LocationSelect id={`place-${rule.id}`} locations={locations} value={editPlace} onChange={setEditPlace} label={m.locations.where} />
                     </div>
                     <div className="flex flex-wrap justify-center gap-2 md:justify-start">
                       <Button
@@ -279,6 +297,12 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                 ) : (
                   <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
                     <span className={cn(!rule.isActive && "text-muted-foreground line-through")}>
+                      {manyPlaces && (
+                        <span className="me-1.5 inline-flex items-center gap-1">
+                          <LocationDot color={rule.locationColor} />
+                          {rule.locationName} ·
+                        </span>
+                      )}
                       {r.summary(m.labels.days[rule.dayOfWeek], rule.startTime, rule.endTime, m.common.minutes(rule.slotDurationMinutes))}
                       {(rule.futureOpenCount > 0 || rule.futureBookedCount > 0) && (
                         <span className="text-muted-foreground">
@@ -376,6 +400,7 @@ export function RecurringRules({ initialRules }: { initialRules: Rule[] }) {
                 </SelectContent>
               </Select>
             </div>
+            <LocationSelect id="add-place" locations={locations} value={addPlace} onChange={setAddPlace} label={m.locations.where} />
             <Button
               type="button"
               className="w-full md:w-auto"

@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSchedule } from "./dashboard-schedule";
 import { WeekInsights } from "./week-insights";
 import { getMessages, toLocale } from "@/i18n";
+import { listLocations } from "@/lib/locations";
 
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
@@ -37,11 +38,11 @@ export default async function DashboardPage() {
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
-  const [weekSessions, todayBookedCount, weekBookingsCount, openSlotsCount, newClientsCount] =
+  const [weekSessions, todayBookedCount, weekBookingsCount, openSlotsCount, newClientsCount, locations] =
     await Promise.all([
       prisma.session.findMany({
         where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd } },
-        include: { booking: true },
+        include: { booking: true, location: { select: { id: true, name: true, color: true } } },
         orderBy: { startsAt: "asc" },
       }),
       prisma.session.count({
@@ -63,6 +64,7 @@ export default async function DashboardPage() {
           createdAt: { gte: new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000) },
         },
       }),
+      listLocations(therapist.id),
     ]);
 
   const stats = [
@@ -92,6 +94,7 @@ export default async function DashboardPage() {
         timezone={therapist.timezone}
         today={todayStr}
         defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+        locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
         sessions={weekSessions.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),
@@ -100,6 +103,8 @@ export default async function DashboardPage() {
           clientName: s.booking?.clientNameSnapshot ?? null,
           clientPhone: s.booking?.clientPhoneSnapshot ?? null,
           blockedNote: s.blockedNote,
+          locationId: s.location.id,
+          locationColor: s.location.color,
         }))}
       />
 

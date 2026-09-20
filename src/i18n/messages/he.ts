@@ -624,6 +624,8 @@ export const he: Messages = {
     lastLocation: "אי אפשר להסיר את המקום היחיד.",
     invalid: "צריך שם, וכתובת או קישור.",
     saveError: "לא הצלחנו לשמור את המקום",
+    all: "כל המקומות",
+    where: "איפה?",
     archiveError: "לא הצלחנו להסיר את המקום",
   },
 

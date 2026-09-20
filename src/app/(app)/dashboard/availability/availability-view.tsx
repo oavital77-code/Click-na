@@ -17,6 +17,7 @@ import { buildTimeAxis } from "@/lib/schedule-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { cn } from "@/lib/utils";
+import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
 
 type SessionRow = {
   id: string;
@@ -24,12 +25,15 @@ type SessionRow = {
   endsAt: string;
   status: string;
   clientName: string | null;
+  locationId: string;
+  locationColor: string;
 };
 
 type Props = {
   timezone: string;
   initialWeekStart: string;
   defaultDurationMinutes: number;
+  locations: PlaceOption[];
   initialSessions: SessionRow[];
 };
 
@@ -39,13 +43,21 @@ export function AvailabilityView({
   timezone,
   initialWeekStart,
   defaultDurationMinutes,
+  locations,
   initialSessions,
 }: Props) {
   const { m } = useI18n();
   const a = m.availability;
   const [granularity, setGranularity] = useState<Granularity>("week");
   const [anchorDate, setAnchorDate] = useState(initialWeekStart);
-  const [sessions, setSessions] = useState(initialSessions);
+  const [allSessions, setSessions] = useState(initialSessions);
+  const [placeFilter, setPlaceFilter] = useState<string | null>(null);
+  const sessions = useMemo(
+    () => (placeFilter ? allSessions.filter((session) => session.locationId === placeFilter) : allSessions),
+    [allSessions, placeFilter]
+  );
+  const manyPlaces = locations.length > 1;
+  const [placeId, setPlaceId] = useState(locations[0]?.id ?? "");
   const [loadingWeek, setLoadingWeek] = useState(false);
   const isFirstRender = useRef(true);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
@@ -86,7 +98,7 @@ export function AvailabilityView({
     const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
     fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
-      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; booking: { clientNameSnapshot: string } | null }[] }) => {
+      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
         if (cancelled) return;
         setSessions(
           data.sessions.map((s) => ({
@@ -95,6 +107,8 @@ export function AvailabilityView({
             endsAt: s.endsAt,
             status: s.status,
             clientName: s.booking?.clientNameSnapshot ?? null,
+            locationId: s.location.id,
+            locationColor: s.location.color,
           }))
         );
       })
@@ -128,7 +142,7 @@ export function AvailabilityView({
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, startTime, endTime }),
+        body: JSON.stringify({ date, startTime, endTime, locationId: manyPlaces ? placeId : undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -151,6 +165,8 @@ export function AvailabilityView({
             endsAt: data.session.endsAt,
             status: data.session.status,
             clientName: null,
+            locationId: data.session.location?.id ?? data.session.locationId,
+            locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
           },
         ]);
       }
@@ -251,6 +267,7 @@ export function AvailabilityView({
               {granularity === "month" ? a.nextMonth : a.nextWeek}
             </Button>
           </div>
+          <LocationFilter locations={locations} value={placeFilter} onChange={setPlaceFilter} />
         </CardHeader>
         <CardContent>
           {granularity === "month" ? (
@@ -312,6 +329,7 @@ export function AvailabilityView({
                                 title={session.clientName ?? undefined}
                                 className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center disabled:opacity-100"}
                               >
+                                {manyPlaces && <LocationDot color={session.locationColor} />}
                                 {session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}
                               </button>
                             ) : (
@@ -358,6 +376,7 @@ export function AvailabilityView({
                 onChange={(e) => setEndTime(e.target.value)}
               />
             </div>
+            <LocationSelect id="slot-place" locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
             <Button type="button" className="w-full md:w-auto" disabled={submitting} onClick={handleAdd}>
               {submitting ? a.adding : a.addButton}
             </Button>

@@ -9,6 +9,7 @@ import { AvailabilityView } from "./availability-view";
 import { RecurringRules } from "./recurring-rules";
 import { ResetSchedule } from "@/components/reset-schedule";
 import { getMessages, toLocale } from "@/i18n";
+import { listLocations } from "@/lib/locations";
 
 export default async function AvailabilityPage() {
   const therapist = await getCurrentTherapist();
@@ -34,11 +35,12 @@ export default async function AvailabilityPage() {
 
   const sessions = await prisma.session.findMany({
     where: { therapistId: therapist.id, startsAt: { gte: from, lt: to } },
-    include: { booking: true },
+    include: { booking: true, location: { select: { id: true, name: true, color: true } } },
     orderBy: { startsAt: "asc" },
   });
 
-  const rules = await listRulesWithCounts(therapist.id);
+  const [rules, locations] = await Promise.all([listRulesWithCounts(therapist.id), listLocations(therapist.id)]);
+  const places = locations.map((l) => ({ id: l.id, name: l.name, color: l.color }));
   const rulesWithCounts = rules.map((rule) => ({
     id: rule.id,
     dayOfWeek: rule.dayOfWeek,
@@ -48,6 +50,9 @@ export default async function AvailabilityPage() {
     isActive: rule.isActive,
     futureOpenCount: rule.futureOpenCount,
     futureBookedCount: rule.futureBookedCount,
+    locationId: rule.location.id,
+    locationName: rule.location.name,
+    locationColor: rule.location.color,
   }));
 
   return (
@@ -61,15 +66,18 @@ export default async function AvailabilityPage() {
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
         defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+        locations={places}
         initialSessions={sessions.map((s) => ({
           id: s.id,
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           status: s.status,
           clientName: s.booking?.clientNameSnapshot ?? null,
+          locationId: s.location.id,
+          locationColor: s.location.color,
         }))}
       />
-      <RecurringRules initialRules={rulesWithCounts} />
+      <RecurringRules initialRules={rulesWithCounts} locations={places} />
       <ResetSchedule scope="slots" />
     </main>
   );

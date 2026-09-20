@@ -18,6 +18,7 @@ import type { Messages } from "@/i18n";
 import { buildTimeAxis } from "@/lib/schedule-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
+import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
 
 type SessionRow = {
   id: string;
@@ -27,6 +28,8 @@ type SessionRow = {
   clientName: string | null;
   clientPhone: string | null;
   blockedNote: string | null;
+  locationId: string;
+  locationColor: string;
 };
 
 type RawSession = {
@@ -36,6 +39,7 @@ type RawSession = {
   status: string;
   blockedNote?: string | null;
   booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null;
+  location: { id: string; name: string; color: string };
 };
 
 type ActionResult = { ok: true } | { ok: false; error: string };
@@ -46,6 +50,7 @@ type Props = {
   timezone: string;
   today: string;
   defaultDurationMinutes: number;
+  locations: PlaceOption[];
   sessions: SessionRow[];
 };
 
@@ -75,6 +80,7 @@ export function DashboardSchedule({
   timezone,
   today,
   defaultDurationMinutes,
+  locations,
   sessions: initialSessions,
 }: Props) {
   const { m, locale, dir } = useI18n();
@@ -82,7 +88,16 @@ export function DashboardSchedule({
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [granularity, setGranularity] = useState<Granularity>("week");
   const [anchorDate, setAnchorDate] = useState(today);
-  const [sessions, setSessions] = useState(initialSessions);
+  const [allSessions, setSessions] = useState(initialSessions);
+  // One calendar, seen whole or one place at a time. The filter is a view; the
+  // data underneath is always everything, so a slot opened while filtering to
+  // Ramat Gan is still there when the filter comes off.
+  const [placeFilter, setPlaceFilter] = useState<string | null>(null);
+  const sessions = useMemo(
+    () => (placeFilter ? allSessions.filter((session) => session.locationId === placeFilter) : allSessions),
+    [allSessions, placeFilter]
+  );
+  const manyPlaces = locations.length > 1;
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   // Which day the phone layout is showing. The desktop grid shows all seven at
@@ -126,6 +141,8 @@ export function DashboardSchedule({
             clientName: s.booking?.clientNameSnapshot ?? null,
             clientPhone: s.booking?.clientPhoneSnapshot ?? null,
             blockedNote: s.blockedNote ?? null,
+            locationId: s.location.id,
+            locationColor: s.location.color,
           }))
         );
       })
@@ -191,13 +208,13 @@ export function DashboardSchedule({
     setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
   }
 
-  async function handleOpenSlot(dateKey: string, time: string): Promise<ActionResult> {
+  async function handleOpenSlot(dateKey: string, time: string, locationId: string | null): Promise<ActionResult> {
     const endTime = addMinutesToTime(time, defaultDurationMinutes);
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: dateKey, startTime: time, endTime }),
+        body: JSON.stringify({ date: dateKey, startTime: time, endTime, locationId: locationId ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -221,6 +238,8 @@ export function DashboardSchedule({
           clientName: null,
           clientPhone: null,
           blockedNote: null,
+          locationId: data.session.location?.id ?? data.session.locationId,
+          locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
         },
       ]);
       return { ok: true };
@@ -358,6 +377,7 @@ export function DashboardSchedule({
             </div>
           </div>
         </div>
+        <LocationFilter locations={locations} value={placeFilter} onChange={setPlaceFilter} />
       </CardHeader>
       <CardContent>
         {loadError && <p className="text-destructive mb-3 text-sm">{loadError}</p>}
@@ -432,6 +452,9 @@ export function DashboardSchedule({
                           onBlockSlot={handleBlockSlot}
                           onReopenSlot={handleReopenSlot}
                           onDeleteSlot={handleDeleteSlot}
+                          locations={locations}
+                          defaultLocationId={placeFilter}
+                          showPlace={manyPlaces}
                         />
                       </div>
                     </div>
@@ -496,6 +519,9 @@ export function DashboardSchedule({
                             onBlockSlot={handleBlockSlot}
                             onReopenSlot={handleReopenSlot}
                             onDeleteSlot={handleDeleteSlot}
+                            locations={locations}
+                            defaultLocationId={placeFilter}
+                            showPlace={manyPlaces}
                           />
                         </td>
                       ))}
@@ -519,6 +545,7 @@ export function DashboardSchedule({
                   {fmt(session.startsAt, timezone, locale, "time")}
                 </span>
                 <span className={statusBadgeClass(sessionStatusTone(session.status))}>
+                  {manyPlaces && <LocationDot color={session.locationColor} />}
                   {session.clientName ?? s.status.open}
                 </span>
               </li>
@@ -538,20 +565,28 @@ function SlotCell({
   onBlockSlot,
   onReopenSlot,
   onDeleteSlot,
+  locations,
+  defaultLocationId,
+  showPlace,
 }: {
   session: SessionRow | undefined;
   dateKey: string;
   time: string;
-  onOpenSlot: (dateKey: string, time: string) => Promise<ActionResult>;
+  onOpenSlot: (dateKey: string, time: string, locationId: string | null) => Promise<ActionResult>;
   onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
   onReopenSlot: (sessionId: string) => Promise<ActionResult>;
   onDeleteSlot: (sessionId: string) => Promise<ActionResult>;
+  locations: PlaceOption[];
+  /** The place the calendar is filtered to, if any: the natural answer to "where?". */
+  defaultLocationId: string | null;
+  showPlace: boolean;
 }) {
   const { m } = useI18n();
   const s = m.dashboard.schedule;
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [placeId, setPlaceId] = useState(defaultLocationId ?? locations[0]?.id ?? "");
 
   // Empty cell: click opens a small popover to open a new window right here.
   if (!session) {
@@ -579,6 +614,9 @@ function SlotCell({
           >
             <p className="num text-sm font-medium">{time}</p>
             <p className="text-muted-foreground mb-2 text-xs">{s.noSlotHere}</p>
+            <div className="mb-2">
+              <LocationSelect id={`place-${dateKey}-${time}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
+            </div>
             {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
             <Button
               type="button"
@@ -588,7 +626,7 @@ function SlotCell({
               onClick={async () => {
                 setBusy(true);
                 setError(null);
-                const result = await onOpenSlot(dateKey, time);
+                const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null);
                 setBusy(false);
                 if (result.ok) setOpen(false);
                 else setError(result.error);
@@ -620,6 +658,7 @@ function SlotCell({
         }}
         trigger={
           <button type="button" className={statusBadgeClass("open") + " w-full min-h-11 md:min-h-9 justify-center"}>
+            {showPlace && <LocationDot color={session.locationColor} />}
             {chipLabel}
           </button>
         }
@@ -670,6 +709,7 @@ function SlotCell({
             type="button"
             className={statusBadgeClass("blocked") + " w-full min-h-11 md:min-h-9 justify-center"}
           >
+            {showPlace && <LocationDot color={session.locationColor} />}
             {chipLabel}
           </button>
         }
@@ -729,6 +769,7 @@ function SlotCell({
       title={hoverDetails}
       className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center"}
     >
+      {showPlace && <LocationDot color={session.locationColor} />}
       {chipLabel}
     </span>
   );

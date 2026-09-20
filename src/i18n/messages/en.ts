@@ -635,6 +635,8 @@ export const en = {
     lastLocation: "The only place cannot be removed.",
     invalid: "A name and an address or a link are needed.",
     saveError: "Could not save the place",
+    all: "All places",
+    where: "Where?",
     archiveError: "Could not remove the place",
   },
 
