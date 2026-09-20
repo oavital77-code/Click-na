@@ -14,8 +14,17 @@ import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
 
-type Slot = { id: string; startsAt: string; endsAt: string };
+type Slot = { id: string; startsAt: string; endsAt: string; locationId: string };
 type DayAvailability = { date: string; slots: Slot[] };
+
+export type PublicPlace = {
+  slug: string;
+  name: string;
+  type: "clinic" | "online" | "client_home" | "hybrid";
+  address: string | null;
+  notes: string | null;
+  color: string;
+};
 
 type Props = {
   slug: string;
@@ -24,12 +33,21 @@ type Props = {
   requirePhone: boolean;
   maxAdvanceDays: number;
   cancellationPolicyHours: number;
+  locations: PublicPlace[];
+  /** Chosen by the link itself (/book/<slug>/<place>), so the question is skipped. */
+  initialPlaceSlug: string | null;
 };
 
-export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Props) {
+export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, locations, initialPlaceSlug }: Props) {
   const { m, locale, dir } = useI18n();
   const b = m.book;
   const ERROR_MESSAGES: Record<string, string> = b.errors;
+  // One place: chosen already. Several: the link may have chosen, else we ask
+  // first — a client of the Ramat Gan clinic should never see Hod HaSharon's hours.
+  const [placeSlug, setPlaceSlug] = useState<string | null>(
+    initialPlaceSlug ?? (locations.length === 1 ? locations[0].slug : null)
+  );
+  const place = locations.find((l) => l.slug === placeSlug) ?? null;
   const [step, setStep] = useState<"date" | "time" | "form" | "confirmed">("date");
   // Kept with the range it was fetched for, so switching months derives "still
   // loading" instead of clearing state inside the effect.
@@ -68,7 +86,9 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     let cancelled = false;
     const [from, to] = rangeKey.split("_");
 
-    fetch(`/api/public/therapists/${slug}/availability?from=${from}&to=${to}`)
+    if (!placeSlug) return;
+    const at = locations.length > 1 ? `&location=${encodeURIComponent(placeSlug)}` : "";
+    fetch(`/api/public/therapists/${slug}/availability?from=${from}&to=${to}${at}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
       .then((data) => {
         if (cancelled) return;
@@ -81,7 +101,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     return () => {
       cancelled = true;
     };
-  }, [slug, rangeKey]);
+  }, [slug, rangeKey, placeSlug, locations.length]);
 
   useEffect(() => {
     if (!holdExpiresAt) return;
@@ -137,6 +157,61 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     return <p className="text-destructive text-center text-sm">{b.errors.loadTimes}</p>;
   }
 
+  if (!place) {
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-center font-medium">{b.wherePrompt}</p>
+        <ul className="flex flex-col gap-2">
+          {locations.map((option) => (
+            <li key={option.slug}>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaceSlug(option.slug);
+                  setFetched(null);
+                }}
+                className="border-border hover:bg-accent flex w-full items-center gap-3 rounded-lg border p-3 text-start transition-colors"
+              >
+                <span className="size-3 shrink-0 rounded-full" style={{ backgroundColor: option.color }} aria-hidden />
+                <span className="flex min-w-0 flex-col">
+                  <span className="font-medium">{option.name}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {m.labels.location[option.type]}
+                    {option.address ? ` · ${option.address}` : ""}
+                  </span>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  }
+
+  // The chosen place, above every step: the address a client is coming to,
+  // and — with more than one — the way back to the question.
+  const placeLine = (
+    <div className="flex flex-col items-center gap-0.5 text-center">
+      {place.address && <p className="text-muted-foreground text-sm">📍 {place.address}</p>}
+      {place.notes && <p className="text-muted-foreground text-xs">{place.notes}</p>}
+      {locations.length > 1 && (
+        <button
+          type="button"
+          className="text-primary text-xs underline underline-offset-4"
+          onClick={() => {
+            setPlaceSlug(null);
+            setStep("date");
+            setSelectedDate(null);
+            setSelectedSlot(null);
+            setHoldExpiresAt(null);
+          }}
+        >
+          {place.name} · {b.changePlace}
+        </button>
+      )}
+    </div>
+  );
+
   if (step === "confirmed" && selectedSlot) {
     return (
       <Card>
@@ -148,6 +223,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
             <br />
             {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
           </p>
+          {place.address && <p className="text-muted-foreground text-sm">📍 {place.address}</p>}
           {manageToken && (
             <div className="flex flex-wrap items-center justify-center gap-4">
               <a
@@ -241,6 +317,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
     const day = days?.find((d) => d.date === selectedDate);
     return (
       <div className="flex flex-col gap-4">
+        {placeLine}
         <Button type="button" variant="outline" size="sm" className="w-full sm:w-fit" onClick={() => setStep("date")}>
           {dir === "rtl" ? "→" : "←"} {b.pickAnotherDate}
         </Button>
@@ -264,6 +341,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Pr
 
   return (
     <div className="flex flex-col gap-3">
+      {placeLine}
       <div className="flex items-center justify-between gap-2">
         <Button
           type="button"

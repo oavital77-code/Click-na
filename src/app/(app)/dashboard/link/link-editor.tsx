@@ -48,9 +48,11 @@ function isSlugCooldownActive(slugChangedAt: string | null) {
 export function LinkEditor({
   profile: initialProfile,
   settings: initialSettings,
+  places,
 }: {
   profile: ProfileState;
   settings: SettingsState;
+  places: { slug: string; name: string; color: string }[];
 }) {
   const { m, issue } = useI18n();
   const [profile, setProfile] = useState(initialProfile);
@@ -61,6 +63,17 @@ export function LinkEditor({
   const [saved, setSaved] = useState(false);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [copiedPlace, setCopiedPlace] = useState<string | null>(null);
+
+  async function copyPlaceLink(placeSlug: string) {
+    try {
+      await navigator.clipboard.writeText(`${publicUrl}/${placeSlug}`);
+      setCopiedPlace(placeSlug);
+      setTimeout(() => setCopiedPlace(null), 2000);
+    } catch {
+      // As above: the address is on screen to copy by hand.
+    }
+  }
 
   const slugCooldownActive = isSlugCooldownActive(profile.slugChangedAt);
   const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/book/${savedSlug}`;
@@ -192,6 +205,26 @@ export function LinkEditor({
                 </a>
               </Button>
             </div>
+            {places.length > 1 && (
+              <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+                <p className="text-sm font-medium">{m.link.placeLinks}</p>
+                <p className="text-muted-foreground text-xs">{m.link.placeLinksHelp}</p>
+                <ul className="flex flex-col gap-1.5">
+                  {places.map((place) => (
+                    <li key={place.slug} className="flex items-center justify-between gap-2 text-sm">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: place.color }} aria-hidden />
+                        <span className="truncate">{place.name}</span>
+                        <span dir="ltr" className="num text-muted-foreground truncate text-xs">/{place.slug}</span>
+                      </span>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => copyPlaceLink(place.slug)}>
+                        {copiedPlace === place.slug ? m.link.copied : m.link.copyLink}
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 

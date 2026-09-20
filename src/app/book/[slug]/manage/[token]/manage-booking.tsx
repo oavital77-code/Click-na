@@ -16,6 +16,9 @@ type Props = {
   status: string;
   therapistFullName: string;
   therapistPhone: string | null;
+  /** The place this appointment is at. A reschedule stays there. */
+  placeSlug: string;
+  placeLabel: string | null;
   withinPolicyWindow: boolean;
   /** Where to pay, when the therapist takes payment online and this one is unpaid. */
   paymentUrl: string | null;
@@ -39,6 +42,8 @@ export function ManageBooking({
   status: initialStatus,
   therapistFullName,
   therapistPhone,
+  placeSlug,
+  placeLabel,
   withinPolicyWindow,
   paymentUrl,
   paymentAmount,
@@ -89,7 +94,7 @@ export function ManageBooking({
       const to = new Date(from.getTime() + 30 * 24 * 60 * 60 * 1000);
       const fmt = (d: Date) => formatInTimeZone(d, timezone, "yyyy-MM-dd");
       const res = await fetch(
-        `/api/public/therapists/${slug}/availability?from=${fmt(from)}&to=${fmt(to)}`
+        `/api/public/therapists/${slug}/availability?from=${fmt(from)}&to=${fmt(to)}&location=${encodeURIComponent(placeSlug)}`
       );
       if (!res.ok) throw new Error("failed");
       const data = await res.json();
@@ -201,6 +206,7 @@ export function ManageBooking({
           <br />
           {fmt(startsAt, timezone, locale, "time")}–{fmt(endsAt, timezone, locale, "time")}
         </p>
+        {placeLabel && <p className="text-muted-foreground text-sm">📍 {placeLabel}</p>}
 
         {!isCanceled && (
           <a

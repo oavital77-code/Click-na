@@ -10,6 +10,9 @@ import { tooManyRequests } from "@/lib/http";
 const querySchema = z.object({
   from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // A place's link handle. Given: only that place's slots. Absent: all of them,
+  // each saying where it is, so the page can offer the choice.
+  location: z.string().trim().min(1).max(40).optional(),
 });
 
 export async function GET(
@@ -37,6 +40,16 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
+  let locationId: string | undefined;
+  if (parsed.data.location) {
+    const place = await prisma.location.findFirst({
+      where: { therapistId: therapist.id, slug: parsed.data.location, archivedAt: null },
+      select: { id: true },
+    });
+    if (!place) return NextResponse.json({ error: "not_found" }, { status: 404 });
+    locationId = place.id;
+  }
+
   const now = new Date();
   const earliest = new Date(now.getTime() + therapist.settings.minNoticeHours * 60 * 60 * 1000);
   const maxDateStr = addDaysUtc(
@@ -53,14 +66,15 @@ export async function GET(
   const sessions = await prisma.session.findMany({
     where: {
       therapistId: therapist.id,
+      ...(locationId ? { locationId } : {}),
       startsAt: { gte: fromUtc, lte: toUtc, gt: earliest },
       OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
     },
-    select: { id: true, startsAt: true, endsAt: true },
+    select: { id: true, startsAt: true, endsAt: true, locationId: true },
     orderBy: { startsAt: "asc" },
   });
 
-  const days = new Map<string, { id: string; startsAt: string; endsAt: string }[]>();
+  const days = new Map<string, { id: string; startsAt: string; endsAt: string; locationId: string }[]>();
   for (const session of sessions) {
     const dateKey = formatInTimeZone(session.startsAt, therapist.timezone, "yyyy-MM-dd");
     const bucket = days.get(dateKey) ?? [];
@@ -68,6 +82,7 @@ export async function GET(
       id: session.id,
       startsAt: session.startsAt.toISOString(),
       endsAt: session.endsAt.toISOString(),
+      locationId: session.locationId,
     });
     days.set(dateKey, bucket);
   }

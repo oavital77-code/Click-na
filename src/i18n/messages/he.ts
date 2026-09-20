@@ -413,6 +413,8 @@ export const he: Messages = {
     saveAndPreview: "שמור ועדכן תצוגה",
     saveAddressError: "אירעה שגיאה בשמירת הכתובת",
     saveContentError: "אירעה שגיאה בשמירת תוכן העמוד",
+    placeLinks: "קישור לכל מקום",
+    placeLinksHelp: "שלח למטופלים של כל קליניקה את הקישור שלה, והם יראו רק את השעות שם. הקישור הראשי למעלה שואל אותם קודם איפה.",
   },
 
   addons: {
@@ -599,6 +601,8 @@ export const he: Messages = {
     loadingTimes: "טוען זמנים פנויים...",
     noTimesThisMonth: "אין זמנים פנויים בחודש זה",
     pickMarkedDay: "בחרו יום מסומן כדי לראות שעות פנויות",
+    wherePrompt: "איפה נוח לך להיפגש?",
+    changePlace: "מקום אחר",
   },
 
   locations: {

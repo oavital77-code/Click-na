@@ -245,6 +245,8 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
     });
   }
 
+  // "Where" matters to the therapist only once there is more than one answer.
+  const placeCount = await prisma.location.count({ where: { therapistId: therapist.id, archivedAt: null } });
   const { subject: therapistSubject, html: therapistHtml } = newBookingEmailForTherapist({
     locale,
     therapistFullName: therapist.fullName,
@@ -252,6 +254,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
     startsAt: session.startsAt,
     endsAt: session.endsAt,
     timezone: therapist.timezone,
+    placeName: placeCount > 1 ? session.location.name : null,
   });
   await recordNotification({
     therapistId: therapist.id,

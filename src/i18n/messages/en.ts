@@ -424,6 +424,8 @@ export const en = {
     saveAndPreview: "Save and refresh the preview",
     saveAddressError: "Something went wrong saving the address",
     saveContentError: "Something went wrong saving the page content",
+    placeLinks: "A link per place",
+    placeLinksHelp: "Send each clinic's clients its own link — they see only that place's hours. The main link above asks them where first.",
   },
 
   addons: {
@@ -610,6 +612,8 @@ export const en = {
     loadingTimes: "Loading available times…",
     noTimesThisMonth: "No available times this month",
     pickMarkedDay: "Pick a marked day to see the available times",
+    wherePrompt: "Where would you like to meet?",
+    changePlace: "Another place",
   },
 
   locations: {

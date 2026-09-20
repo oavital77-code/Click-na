@@ -121,6 +121,8 @@ export type TherapistNewBookingEmailInput = Localized & {
   startsAt: Date;
   endsAt: Date;
   timezone: string;
+  /** Named only when the therapist works from more than one place. */
+  placeName?: string | null;
 };
 
 export function newBookingEmailForTherapist(input: TherapistNewBookingEmailInput) {
@@ -132,6 +134,7 @@ export function newBookingEmailForTherapist(input: TherapistNewBookingEmailInput
       <h1 style="font-size:20px;margin:0 0 16px;">${m.newBooking.title}</h1>
       <p style="font-size:15px;line-height:1.6;">${esc(m.newBooking.lead(input.clientFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
+      ${input.placeName ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.placeName))}</p>` : ""}
     `),
   };
 }

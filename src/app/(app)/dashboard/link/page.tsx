@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentTherapist } from "@/lib/auth";
 import { LinkEditor } from "./link-editor";
 import { getMessages, toLocale } from "@/i18n";
+import { listLocations } from "@/lib/locations";
 
 export default async function LinkPage() {
   const therapist = await getCurrentTherapist();
@@ -20,9 +21,11 @@ export default async function LinkPage() {
   }
 
   const settings = therapist.settings;
+  const locations = await listLocations(therapist.id);
 
   return (
     <LinkEditor
+      places={locations.map((l) => ({ slug: l.slug, name: l.name, color: l.color }))}
       profile={{
         fullName: therapist.fullName,
         phone: therapist.phone ?? "",

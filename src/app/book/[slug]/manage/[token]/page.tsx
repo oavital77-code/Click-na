@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { formatPriceIls } from "@/lib/plan";
+import { locationLabel } from "@/lib/locations";
 import { ManageBooking } from "./manage-booking";
 import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
@@ -21,7 +22,7 @@ export default async function ManageBookingPage({
 
   const booking = await prisma.booking.findUnique({
     where: { manageToken: token },
-    include: { session: true, therapist: { include: { settings: true } } },
+    include: { session: { include: { location: true } }, therapist: { include: { settings: true } } },
   });
 
   if (!booking) {
@@ -59,6 +60,8 @@ export default async function ManageBookingPage({
         status={booking.status}
         therapistFullName={booking.therapist.fullName}
         therapistPhone={booking.therapist.phone}
+        placeSlug={booking.session.location.slug}
+        placeLabel={booking.meetingUrl ?? locationLabel(booking.session.location)}
         paymentUrl={payment?.url ?? null}
         paymentAmount={payment?.amountIls ? formatPriceIls(payment.amountIls, locale) : null}
         paid={booking.paymentStatus === "paid"}
