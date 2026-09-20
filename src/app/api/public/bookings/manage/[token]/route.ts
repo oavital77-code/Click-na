@@ -10,7 +10,7 @@ export async function GET(
   const booking = await prisma.booking.findUnique({
     where: { manageToken: token },
     include: {
-      session: true,
+      session: { include: { location: true } },
       therapist: { include: { settings: true } },
     },
   });
@@ -27,11 +27,15 @@ export async function GET(
       clientName: booking.clientNameSnapshot,
       canceledAt: booking.canceledAt?.toISOString() ?? null,
     },
+    location: {
+      name: booking.session.location.name,
+      type: booking.session.location.type,
+      address: booking.session.location.address,
+      onlineMeetingUrl: booking.meetingUrl ?? booking.session.location.onlineMeetingUrl,
+      notes: booking.session.location.notes,
+    },
     therapist: {
       fullName: booking.therapist.fullName,
-      locationType: booking.therapist.settings?.locationType,
-      locationAddress: booking.therapist.settings?.locationAddress,
-      onlineMeetingUrl: booking.therapist.settings?.onlineMeetingUrl,
       cancellationPolicyHours: booking.therapist.settings?.cancellationPolicyHours ?? 24,
       cancellationPolicyText: booking.therapist.settings?.cancellationPolicyText,
       phone: booking.therapist.phone,

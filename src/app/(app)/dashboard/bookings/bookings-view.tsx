@@ -24,6 +24,10 @@ type Booking = {
   clientName: string;
   clientPhone: string | null;
   clientNote: string | null;
+  /** Where it happens, as the message says it: the meeting link or the address. */
+  location: string | null;
+  locationName: string;
+  locationColor: string;
   manageToken: string;
   /** When a WhatsApp reminder went out — automatically or by the therapist's tap. */
   reminderSentAt: string | null;
@@ -42,14 +46,13 @@ type Props = {
   timezone: string;
   slug: string;
   therapistFullName: string;
-  location: string | null;
   treatments: Treatment[];
   initialBookings: Booking[];
 };
 
 type Filter = "today" | "tomorrow" | "week" | "all" | "recent";
 
-export function BookingsView({ timezone, slug, therapistFullName, location, treatments, initialBookings }: Props) {
+export function BookingsView({ timezone, slug, therapistFullName, treatments, initialBookings }: Props) {
   const { m, locale } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState<Filter>("today");
@@ -95,7 +98,7 @@ export function BookingsView({ timezone, slug, therapistFullName, location, trea
       startsAt: new Date(booking.startsAt),
       endsAt: new Date(booking.endsAt),
       timezone,
-      location,
+      location: booking.location,
       manageUrl: `${window.location.origin}/book/${slug}/manage/${booking.manageToken}`,
     });
     const link = whatsappLink(booking.clientPhone, text);

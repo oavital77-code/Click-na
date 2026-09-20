@@ -12,6 +12,7 @@ export async function GET() {
     include: {
       settings: true,
       subscription: true,
+      locations: true,
       availabilityRules: true,
       clients: true,
       bookings: { include: { session: true } },

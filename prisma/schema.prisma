@@ -171,6 +171,7 @@ model Therapist {
   payments          Payment[]
   clientPayments    ClientPayment[]
   treatmentTemplates TreatmentTemplate[]
+  locations         Location[]
   notifications     Notification[]
 
   @@map("therapists")
@@ -268,10 +269,6 @@ model TherapistSettings {
   bufferAfterMinutes      Int          @default(0) @map("buffer_after_minutes")
   minNoticeHours          Int          @default(12) @map("min_notice_hours")
   maxAdvanceDays          Int          @default(60) @map("max_advance_days")
-  locationType            LocationType @default(clinic) @map("location_type")
-  locationAddress         String?      @map("location_address")
-  locationNotes           String?      @map("location_notes")
-  onlineMeetingUrl        String?      @map("online_meeting_url")
   cancellationPolicyHours Int          @default(24) @map("cancellation_policy_hours")
   cancellationPolicyText  String?      @map("cancellation_policy_text")
   requirePhone            Boolean      @default(true) @map("require_phone")
@@ -303,11 +300,15 @@ model AvailabilityRule {
   isActive            Boolean   @default(true) @map("is_active")
   validFrom           DateTime? @map("valid_from") @db.Date
   validUntil          DateTime? @map("valid_until") @db.Date
+  // Where the hours this rule opens take place. Every slot it generates inherits it.
+  locationId          String    @map("location_id") @db.Uuid
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
+  location  Location  @relation(fields: [locationId], references: [id])
   sessions  Session[]
 
   @@index([therapistId])
+  @@index([locationId])
   @@map("availability_rules")
 }
 
@@ -321,15 +322,20 @@ model Session {
   generatedFromRuleId String?       @map("generated_from_rule_id") @db.Uuid
   holdExpiresAt       DateTime?     @map("hold_expires_at") @db.Timestamptz
   version             Int           @default(0)
+  // Where this slot takes place. One therapist, one calendar: the overlap
+  // constraint spans every location, because nobody is in two clinics at once.
+  locationId          String        @map("location_id") @db.Uuid
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   therapist         Therapist         @relation(fields: [therapistId], references: [id])
+  location          Location          @relation(fields: [locationId], references: [id])
   generatedFromRule AvailabilityRule? @relation(fields: [generatedFromRuleId], references: [id])
   booking           Booking?
 
   @@index([therapistId, startsAt])
   @@index([therapistId, status, startsAt])
+  @@index([locationId])
   @@map("sessions")
 }
 
@@ -435,6 +441,35 @@ model ClientPayment {
 // when they ask the client to pay, so a first consultation and a double
 // session are not forced onto one price — and a sum outside the menu can
 // still be typed by hand.
+/// A place the therapist works from: a clinic in Ramat Gan, a room in Hod
+/// HaSharon, "online". Hours and slots belong to one of these; the address a
+/// client is sent comes from here. Archived rather than deleted so the past
+/// bookings that point at it keep their address.
+model Location {
+  id               String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId      String       @map("therapist_id") @db.Uuid
+  name             String       @db.VarChar(80)
+  /// Per-therapist handle for the public link: /book/<therapist>/<slug>.
+  slug             String       @db.VarChar(40)
+  type             LocationType @default(clinic)
+  address          String?
+  onlineMeetingUrl String?      @map("online_meeting_url")
+  notes            String?
+  /// Hex, chosen from a small palette. Tells locations apart in the calendar.
+  color            String       @db.VarChar(7)
+  sortOrder        Int          @default(0) @map("sort_order")
+  archivedAt       DateTime?    @map("archived_at") @db.Timestamptz
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+
+  therapist Therapist          @relation(fields: [therapistId], references: [id])
+  rules     AvailabilityRule[]
+  sessions  Session[]
+
+  @@unique([therapistId, slug])
+  @@index([therapistId, sortOrder])
+  @@map("locations")
+}
+
 model TreatmentTemplate {
   id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   therapistId String   @map("therapist_id") @db.Uuid

@@ -26,10 +26,6 @@ type SettingsState = {
   bufferAfterMinutes: number;
   minNoticeHours: number;
   maxAdvanceDays: number;
-  locationType: OnboardingInput["locationType"];
-  locationAddress: string;
-  locationNotes: string;
-  onlineMeetingUrl: string;
   cancellationPolicyHours: number;
   cancellationPolicyText: string;
   requirePhone: boolean;

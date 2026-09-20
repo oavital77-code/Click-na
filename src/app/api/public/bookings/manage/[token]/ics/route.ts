@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateBookingIcs } from "@/lib/ics";
 import { getMessages, toLocale } from "@/i18n";
+import { locationLabel } from "@/lib/locations";
 
 export async function GET(
   _request: NextRequest,
@@ -11,17 +12,14 @@ export async function GET(
 
   const booking = await prisma.booking.findUnique({
     where: { manageToken: token },
-    include: { session: true, therapist: { include: { settings: true } } },
+    include: { session: { include: { location: true } }, therapist: true },
   });
 
   if (!booking || booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  const location =
-    booking.therapist.settings?.locationAddress ??
-    booking.therapist.settings?.onlineMeetingUrl ??
-    null;
+  const location = booking.meetingUrl ?? locationLabel(booking.session.location);
 
   const ics = generateBookingIcs({
     uid: booking.id,

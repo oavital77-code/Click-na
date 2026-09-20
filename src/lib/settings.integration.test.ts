@@ -32,9 +32,6 @@ describe("updateSettings (against a live database)", () => {
       bufferAfterMinutes: 10,
       minNoticeHours: 6,
       maxAdvanceDays: 45,
-      locationType: "hybrid",
-      locationAddress: "כתובת",
-      onlineMeetingUrl: "https://zoom.us/j/123",
       cancellationPolicyHours: 12,
       cancellationPolicyText: "בטלו בזמן",
       requirePhone: false,
@@ -55,9 +52,6 @@ describe("updateSettings (against a live database)", () => {
       bufferAfterMinutes: 10,
       minNoticeHours: 6,
       maxAdvanceDays: 45,
-      locationType: "hybrid",
-      locationAddress: "כתובת",
-      onlineMeetingUrl: "https://zoom.us/j/123",
       cancellationPolicyHours: 12,
       cancellationPolicyText: "בטלו בזמן",
       requirePhone: false,
@@ -65,7 +59,6 @@ describe("updateSettings (against a live database)", () => {
       brandColor: "#ff00aa",
       bookingPageHeadline: "ברוכים הבאים",
       // Optional fields not provided this call must fall back to null, not stay stale.
-      locationNotes: null,
       brandLogoUrl: null,
       bookingPageDescription: null,
     });
@@ -78,9 +71,8 @@ describe("updateSettings (against a live database)", () => {
       bufferAfterMinutes: 0,
       minNoticeHours: 12,
       maxAdvanceDays: 60,
-      locationType: "clinic",
-      locationAddress: "כתובת ראשונה",
       cancellationPolicyHours: 24,
+      cancellationPolicyText: "בטלו בזמן",
       requirePhone: true,
       autoConfirm: true,
       sendEmailConfirmation: true,
@@ -95,8 +87,6 @@ describe("updateSettings (against a live database)", () => {
       bufferAfterMinutes: 0,
       minNoticeHours: 12,
       maxAdvanceDays: 60,
-      locationType: "online",
-      onlineMeetingUrl: "https://zoom.us/j/456",
       cancellationPolicyHours: 24,
       requirePhone: true,
       autoConfirm: true,
@@ -106,7 +96,6 @@ describe("updateSettings (against a live database)", () => {
       reminderHoursBefore: 24,
     });
 
-    expect(afterClear.locationAddress).toBeNull();
-    expect(afterClear.onlineMeetingUrl).toBe("https://zoom.us/j/456");
+    expect(afterClear.cancellationPolicyText).toBeNull();
   });
 });

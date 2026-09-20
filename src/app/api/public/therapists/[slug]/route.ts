@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { accessState, acceptsNewBookings } from "@/lib/access";
+import { listLocations } from "@/lib/locations";
 
 export async function GET(_request: NextRequest, ctx: RouteContext<"/api/public/therapists/[slug]">) {
   const { slug } = await ctx.params;
@@ -23,6 +24,15 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/public/
   }
 
   const s = therapist.settings;
+  const locations = (await listLocations(therapist.id)).map((l) => ({
+    id: l.id,
+    slug: l.slug,
+    name: l.name,
+    type: l.type,
+    address: l.address,
+    notes: l.notes,
+    color: l.color,
+  }));
   return NextResponse.json({
     therapist: {
       fullName: therapist.fullName,
@@ -30,10 +40,7 @@ export async function GET(_request: NextRequest, ctx: RouteContext<"/api/public/
       timezone: therapist.timezone,
       professionType: therapist.professionType,
       defaultDurationMinutes: s.defaultDurationMinutes,
-      locationType: s.locationType,
-      locationAddress: s.locationAddress,
-      locationNotes: s.locationNotes,
-      onlineMeetingUrl: s.onlineMeetingUrl,
+      locations,
       cancellationPolicyHours: s.cancellationPolicyHours,
       cancellationPolicyText: s.cancellationPolicyText,
       requirePhone: s.requirePhone,

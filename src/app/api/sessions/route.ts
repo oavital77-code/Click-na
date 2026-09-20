@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { isExclusionViolation } from "@/lib/prisma-errors";
+import { resolveLocationId } from "@/lib/locations";
 import { writeBlocked } from "@/lib/require-access";
 
 const querySchema = z.object({
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
       therapistId: therapist.id,
       startsAt: { gte: new Date(parsed.data.from), lt: new Date(parsed.data.to) },
     },
-    include: { booking: true },
+    include: { booking: true, location: { select: { id: true, name: true, color: true } } },
     orderBy: { startsAt: "asc" },
   });
 
@@ -40,6 +41,8 @@ const createSchema = z
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+    // Where the slot is. Omitted: the therapist's default place.
+    locationId: z.string().uuid().optional(),
   })
   .refine((d) => d.startTime < d.endTime, { message: "end must be after start", path: ["endTime"] });
 
@@ -64,9 +67,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "in_past" }, { status: 422 });
   }
 
+  const locationId = await resolveLocationId(therapist.id, parsed.data.locationId);
+
   try {
     const session = await prisma.session.create({
-      data: { therapistId: therapist.id, startsAt, endsAt },
+      data: { therapistId: therapist.id, locationId, startsAt, endsAt },
+      include: { location: { select: { id: true, name: true, color: true } } },
     });
     return NextResponse.json({ session }, { status: 201 });
   } catch (error) {

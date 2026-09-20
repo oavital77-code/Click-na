@@ -36,6 +36,7 @@ describe("completeOnboarding (against a live database)", () => {
   afterEach(async () => {
     await prisma.session.deleteMany({ where: { therapistId } });
     await prisma.availabilityRule.deleteMany({ where: { therapistId } });
+    await prisma.location.deleteMany({ where: { therapistId } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.deleteMany({ where: { id: therapistId } });
@@ -53,7 +54,9 @@ describe("completeOnboarding (against a live database)", () => {
     expect(therapist.slug).toBe("onboarding-integration-slug");
     expect(therapist.fullName).toBe("לירון כהן");
     expect(therapist.settings?.defaultDurationMinutes).toBe(50);
-    expect(therapist.settings?.locationAddress).toBe("רוטשילד 12, תל אביב");
+    const place = await prisma.location.findFirstOrThrow({ where: { therapistId } });
+    expect(place.type).toBe("clinic");
+    expect(place.address).toBe("רוטשילד 12, תל אביב");
 
     const rules = await prisma.availabilityRule.findMany({ where: { therapistId } });
     expect(rules).toHaveLength(3);
@@ -79,6 +82,7 @@ describe("completeOnboarding (against a live database)", () => {
     const therapist = await prisma.therapist.findUniqueOrThrow({ where: { id: therapistId } });
     expect(therapist.onboardingCompleted).toBe(false);
 
+    await prisma.location.deleteMany({ where: { therapistId: other.id } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId: other.id } });
     await prisma.subscription.deleteMany({ where: { therapistId: other.id } });
     await prisma.therapist.deleteMany({ where: { id: other.id } });

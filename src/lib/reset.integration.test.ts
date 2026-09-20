@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 import { SlotNotDeletableError, deleteSlot, resetSchedule } from "@/lib/reset";
 import { createBooking } from "@/lib/bookings";
 
@@ -24,6 +25,7 @@ describe("reset (against a live database)", () => {
     return prisma.session.create({
       data: {
         therapistId,
+        locationId: (await ensureDefaultLocation(therapistId)).id,
         startsAt: new Date(Date.now() + hours * 60 * 60 * 1000),
         endsAt: new Date(Date.now() + (hours + 1) * 60 * 60 * 1000),
         status,
@@ -49,6 +51,7 @@ describe("reset (against a live database)", () => {
       await prisma.client.deleteMany({ where: { therapistId } });
       await prisma.session.deleteMany({ where: { therapistId } });
       await prisma.availabilityRule.deleteMany({ where: { therapistId } });
+      await prisma.location.deleteMany({ where: { therapistId } });
       await prisma.therapistSettings.deleteMany({ where: { therapistId } });
       await prisma.subscription.deleteMany({ where: { therapistId } });
       await prisma.therapist.deleteMany({ where: { id: therapistId } });
@@ -132,6 +135,7 @@ describe("reset (against a live database)", () => {
       await prisma.availabilityRule.create({
         data: {
           therapistId,
+          locationId: (await ensureDefaultLocation(therapistId)).id,
           dayOfWeek: 1,
           startTime: new Date("1970-01-01T09:00:00Z"),
           endTime: new Date("1970-01-01T17:00:00Z"),

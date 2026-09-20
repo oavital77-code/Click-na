@@ -13,6 +13,8 @@ export const ruleCreateSchema = z
     startTime: timeSchema,
     endTime: timeSchema,
     slotDurationMinutes: durationSchema,
+    // Where these hours take place. Omitted: the therapist's default place.
+    locationId: z.string().uuid().optional(),
   })
   .refine((d) => d.startTime < d.endTime, {
     message: "validation.endAfterStart",
@@ -29,6 +31,7 @@ export const ruleUpdateSchema = z
     endTime: timeSchema,
     slotDurationMinutes: durationSchema,
     isActive: z.boolean(),
+    locationId: z.string().uuid().optional(),
   })
   .refine((d) => d.startTime < d.endTime, {
     message: "validation.endAfterStart",

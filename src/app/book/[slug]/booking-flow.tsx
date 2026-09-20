@@ -24,7 +24,6 @@ type Props = {
   requirePhone: boolean;
   maxAdvanceDays: number;
   cancellationPolicyHours: number;
-  location: { address: string | null; onlineMeetingUrl: string | null };
 };
 
 export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays }: Props) {

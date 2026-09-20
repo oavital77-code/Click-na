@@ -4,6 +4,7 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { SettingsView } from "./settings-view";
 import { TreatmentTemplates } from "./treatment-templates";
 import { listTreatments } from "@/lib/treatments";
+import { listLocations } from "@/lib/locations";
 import { getMessages, toLocale } from "@/i18n";
 
 export default async function SettingsPage() {
@@ -26,7 +27,7 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const treatments = await listTreatments(therapist.id);
+  const [treatments, locations] = await Promise.all([listTreatments(therapist.id), listLocations(therapist.id)]);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
@@ -50,10 +51,6 @@ export default async function SettingsPage() {
           bufferAfterMinutes: therapist.settings.bufferAfterMinutes,
           minNoticeHours: therapist.settings.minNoticeHours,
           maxAdvanceDays: therapist.settings.maxAdvanceDays,
-          locationType: therapist.settings.locationType,
-          locationAddress: therapist.settings.locationAddress ?? "",
-          locationNotes: therapist.settings.locationNotes ?? "",
-          onlineMeetingUrl: therapist.settings.onlineMeetingUrl ?? "",
           cancellationPolicyHours: therapist.settings.cancellationPolicyHours,
           cancellationPolicyText: therapist.settings.cancellationPolicyText ?? "",
           requirePhone: therapist.settings.requirePhone,
@@ -67,6 +64,7 @@ export default async function SettingsPage() {
           bookingPageHeadline: therapist.settings.bookingPageHeadline ?? "",
           bookingPageDescription: therapist.settings.bookingPageDescription ?? "",
         }}
+        locations={locations}
       />
       <TreatmentTemplates initial={treatments} />
     </main>

@@ -102,6 +102,7 @@ export async function generateOpenSessions(tx: Tx, therapistId: string) {
 
         candidates.push({
           therapistId,
+          locationId: rule.locationId,
           startsAt,
           endsAt: zonedDateTimeToUtc(dateStr, endTimeStr, therapist.timezone),
           generatedFromRuleId: rule.id,

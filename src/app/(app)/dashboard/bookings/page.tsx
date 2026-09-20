@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { BookingsView } from "./bookings-view";
 import { getMessages, toLocale } from "@/i18n";
+import { locationLabel } from "@/lib/locations";
 
 export default async function BookingsPage() {
   const therapist = await getCurrentTherapist();
@@ -33,7 +34,7 @@ export default async function BookingsPage() {
 
   const bookings = await prisma.booking.findMany({
     where: { therapistId: therapist.id, session: { startsAt: { gte: from, lt: to } } },
-    include: { session: true },
+    include: { session: { include: { location: true } } },
     orderBy: { session: { startsAt: "asc" } },
   });
 
@@ -67,7 +68,6 @@ export default async function BookingsPage() {
         timezone={therapist.timezone}
         slug={therapist.slug}
         therapistFullName={therapist.fullName}
-        location={therapist.settings?.locationAddress ?? therapist.settings?.onlineMeetingUrl ?? null}
         treatments={treatments}
         initialBookings={bookings.map((b) => ({
           id: b.id,
@@ -77,6 +77,9 @@ export default async function BookingsPage() {
           clientName: b.clientNameSnapshot,
           clientPhone: b.clientPhoneSnapshot,
           clientNote: b.clientNote,
+          location: b.meetingUrl ?? locationLabel(b.session.location),
+          locationName: b.session.location.name,
+          locationColor: b.session.location.color,
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
           hasScheduledReminder: hasReminder.has(b.id),

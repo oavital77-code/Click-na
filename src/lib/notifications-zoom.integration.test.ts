@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 
 const sendEmailMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/email", () => ({ sendEmail: sendEmailMock }));
@@ -20,7 +21,12 @@ const ZOOM = { accountId: "acc", clientId: "cid", clientSecret: "secret" };
 describe("Zoom meetings on booking (against a live database)", () => {
   const therapistIds: string[] = [];
 
-  async function makeTherapist(settingsOverrides: Record<string, unknown> = {}) {
+  async function makeTherapist(
+    place: { type: "online" | "clinic"; address?: string; onlineMeetingUrl?: string } = {
+      type: "online",
+      onlineMeetingUrl: "https://meet.example.com/static-room",
+    }
+  ) {
     const therapist = await prisma.therapist.create({
       data: {
         email: `zoom-therapist-${Date.now()}-${Math.random()}@example.com`,
@@ -32,11 +38,18 @@ describe("Zoom meetings on booking (against a live database)", () => {
           create: {
             minNoticeHours: 1,
             cancellationPolicyHours: 1,
-            locationType: "online",
-            onlineMeetingUrl: "https://meet.example.com/static-room",
             sendEmailConfirmation: true,
             sendEmailReminder: false,
-            ...settingsOverrides,
+          },
+        },
+        locations: {
+          create: {
+            name: "Room",
+            slug: "main",
+            type: place.type,
+            address: place.address ?? null,
+            onlineMeetingUrl: place.onlineMeetingUrl ?? null,
+            color: "#c2703d",
           },
         },
       },
@@ -49,6 +62,7 @@ describe("Zoom meetings on booking (against a live database)", () => {
     const session = await prisma.session.create({
       data: {
         therapistId,
+        locationId: (await ensureDefaultLocation(therapistId)).id,
         startsAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         endsAt: new Date(Date.now() + 48 * 60 * 60 * 1000 + 50 * 60 * 1000),
       },
@@ -79,6 +93,7 @@ describe("Zoom meetings on booking (against a live database)", () => {
       await prisma.client.deleteMany({ where: { therapistId } });
       await prisma.session.deleteMany({ where: { therapistId } });
       await prisma.integration.deleteMany({ where: { therapistId } });
+      await prisma.location.deleteMany({ where: { therapistId } });
       await prisma.therapistSettings.deleteMany({ where: { therapistId } });
       await prisma.subscription.deleteMany({ where: { therapistId } });
       await prisma.therapist.deleteMany({ where: { id: therapistId } });
@@ -127,11 +142,7 @@ describe("Zoom meetings on booking (against a live database)", () => {
   });
 
   it("leaves an in-person therapist alone", async () => {
-    const therapistId = await makeTherapist({
-      locationType: "clinic",
-      locationAddress: "רוטשילד 12",
-      onlineMeetingUrl: null,
-    });
+    const therapistId = await makeTherapist({ type: "clinic", address: "רוטשילד 12" });
     await connectIntegration(therapistId, "zoom", ZOOM);
     const booking = await makeBookingFor(therapistId);
 

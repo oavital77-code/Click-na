@@ -22,10 +22,11 @@ import {
 } from "@/components/ui/card";
 import {
   DURATION_OPTIONS,
-  LOCATION_TYPES,
   PROFESSION_TYPES,
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
+import { LocationsCard } from "./locations-card";
+import type { Location } from "@/lib/location-schema";
 import { useI18n } from "@/i18n/client";
 import { LOCALES, type Locale } from "@/i18n/config";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
@@ -46,10 +47,6 @@ type SettingsState = {
   bufferAfterMinutes: number;
   minNoticeHours: number;
   maxAdvanceDays: number;
-  locationType: OnboardingInput["locationType"];
-  locationAddress: string;
-  locationNotes: string;
-  onlineMeetingUrl: string;
   cancellationPolicyHours: number;
   cancellationPolicyText: string;
   requirePhone: boolean;
@@ -94,9 +91,11 @@ function isSlugCooldownActive(slugChangedAt: string | null) {
 export function SettingsView({
   profile: initialProfile,
   settings: initialSettings,
+  locations,
 }: {
   profile: ProfileState;
   settings: SettingsState;
+  locations: Location[];
 }) {
   const router = useRouter();
   const { m, issue } = useI18n();
@@ -356,63 +355,7 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      {/* Location */}
-      <Card>
-        <CardHeader>
-          <CardTitle>{m.settings.locationCard}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="locationType">{m.settings.locationType}</Label>
-            <Select
-              value={settings.locationType}
-              onValueChange={(v) => updateSettings("locationType", v as SettingsState["locationType"])}
-            >
-              <SelectTrigger id="locationType">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {LOCATION_TYPES.map((l) => (
-                  <SelectItem key={l} value={l}>
-                    {m.labels.location[l]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {(settings.locationType === "clinic" ||
-            settings.locationType === "client_home" ||
-            settings.locationType === "hybrid") && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="locationAddress">{m.settings.address}</Label>
-              <Input
-                id="locationAddress"
-                value={settings.locationAddress}
-                onChange={(e) => updateSettings("locationAddress", e.target.value)}
-              />
-            </div>
-          )}
-          {(settings.locationType === "online" || settings.locationType === "hybrid") && (
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="onlineMeetingUrl">{m.settings.meetingUrl}</Label>
-              <Input
-                id="onlineMeetingUrl"
-                dir="ltr"
-                value={settings.onlineMeetingUrl}
-                onChange={(e) => updateSettings("onlineMeetingUrl", e.target.value)}
-              />
-            </div>
-          )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="locationNotes">{m.settings.locationNotes}</Label>
-            <Input
-              id="locationNotes"
-              value={settings.locationNotes}
-              onChange={(e) => updateSettings("locationNotes", e.target.value)}
-            />
-          </div>
-        </CardContent>
-      </Card>
+      <LocationsCard initial={locations} />
 
       {/* Cancellation and booking policy */}
       <Card>

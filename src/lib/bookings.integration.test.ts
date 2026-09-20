@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 import {
   holdSession,
   createBooking,
@@ -31,6 +32,7 @@ describe("bookings (against a live database)", () => {
   });
 
   afterAll(async () => {
+    await prisma.location.deleteMany({ where: { therapistId } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.deleteMany({ where: { id: therapistId } });
@@ -40,6 +42,7 @@ describe("bookings (against a live database)", () => {
     return prisma.session.create({
       data: {
         therapistId,
+        locationId: (await ensureDefaultLocation(therapistId)).id,
         startsAt: new Date(Date.now() + hoursFromNow * 60 * 60 * 1000),
         endsAt: new Date(Date.now() + (hoursFromNow + 1) * 60 * 60 * 1000),
       },
@@ -265,6 +268,7 @@ describe("bookings (against a live database)", () => {
       const otherSession = await prisma.session.create({
         data: {
           therapistId: other.id,
+          locationId: (await ensureDefaultLocation(other.id)).id,
           startsAt: new Date(Date.now() + 72 * 60 * 60 * 1000),
           endsAt: new Date(Date.now() + 73 * 60 * 60 * 1000),
         },
@@ -275,6 +279,7 @@ describe("bookings (against a live database)", () => {
       expect(result).toEqual({ ok: false, error: "not_found" });
 
       await prisma.session.deleteMany({ where: { therapistId: other.id } });
+      await prisma.location.deleteMany({ where: { therapistId: other.id } });
       await prisma.therapistSettings.deleteMany({ where: { therapistId: other.id } });
       await prisma.subscription.deleteMany({ where: { therapistId: other.id } });
       await prisma.therapist.deleteMany({ where: { id: other.id } });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { generateOpenSessions, toTimeValue } from "@/lib/availability";
 import { checkSlugAvailability } from "@/lib/profile";
+import { upsertPrimaryLocation } from "@/lib/locations";
 import { isUniqueViolation } from "@/lib/prisma-errors";
 import type { OnboardingInput } from "@/lib/onboarding-schema";
 
@@ -20,7 +21,7 @@ export async function completeOnboarding(
 
   try {
     await prisma.$transaction(async (tx) => {
-      await tx.therapist.update({
+      const therapist = await tx.therapist.update({
         where: { id: therapistId },
         data: {
           fullName: data.fullName,
@@ -33,19 +34,17 @@ export async function completeOnboarding(
 
       await tx.therapistSettings.upsert({
         where: { therapistId },
-        create: {
-          therapistId,
-          defaultDurationMinutes: data.defaultDurationMinutes,
-          locationType: data.locationType,
-          locationAddress: data.locationAddress || null,
-          onlineMeetingUrl: data.onlineMeetingUrl || null,
-        },
-        update: {
-          defaultDurationMinutes: data.defaultDurationMinutes,
-          locationType: data.locationType,
-          locationAddress: data.locationAddress || null,
-          onlineMeetingUrl: data.onlineMeetingUrl || null,
-        },
+        create: { therapistId, defaultDurationMinutes: data.defaultDurationMinutes },
+        update: { defaultDurationMinutes: data.defaultDurationMinutes },
+      });
+
+      // "Where do you work?" is the therapist's first place. Their hours below
+      // belong to it; a second place is a settings matter, later.
+      const locationId = await upsertPrimaryLocation(tx, therapistId, {
+        locale: therapist.locale,
+        type: data.locationType,
+        address: data.locationAddress,
+        onlineMeetingUrl: data.onlineMeetingUrl,
       });
 
       // When given, onboarding writes the therapist's full current weekly
@@ -58,6 +57,7 @@ export async function completeOnboarding(
         await tx.availabilityRule.createMany({
           data: availability.days.map((dayOfWeek) => ({
             therapistId,
+            locationId,
             dayOfWeek,
             startTime: toTimeValue(availability.startTime),
             endTime: toTimeValue(availability.endTime),

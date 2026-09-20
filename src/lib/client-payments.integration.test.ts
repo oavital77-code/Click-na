@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 
 // Connecting normally calls the provider; these tests are about what a booking
 // ends up with, so the verifier is stubbed and the provider's HTTP is faked.
@@ -47,7 +48,7 @@ describe("client payments (against a live database)", () => {
     verifyCredentials.mockResolvedValue({ ok: true, accountLabel: "x" });
     const startsAt = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
     const session = await prisma.session.create({
-      data: { therapistId, startsAt, endsAt: new Date(startsAt.getTime() + 50 * 60 * 1000), status: "booked" },
+      data: { therapistId, locationId: (await ensureDefaultLocation(therapistId)).id, startsAt, endsAt: new Date(startsAt.getTime() + 50 * 60 * 1000), status: "booked" },
     });
     const client = await prisma.client.create({
       data: { therapistId, fullName: "Dana", email: `dana-${Date.now()}@example.com`, phone: "0501234567" },
@@ -78,6 +79,7 @@ describe("client payments (against a live database)", () => {
   });
 
   afterAll(async () => {
+    await prisma.location.deleteMany({ where: { therapistId } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.delete({ where: { id: therapistId } });
@@ -236,6 +238,7 @@ describe("client payments (against a live database)", () => {
       try {
         expect(await markBookingPaidByTherapist(other.id, bookingId, true)).toEqual({ ok: false, error: "NOT_FOUND" });
       } finally {
+        await prisma.location.deleteMany({ where: { therapistId: other.id } });
         await prisma.therapistSettings.deleteMany({ where: { therapistId: other.id } });
         await prisma.subscription.deleteMany({ where: { therapistId: other.id } });
         await prisma.therapist.delete({ where: { id: other.id } });

@@ -6,6 +6,7 @@ import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 import { resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
 import { accessState, acceptsNewBookings } from "@/lib/access";
+import { listLocations } from "@/lib/locations";
 import { BookingFlow } from "./booking-flow";
 
 /**
@@ -89,6 +90,7 @@ export default async function BookingPage({
     );
   }
   const brandHsl = settings.brandColor ? hexToHslTriple(settings.brandColor) : null;
+  const locations = await listLocations(therapist.id);
 
   return (
     <I18nProvider locale={locale}>
@@ -119,8 +121,8 @@ export default async function BookingPage({
           {therapist.professionType && m.labels.profession[therapist.professionType]} ·{" "}
           {m.common.minutes(settings.defaultDurationMinutes)}
         </p>
-        {settings.locationAddress && (
-          <p className="text-muted-foreground text-sm">📍 {settings.locationAddress}</p>
+        {locations.length === 1 && locations[0].address && (
+          <p className="text-muted-foreground text-sm">📍 {locations[0].address}</p>
         )}
         {settings.bookingPageDescription && (
           <p className="text-muted-foreground mt-2 text-sm">{settings.bookingPageDescription}</p>
@@ -134,10 +136,6 @@ export default async function BookingPage({
         requirePhone={settings.requirePhone}
         maxAdvanceDays={settings.maxAdvanceDays}
         cancellationPolicyHours={settings.cancellationPolicyHours}
-        location={{
-          address: settings.locationAddress,
-          onlineMeetingUrl: settings.onlineMeetingUrl,
-        }}
       />
     </main>
     </I18nProvider>

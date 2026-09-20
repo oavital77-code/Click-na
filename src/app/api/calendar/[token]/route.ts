@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { generateCalendarFeed, type FeedEvent } from "@/lib/ics";
 import { getMessages, toLocale } from "@/i18n";
+import { locationLabel } from "@/lib/locations";
 
 // How much of the schedule the feed carries. Calendar clients replace the whole
 // feed on every poll, so a bounded window keeps the response small without the
@@ -19,7 +20,7 @@ export async function GET(
 
   const integration = await prisma.integration.findUnique({
     where: { feedToken: token },
-    include: { therapist: { include: { settings: true } } },
+    include: { therapist: true },
   });
 
   if (!integration || integration.provider !== "calendar") {
@@ -43,21 +44,18 @@ export async function GET(
       status: { in: ["booked", "completed", "blocked"] },
       startsAt: { gte: new Date(now - PAST_DAYS * DAY_MS), lte: new Date(now + FUTURE_DAYS * DAY_MS) },
     },
-    include: { booking: true },
+    include: { booking: true, location: true },
     orderBy: { startsAt: "asc" },
   });
-
-  const settings = integration.therapist.settings;
-  const location = settings?.locationAddress ?? settings?.onlineMeetingUrl ?? null;
 
   const events: FeedEvent[] = sessions.map((session) => ({
     uid: `${session.id}@cleana`,
     startsAt: session.startsAt,
     endsAt: session.endsAt,
     title: session.booking?.clientNameSnapshot ?? session.blockedNote ?? m.appointment,
-    // The meeting opened for this specific booking beats the therapist's default
-    // location — it's the thing they need to click at the top of the hour.
-    location: session.booking?.meetingUrl ?? location,
+    // The meeting opened for this specific booking beats the address of the
+    // place — it's the thing they need to click at the top of the hour.
+    location: session.booking?.meetingUrl ?? locationLabel(session.location),
   }));
 
   return icsResponse(generateCalendarFeed({ calendarName, events }));

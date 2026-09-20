@@ -15,7 +15,7 @@ const httpUrl = z
   .max(500)
   .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
-import { PROFESSION_TYPES, LOCATION_TYPES, DURATION_OPTIONS } from "@/lib/onboarding-schema";
+import { PROFESSION_TYPES, DURATION_OPTIONS } from "@/lib/onboarding-schema";
 
 export const profileSchema = z.object({
   fullName: z.string().trim().min(2, "validation.nameTooShort").max(255),
@@ -44,10 +44,6 @@ export const settingsSchema = z
     bufferAfterMinutes: timeUnitSchema.max(120),
     minNoticeHours: timeUnitSchema.max(24 * 30),
     maxAdvanceDays: z.number().int().min(1).max(365),
-    locationType: z.enum(LOCATION_TYPES),
-    locationAddress: z.string().trim().max(500).optional(),
-    locationNotes: z.string().trim().max(500).optional(),
-    onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
     cancellationPolicyHours: timeUnitSchema.max(24 * 30),
     cancellationPolicyText: z.string().trim().max(1000).optional(),
     requirePhone: z.boolean(),
@@ -65,19 +61,6 @@ export const settingsSchema = z
     brandLogoUrl: httpUrl.optional().or(z.literal("")),
     bookingPageHeadline: z.string().trim().max(255).optional(),
     bookingPageDescription: z.string().trim().max(1000).optional(),
-  })
-  .refine((data) => data.locationType !== "online" || !!data.onlineMeetingUrl, {
-    message: "validation.meetingUrlRequired",
-    path: ["onlineMeetingUrl"],
-  })
-  .refine(
-    (data) => !["clinic", "client_home"].includes(data.locationType) || !!data.locationAddress,
-    { message: "validation.addressRequired", path: ["locationAddress"] }
-  )
-  .refine(
-    (data) =>
-      data.locationType !== "hybrid" || !!(data.locationAddress || data.onlineMeetingUrl),
-    { message: "validation.addressOrMeetingUrlRequired", path: ["locationAddress"] }
-  );
+  });
 
 export type SettingsInput = z.infer<typeof settingsSchema>;

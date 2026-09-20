@@ -612,6 +612,32 @@ export const en = {
     pickMarkedDay: "Pick a marked day to see the available times",
   },
 
+  locations: {
+    title: "Places",
+    lead: "Where you see clients. Every slot belongs to one place; with more than one, each gets its own colour on the calendar and its own booking link.",
+    name: "Name",
+    namePlaceholder: "e.g. Ramat Gan clinic",
+    type: "Type",
+    address: "Address",
+    meetingUrl: "Online meeting link",
+    notes: "Directions, parking",
+    color: "Colour",
+    addButton: "+ Add a place",
+    add: "Add",
+    adding: "Adding…",
+    save: "Save",
+    saving: "Saving…",
+    edit: "Edit",
+    archive: "Remove",
+    archiveQuestion: (name: string) =>
+      `Remove ${name}? Its recurring hours stop and its empty future slots are removed. Booked appointments stay exactly as they are.`,
+    archiveConfirm: "Yes, remove",
+    lastLocation: "The only place cannot be removed.",
+    invalid: "A name and an address or a link are needed.",
+    saveError: "Could not save the place",
+    archiveError: "Could not remove the place",
+  },
+
   treatments: {
     title: "Treatments and prices",
     lead: "The menu you pick from when asking for payment after a session. A different sum can always be typed by hand.",

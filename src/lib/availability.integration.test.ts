@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 import { generateOpenSessions } from "@/lib/availability";
 
 describe("generateOpenSessions (against a live database)", () => {
@@ -24,6 +25,7 @@ describe("generateOpenSessions (against a live database)", () => {
     await prisma.availabilityRule.create({
       data: {
         therapistId,
+        locationId: (await ensureDefaultLocation(therapistId)).id,
         dayOfWeek: todayDow,
         startTime: new Date(Date.UTC(1970, 0, 1, 9, 0)),
         endTime: new Date(Date.UTC(1970, 0, 1, 12, 0)),
@@ -35,6 +37,7 @@ describe("generateOpenSessions (against a live database)", () => {
   afterAll(async () => {
     await prisma.session.deleteMany({ where: { therapistId } });
     await prisma.availabilityRule.deleteMany({ where: { therapistId } });
+    await prisma.location.deleteMany({ where: { therapistId } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.deleteMany({ where: { id: therapistId } });

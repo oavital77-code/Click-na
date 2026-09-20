@@ -27,6 +27,7 @@ describe("availability-rules (against a live database)", () => {
   });
 
   afterAll(async () => {
+    await prisma.location.deleteMany({ where: { therapistId } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.deleteMany({ where: { id: therapistId } });

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { ensureDefaultLocation } from "@/lib/locations";
 
 const sendEmailMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/email", () => ({ sendEmail: sendEmailMock }));
@@ -49,6 +50,7 @@ describe("WhatsApp notifications (against a live database)", () => {
     const session = await prisma.session.create({
       data: {
         therapistId,
+        locationId: (await ensureDefaultLocation(therapistId)).id,
         startsAt: new Date(Date.now() + 48 * 60 * 60 * 1000),
         endsAt: new Date(Date.now() + 49 * 60 * 60 * 1000),
       },
@@ -78,6 +80,7 @@ describe("WhatsApp notifications (against a live database)", () => {
       await prisma.client.deleteMany({ where: { therapistId } });
       await prisma.session.deleteMany({ where: { therapistId } });
       await prisma.integration.deleteMany({ where: { therapistId } });
+      await prisma.location.deleteMany({ where: { therapistId } });
       await prisma.therapistSettings.deleteMany({ where: { therapistId } });
       await prisma.subscription.deleteMany({ where: { therapistId } });
       await prisma.therapist.deleteMany({ where: { id: therapistId } });

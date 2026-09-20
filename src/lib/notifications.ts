@@ -18,12 +18,9 @@ import {
 } from "@/lib/email-templates";
 import type { NotificationChannel, NotificationType } from "@/generated/prisma/client";
 import { getMessages, toLocale } from "@/i18n";
+import { isOnlineLocation, locationLabel } from "@/lib/locations";
 
-
-
-function resolveLocation(settings: { locationAddress: string | null; onlineMeetingUrl: string | null } | null) {
-  return settings?.locationAddress ?? settings?.onlineMeetingUrl ?? null;
-}
+type SessionPlace = { type: string; address: string | null; onlineMeetingUrl: string | null };
 
 async function recordNotification(input: {
   therapistId: string;
@@ -63,16 +60,13 @@ type BookingWithContext = {
   clientEmailSnapshot: string | null;
   clientPhoneSnapshot: string | null;
   manageToken: string;
-  session: { startsAt: Date; endsAt: Date };
+  session: { startsAt: Date; endsAt: Date; location: SessionPlace };
   therapist: {
     fullName: string;
     slug: string;
     timezone: string;
     locale: string;
     settings: {
-      locationType: string;
-      locationAddress: string | null;
-      onlineMeetingUrl: string | null;
       sendEmailReminder: boolean;
       sendSmsReminder: boolean;
       reminderHoursBefore: number;
@@ -171,8 +165,7 @@ async function scheduleReminders(booking: BookingWithContext) {
  * follow.
  */
 async function createMeetingFor(booking: BookingWithContext): Promise<string | null> {
-  const locationType = booking.therapist.settings?.locationType;
-  if (locationType !== "online" && locationType !== "hybrid") return null;
+  if (!isOnlineLocation(booking.session.location)) return null;
 
   const credentials = await getCredentials(booking.therapistId, "zoom");
   if (!credentials) return null;
@@ -204,7 +197,7 @@ async function createMeetingFor(booking: BookingWithContext): Promise<string | n
 export async function sendBookingCreatedNotifications(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { session: true, therapist: { include: { settings: true } } },
+    include: { session: { include: { location: true } }, therapist: { include: { settings: true } } },
   });
   if (!booking) return;
 
@@ -216,7 +209,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
   // A meeting opened for this booking is the location — it's more use to the
   // client than the therapist's street address or a static room link.
   const meetingUrl = await createMeetingFor(booking);
-  const location = meetingUrl ?? resolveLocation(settings);
+  const location = meetingUrl ?? locationLabel(session.location);
   const manageUrl = `${getAppUrl()}/book/${therapist.slug}/manage/${booking.manageToken}`;
 
   if (booking.clientEmailSnapshot && settings?.sendEmailConfirmation) {
@@ -295,7 +288,7 @@ export async function sendBookingCreatedNotifications(bookingId: string) {
 export async function sendPaymentRequestNotifications(bookingId: string) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { session: true, therapist: { include: { settings: true } } },
+    include: { session: { include: { location: true } }, therapist: { include: { settings: true } } },
   });
   if (!booking || !booking.paymentUrl || booking.paymentAmountIls === null) return;
 
@@ -386,7 +379,7 @@ export async function sendBookingCanceledNotifications(bookingId: string, cancel
 export async function sendBookingRescheduledNotifications(bookingId: string, oldStartsAt: Date) {
   const booking = await prisma.booking.findUnique({
     where: { id: bookingId },
-    include: { session: true, therapist: { include: { settings: true } } },
+    include: { session: { include: { location: true } }, therapist: { include: { settings: true } } },
   });
   if (!booking) return;
 
@@ -456,7 +449,7 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
         },
       ],
     },
-    include: { booking: { include: { session: true, therapist: true } } },
+    include: { booking: { include: { session: { include: { location: true } }, therapist: true } } },
   });
 
   const summary: SendDueRemindersSummary = { sent: 0, failed: 0 };
@@ -468,9 +461,9 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
       return;
     }
 
-    const location = resolveLocation(
-      await prisma.therapistSettings.findUnique({ where: { therapistId: booking.therapistId } })
-    );
+    // The meeting opened for this booking, else the address of the place it
+    // happens — the same line the confirmation carried.
+    const location = booking.meetingUrl ?? locationLabel(booking.session.location);
     const locale = toLocale(booking.therapist.locale);
     const message = {
       locale,
