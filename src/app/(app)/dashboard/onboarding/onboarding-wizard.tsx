@@ -104,7 +104,12 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
         ? locationAddress.trim().length > 0 || onlineMeetingUrl.trim().length > 0
         : locationAddress.trim().length > 0);
 
-  async function handleSubmit() {
+  /**
+   * `skipAvailability` finishes without a weekly schedule. Nothing is lost by
+   * it: the dashboard opens hours one by one, and the recurring rules live in
+   * Availability — the same two places this step's answers end up anyway.
+   */
+  async function handleSubmit(skipAvailability = false) {
     setSubmitError(null);
 
     const payload: OnboardingInput = {
@@ -116,7 +121,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
       locationType: locationType as (typeof LOCATION_TYPES)[number],
       locationAddress: locationAddress || undefined,
       onlineMeetingUrl: onlineMeetingUrl || undefined,
-      availability: { days, startTime, endTime },
+      availability: skipAvailability ? undefined : { days, startTime, endTime },
     };
 
     const parsed = onboardingSchema.safeParse(payload);
@@ -352,11 +357,26 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
               {m.common.next}
             </Button>
           ) : (
-            <Button type="button" className="w-full md:w-auto" disabled={days.length === 0 || submitting} onClick={handleSubmit}>
+            <Button type="button" className="w-full md:w-auto" disabled={days.length === 0 || submitting} onClick={() => handleSubmit()}>
               {submitting ? m.common.saving : m.onboarding.finish}
             </Button>
           )}
         </div>
+        {step === 4 && (
+          <div className="flex flex-col items-center gap-1 md:items-start">
+            <Button
+              type="button"
+              variant="link"
+              size="sm"
+              className="h-auto p-0 text-muted-foreground"
+              disabled={submitting}
+              onClick={() => handleSubmit(true)}
+            >
+              {m.onboarding.skipAvailability}
+            </Button>
+            <p className="text-muted-foreground text-xs">{m.onboarding.skipAvailabilityHint}</p>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

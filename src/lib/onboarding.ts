@@ -48,20 +48,25 @@ export async function completeOnboarding(
         },
       });
 
-      // Onboarding always writes the therapist's full current weekly availability,
-      // so replacing rather than diffing keeps this idempotent and simple.
-      await tx.availabilityRule.deleteMany({ where: { therapistId } });
-      await tx.availabilityRule.createMany({
-        data: data.availability.days.map((dayOfWeek) => ({
-          therapistId,
-          dayOfWeek,
-          startTime: toTimeValue(data.availability.startTime),
-          endTime: toTimeValue(data.availability.endTime),
-          slotDurationMinutes: data.defaultDurationMinutes,
-        })),
-      });
+      // When given, onboarding writes the therapist's full current weekly
+      // availability, so replacing rather than diffing keeps this idempotent and
+      // simple. When skipped, nothing here is touched: the dashboard is where
+      // they will open hours, and an empty schedule is a valid starting point.
+      const availability = data.availability;
+      if (availability) {
+        await tx.availabilityRule.deleteMany({ where: { therapistId } });
+        await tx.availabilityRule.createMany({
+          data: availability.days.map((dayOfWeek) => ({
+            therapistId,
+            dayOfWeek,
+            startTime: toTimeValue(availability.startTime),
+            endTime: toTimeValue(availability.endTime),
+            slotDurationMinutes: data.defaultDurationMinutes,
+          })),
+        });
 
-      await generateOpenSessions(tx, therapistId);
+        await generateOpenSessions(tx, therapistId);
+      }
     });
   } catch (error) {
     if (isUniqueViolation(error, "slug")) {

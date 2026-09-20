@@ -41,6 +41,12 @@ describe("onboardingSchema", () => {
     );
   });
 
+  it("accepts a payload with no availability at all — the step can be skipped", () => {
+    const result = onboardingSchema.safeParse(validPayload({ availability: undefined }));
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.availability).toBeUndefined();
+  });
+
   it("rejects availability with no days selected", () => {
     const result = onboardingSchema.safeParse(
       validPayload({ availability: { days: [], startTime: "09:00", endTime: "17:00" } })

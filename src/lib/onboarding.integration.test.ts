@@ -114,6 +114,22 @@ describe("completeOnboarding (against a live database)", () => {
     await prisma.therapist.deleteMany({ where: { id: other.id } });
   });
 
+  it("skipping the availability step completes onboarding and leaves the schedule empty", async () => {
+    const result = await completeOnboarding(therapistId, payload({ availability: undefined }));
+    expect(result.ok).toBe(true);
+
+    const therapist = await prisma.therapist.findUniqueOrThrow({ where: { id: therapistId } });
+    expect(therapist.onboardingCompleted).toBe(true);
+    expect(await prisma.availabilityRule.count({ where: { therapistId } })).toBe(0);
+    expect(await prisma.session.count({ where: { therapistId } })).toBe(0);
+  });
+
+  it("skipping availability on a repeat call keeps the rules a previous call wrote", async () => {
+    await completeOnboarding(therapistId, payload({ availability: { days: [1, 3], startTime: "09:00", endTime: "12:00" } }));
+    await completeOnboarding(therapistId, payload({ availability: undefined }));
+    expect(await prisma.availabilityRule.count({ where: { therapistId } })).toBe(2);
+  });
+
   it("replaces availability rules rather than accumulating them on a repeat call", async () => {
     await completeOnboarding(therapistId, payload({ availability: { days: [1], startTime: "09:00", endTime: "12:00" } }));
     const firstRunRules = await prisma.availabilityRule.count({ where: { therapistId } });

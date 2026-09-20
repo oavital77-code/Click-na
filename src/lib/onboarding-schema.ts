@@ -58,7 +58,10 @@ export const onboardingSchema = z
       .refine((a) => a.startTime < a.endTime, {
         message: "validation.endAfterStart",
         path: ["endTime"],
-      }),
+      })
+      // Skipped on the last step: the therapist can open hours from the
+      // dashboard later. Absent means "leave the schedule alone", not "clear it".
+      .optional(),
   })
   .refine(
     (data) => data.locationType !== "online" || !!data.onlineMeetingUrl,

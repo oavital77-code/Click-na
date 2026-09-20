@@ -468,6 +468,8 @@ export const en = {
     saveError: "Something went wrong saving",
     prev: "Previous",
     finish: "Finish",
+    skipAvailability: "Skip for now, I'll open hours later",
+    skipAvailabilityHint: "You can open hours any time from the dashboard calendar or the Availability page.",
   },
 
   dashboard: {

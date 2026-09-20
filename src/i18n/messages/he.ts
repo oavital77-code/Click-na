@@ -457,6 +457,8 @@ export const he: Messages = {
     saveError: "שגיאה בשמירה",
     prev: "הקודם",
     finish: "סיום",
+    skipAvailability: "דלג לעכשיו, אפתח שעות אחר כך",
+    skipAvailabilityHint: "אפשר לפתוח שעות בכל רגע מהיומן שבדשבורד או מעמוד הזמינות.",
   },
 
   dashboard: {
