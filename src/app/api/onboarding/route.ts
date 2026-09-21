@@ -15,6 +15,12 @@ export async function POST(request: NextRequest) {
   if (!therapist) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
+  // One-time door. Afterwards the slug changes only through the profile,
+  // which enforces the cooldown and leaves a redirect from the old link, and
+  // the hours change only through the availability screen.
+  if (therapist.onboardingCompleted) {
+    return NextResponse.json({ error: "already_completed" }, { status: 409 });
+  }
 
   const parsed = onboardingSchema.safeParse(await request.json());
   if (!parsed.success) {

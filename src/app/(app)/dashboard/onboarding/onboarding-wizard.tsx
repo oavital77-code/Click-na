@@ -139,11 +139,15 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setSubmitError(
-          data.error === "slug_taken" ? m.onboarding.slugTakenMeanwhile : m.onboarding.saveError
-        );
-        setSubmitting(false);
-        return;
+        // A retry after a save that did go through (a dropped connection on
+        // the way back): the account is set up, so carry on to the dashboard.
+        if (data.error !== "already_completed") {
+          setSubmitError(
+            data.error === "slug_taken" ? m.onboarding.slugTakenMeanwhile : m.onboarding.saveError
+          );
+          setSubmitting(false);
+          return;
+        }
       }
       router.push("/dashboard");
       router.refresh();
