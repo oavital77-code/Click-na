@@ -83,12 +83,14 @@ export async function updateProfile(
       });
 
       if (changingSlug) {
-        await tx.slugRedirect.create({
-          data: {
-            oldSlug: currentSlug,
-            therapistId,
-            expiresAt: new Date(Date.now() + SLUG_REDIRECT_DAYS * 24 * 60 * 60 * 1000),
-          },
+        // Upsert, not create: going back to an address held earlier finds
+        // its redirect row still there (they last 90 days), and creating it
+        // again tripped the unique index and read as "taken".
+        const expiresAt = new Date(Date.now() + SLUG_REDIRECT_DAYS * 24 * 60 * 60 * 1000);
+        await tx.slugRedirect.upsert({
+          where: { oldSlug: currentSlug },
+          create: { oldSlug: currentSlug, therapistId, expiresAt },
+          update: { therapistId, expiresAt },
         });
       }
 

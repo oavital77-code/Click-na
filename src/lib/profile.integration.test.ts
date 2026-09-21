@@ -92,6 +92,20 @@ describe("profile / slug redirects (against a live database)", () => {
     expect(result).toMatchObject({ ok: false, error: "SLUG_CHANGE_TOO_SOON" });
   });
 
+  // Going back to an address you had before: the redirect row for it still
+  // exists (they last 90 days), and creating it again tripped the unique
+  // index and came back as "taken". The redirect is refreshed instead.
+  it("changing back and forth reuses the redirect rather than colliding on it", async () => {
+    const profile = { fullName: "שם מעודכן", phone: "0501234567", professionType: "coach" as const, locale: "he" as const };
+    // Currently "profile-integration-new" with a redirect from "profile-integration-test".
+    expect((await updateProfile(therapistId, "profile-integration-new", null, { ...profile, slug: "profile-integration-test" })).ok).toBe(true);
+    const back = await updateProfile(therapistId, "profile-integration-test", null, { ...profile, slug: "profile-integration-new" });
+    expect(back.ok).toBe(true);
+    const redirect = await prisma.slugRedirect.findUniqueOrThrow({ where: { oldSlug: "profile-integration-test" } });
+    expect(redirect.therapistId).toBe(therapistId);
+    expect(redirect.expiresAt.getTime()).toBeGreaterThan(Date.now() + 89 * 24 * 60 * 60 * 1000);
+  });
+
   it("checkSlugAvailability rejects a slug another therapist currently owns", async () => {
     const result = await checkSlugAvailability("profile-integration-other", therapistId);
     expect(result).toEqual({ available: false, reason: "taken" });
