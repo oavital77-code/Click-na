@@ -39,14 +39,15 @@ export async function holdSession(sessionId: string): Promise<HoldSessionResult>
 
 export type CreateBookingInput = {
   fullName: string;
-  phone: string;
+  /** Optional unless the therapist's settings require one (requirePhone). */
+  phone?: string | null;
   email: string;
   note?: string;
 };
 
 export type CreateBookingResult =
   | { ok: true; booking: Booking; session: Session }
-  | { ok: false; error: "THERAPIST_NOT_FOUND" | "BOOKING_TOO_SOON" | "SLOT_ALREADY_BOOKED" };
+  | { ok: false; error: "THERAPIST_NOT_FOUND" | "BOOKING_TOO_SOON" | "SLOT_ALREADY_BOOKED" | "PHONE_REQUIRED" };
 
 /**
  * Claims the session (open or held) and creates the booking in one
@@ -75,6 +76,14 @@ export async function createBooking(
     return { ok: false, error: "BOOKING_TOO_SOON" };
   }
 
+  // The phone is the therapist's call, not the schema's: the booking form
+  // hides the asterisk when they switched the requirement off, so the server
+  // has to accept what the form allowed.
+  const phone = input.phone?.trim() || null;
+  if (session.therapist.settings.requirePhone && (!phone || phone.length < 7)) {
+    return { ok: false, error: "PHONE_REQUIRED" };
+  }
+
   try {
     const booking = await prisma.$transaction(async (tx) => {
       // Whoever wins this update owns the slot; anything else (already booked, blocked, etc.) is a conflict.
@@ -92,9 +101,10 @@ export async function createBooking(
           therapistId: session.therapistId,
           fullName: input.fullName,
           email: input.email,
-          phone: input.phone,
+          phone,
         },
-        update: { fullName: input.fullName, phone: input.phone },
+        // A returning client who left the phone blank keeps the one we have.
+        update: { fullName: input.fullName, ...(phone ? { phone } : {}) },
       });
 
       await tx.client.update({
@@ -109,7 +119,7 @@ export async function createBooking(
           clientId: client.id,
           clientNameSnapshot: input.fullName,
           clientEmailSnapshot: input.email,
-          clientPhoneSnapshot: input.phone,
+          clientPhoneSnapshot: phone,
           clientNote: input.note || null,
           manageToken: randomBytes(32).toString("hex"),
           status: session.therapist.settings!.autoConfirm ? "confirmed" : "pending",

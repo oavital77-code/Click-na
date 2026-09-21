@@ -77,6 +77,39 @@ describe("bookings (against a live database)", () => {
     expect(updated.status).toBe("booked");
   });
 
+  it("books without a phone when the therapist does not require one", async () => {
+    await prisma.therapistSettings.update({ where: { therapistId }, data: { requirePhone: false } });
+    try {
+      const session = await makeSession(48);
+      const result = await createBooking(session.id, { fullName: "דנה לוי", email: "nophone@example.com", phone: "" });
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.booking.clientPhoneSnapshot).toBeNull();
+    } finally {
+      await prisma.therapistSettings.update({ where: { therapistId }, data: { requirePhone: true } });
+    }
+  });
+
+  it("refuses a booking without a phone when the therapist requires one", async () => {
+    const session = await makeSession(48);
+    const result = await createBooking(session.id, { fullName: "דנה לוי", email: "nophone2@example.com", phone: "" });
+    expect(result).toEqual({ ok: false, error: "PHONE_REQUIRED" });
+  });
+
+  it("keeps a returning client's phone when the new booking has none", async () => {
+    await prisma.therapistSettings.update({ where: { therapistId }, data: { requirePhone: false } });
+    try {
+      const first = await createBooking((await makeSession(48)).id, { fullName: "דנה לוי", email: "keep@example.com", phone: "0501234567" });
+      expect(first.ok).toBe(true);
+      const second = await createBooking((await makeSession(72)).id, { fullName: "דנה לוי", email: "keep@example.com", phone: "" });
+      expect(second.ok).toBe(true);
+      const client = await prisma.client.findUniqueOrThrow({ where: { therapistId_email: { therapistId, email: "keep@example.com" } } });
+      expect(client.phone).toBe("0501234567");
+    } finally {
+      await prisma.therapistSettings.update({ where: { therapistId }, data: { requirePhone: true } });
+    }
+  });
+
   it("rejects double-booking the same session", async () => {
     const session = await makeSession(48);
     await createBooking(session.id, { fullName: "First", email: "first@example.com", phone: "0500000001" });

@@ -8,7 +8,8 @@ import { tooManyRequests } from "@/lib/http";
 const bookingSchema = z.object({
   sessionId: z.string().uuid(),
   fullName: z.string().trim().min(2).max(255),
-  phone: z.string().trim().min(7).max(50),
+  // Whether one is needed is the therapist's setting; createBooking enforces it.
+  phone: z.string().trim().max(50).optional().or(z.literal("")),
   email: z.string().trim().toLowerCase().email().max(255),
   note: z.string().trim().max(200).optional(),
 });
@@ -16,6 +17,7 @@ const bookingSchema = z.object({
 const STATUS_BY_ERROR: Record<string, number> = {
   THERAPIST_NOT_FOUND: 404,
   BOOKING_TOO_SOON: 422,
+  PHONE_REQUIRED: 422,
   SLOT_ALREADY_BOOKED: 409,
 };
 
