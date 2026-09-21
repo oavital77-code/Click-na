@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, todayIn, zonedDateTimeToUtc } from "@/lib/availability";
 
 describe("addDaysUtc", () => {
   it("adds days within a month", () => {
@@ -92,5 +92,16 @@ describe("zonedDateTimeToUtc", () => {
     const after = zonedDateTimeToUtc("2026-04-03", "09:00", "Asia/Jerusalem");
     expect(before.toISOString()).toBe("2026-03-20T07:00:00.000Z"); // +2
     expect(after.toISOString()).toBe("2026-04-03T06:00:00.000Z"); // +3
+  });
+});
+
+describe("todayIn", () => {
+  // The calendar is walked from "today" — the therapist's today, not the
+  // server's. At 01:30 in Tel Aviv it is still yesterday in UTC, and a window
+  // counted from the UTC date ends a day early for them.
+  it("is the therapist's calendar date, not the UTC one", () => {
+    const lateEveningUtc = new Date("2026-09-21T22:30:00Z"); // 01:30 the next day in Israel
+    expect(todayIn("Asia/Jerusalem", lateEveningUtc)).toBe("2026-09-22");
+    expect(todayIn("UTC", lateEveningUtc)).toBe("2026-09-21");
   });
 });

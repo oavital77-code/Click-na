@@ -1,13 +1,9 @@
 import { prisma } from "@/lib/prisma";
-import { addDaysUtc, generateOpenSessions, zonedDateTimeToUtc } from "@/lib/availability";
+import { addDaysUtc, generateOpenSessions, todayIn, zonedDateTimeToUtc } from "@/lib/availability";
 import { blockedDates, yearsBetween, type HolidayPolicy } from "@/lib/holidays";
 
 /** How far ahead closed days are enforced. Past maxAdvanceDays anyway. */
 const HORIZON_DAYS = 400;
-
-function todayIn(timezone: string) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
 
 /**
  * Removes the empty windows that sit on a day the policy closes. Only `open`

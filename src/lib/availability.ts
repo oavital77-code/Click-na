@@ -13,6 +13,11 @@ export function zonedDateTimeToUtc(dateStr: string, timeStr: string, timezone: s
   return fromZonedTime(`${dateStr} ${timeStr}:00`, timezone);
 }
 
+/** The calendar date it is right now in `timezone`, as yyyy-MM-dd. */
+export function todayIn(timezone: string, now: Date = new Date()) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
 export function addDaysUtc(dateStr: string, days: number) {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
@@ -71,7 +76,10 @@ export async function generateOpenSessions(tx: Tx, therapistId: string) {
 
   const now = new Date();
   const earliestStart = new Date(now.getTime() + settings.minNoticeHours * 60 * 60 * 1000);
-  const todayStr = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+  // The therapist's today, not the server's: late in a Tel Aviv evening the
+  // UTC date is still yesterday, and a window counted from it ended a day
+  // short of what the public page (which counts in their timezone) promised.
+  const todayStr = todayIn(therapist.timezone, now);
   const lastStr = addDaysUtc(todayStr, settings.maxAdvanceDays);
   // The holidays this therapist closes on, for every year the window touches.
   const closed = blockedDates(settings, yearsBetween(todayStr, lastStr));
