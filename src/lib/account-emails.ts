@@ -3,6 +3,7 @@ import { sendEmail } from "@/lib/email";
 import { appUrl } from "@/lib/public-url";
 import {
   onboardingCompleteEmail,
+  opsAlertEmail,
   signupAlertEmail,
   subscriptionEmail,
   trialEmail,
@@ -166,4 +167,18 @@ export async function sendTrialEmail(therapistId: string, stage: TrialEmailInput
     subject,
     html,
   });
+}
+
+/**
+ * The daily job's "something needs a person" mail. Same recipient and the same
+ * silence as the signup alert: without OWNER_NOTIFICATION_EMAIL it goes to the
+ * log only, which is where it went before anyone could read it.
+ */
+export async function sendOpsAlert(problems: string[]) {
+  if (problems.length === 0) return;
+  console.error("[cron:alert]", problems);
+  const recipient = process.env.OWNER_NOTIFICATION_EMAIL;
+  if (!recipient) return;
+  const { subject, html } = opsAlertEmail({ locale: DEFAULT_LOCALE, problems, ranAt: new Date(), timezone: "Asia/Jerusalem" });
+  await sendEmail({ to: recipient, subject, html });
 }

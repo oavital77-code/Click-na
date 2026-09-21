@@ -227,6 +227,9 @@ Therapist ─┬─ TherapistSettings   (1:1)  מדיניות: התראה מוק
 
 `/api/cron/send-reminders` רץ כל יום ב-06:00 UTC ועושה שלושה דברים:
 
+0. בסוף הריצה, כל מה שדורש אדם (תזכורת שלא נשלחה, חיוב חידוש שנכשל או
+   שאין לו כרטיס, חשבון שננעל) נרשם ללוג כ-`[cron:alert]` ונשלח במייל
+   ל-`OWNER_NOTIFICATION_EMAIL` אם הוא מוגדר (`src/lib/cron-health.ts`).
 1. **תזכורות שהגיע זמנן** — `sendDueReminders()`. עובד במנות של 150 עם
    מקביליות 3 (`REMINDER_BATCH`, `REMINDER_CONCURRENCY` ב-`notifications.ts`).
    לולאה סדרתית ללא תקרה הייתה חורגת מזמן הריצה ברגע שיש מספיק מטפלים.
@@ -291,7 +294,11 @@ Therapist ─┬─ TherapistSettings   (1:1)  מדיניות: התראה מוק
 
 **callback של PayPlus.** נבדקת חתימת HMAC-SHA256 על גוף הבקשה הגולמי,
 והעסקה מאומתת מול PayPlus בקריאה נפרדת לפני שנוגעים ב-DB. ההסבר המלא
-בפרק 8.
+בפרק 8. callback שהגיע **בלי** כותרת `hash` עובר בינתיים את האימות מול
+PayPlus כרגיל, אבל נרשם ללוג כ-`[payplus] unsigned callback`. אחרי
+התשלום האמיתי הראשון בודקים בלוגים: אם אין שורה כזו, PayPlus חותם תמיד,
+ואז מגדירים `PAYPLUS_REQUIRE_SIGNED_CALLBACKS=true` ב-Vercel כדי לדחות
+callback לא חתום על הסף.
 
 **כותרות אבטחה ו-CSP.** HSTS, `X-Frame-Options`, `X-Content-Type-Options`,
 `Referrer-Policy` ו-`Permissions-Policy` מוגדרות ב-`next.config.ts`. ה-CSP
@@ -516,7 +523,10 @@ cleanas.cleanagroup.app/superadmin/owner
 
 **חריגה מזמן ריצה ב-cron.** `maxDuration = 60` היא התקרה של תוכנית Hobby.
 בתוכנית Pro אפשר להעלות. אם התזכורות לא מספיקות להישלח — הגדילו את
-`REMINDER_CONCURRENCY` לפני שמגדילים את החלון.
+`REMINDER_CONCURRENCY` לפני שמגדילים את החלון. כל הלולאות של ה-cron
+(תזכורות, מחזור החיוב, ניקוי חגים) רצות דרך `mapWithConcurrency`
+ב-`src/lib/concurrency.ts`: כמה שורות במקביל, וכשל בשורה אחת נרשם ללוג
+ולא עוצר את השאר.
 
 ---
 

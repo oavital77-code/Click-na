@@ -317,6 +317,10 @@ export const he: Messages = {
       subject: (name) => `נרשם משתמש חדש: ${name}`,
       title: "משתמש חדש",
     },
+    opsAlert: {
+      subject: (count) => `Cleana+ ריצה יומית: ${count} דברים דורשים בדיקה`,
+      title: "הריצה היומית דורשת בדיקה",
+    },
   },
 
   ics: {

@@ -405,3 +405,25 @@ export function signupAlertEmail(input: SignupAlertEmailInput) {
     `),
   };
 }
+
+export type OpsAlertEmailInput = Localized & {
+  /** One line per thing that went wrong, already in words. */
+  problems: string[];
+  ranAt: Date;
+  timezone: string;
+};
+
+/** Internal — the daily job telling the operator what needs a person. */
+export function opsAlertEmail(input: OpsAlertEmailInput) {
+  const m = getMessages(input.locale).messages.opsAlert;
+  return {
+    subject: m.subject(input.problems.length),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.title}</h1>
+      <p style="font-size:14px;color:#6d6154;margin:0 0 12px;">${dateTime(input.ranAt, input.timezone, input.locale)}</p>
+      <ul style="font-size:15px;line-height:1.8;padding-inline-start:20px;margin:0;">
+        ${input.problems.map((line) => `<li>${esc(line)}</li>`).join("")}
+      </ul>
+    `),
+  };
+}

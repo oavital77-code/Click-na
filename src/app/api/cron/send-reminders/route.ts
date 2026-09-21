@@ -4,6 +4,8 @@ import { sendDueReminders } from "@/lib/notifications";
 import { pruneRateLimits } from "@/lib/rate-limit";
 import { pruneClosedDaysForEveryone } from "@/lib/holiday-slots";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
+import { cronProblems } from "@/lib/cron-health";
+import { sendOpsAlert } from "@/lib/account-emails";
 
 /**
  * Constant-time check of the bearer header. Both sides go through SHA-256 first
@@ -47,5 +49,10 @@ export async function GET(request: NextRequest) {
   // Empty windows on Israeli holidays, for everyone who closes on them.
   const prunedHolidaySlots = await pruneClosedDaysForEveryone();
 
-  return NextResponse.json({ ...summary, billing, prunedRateLimits, prunedHolidaySlots });
+  // Anything a person has to act on reaches one, instead of sitting in a
+  // response body nobody reads on a schedule.
+  const problems = cronProblems({ reminders: summary, billing });
+  await sendOpsAlert(problems);
+
+  return NextResponse.json({ ...summary, billing, prunedRateLimits, prunedHolidaySlots, problems });
 }

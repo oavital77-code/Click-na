@@ -6,6 +6,7 @@ import {
   reminderEmailForClient,
   cancellationEmailForTherapist,
   cancellationEmailForClient,
+  opsAlertEmail,
 } from "@/lib/email-templates";
 
 const startsAt = new Date("2026-09-01T07:00:00Z"); // 10:00 Asia/Jerusalem
@@ -197,5 +198,20 @@ describe("English", () => {
     });
     expect(subject).toBe("הזמנה חדשה: דנה לוי");
     expect(html).toContain('dir="rtl"');
+  });
+});
+
+describe("opsAlertEmail", () => {
+  it("lists every problem, escaped, and counts them in the subject", () => {
+    const { subject, html } = opsAlertEmail({
+      locale: "en",
+      problems: ["2 reminder(s) failed to send", "1 renewal charge(s) errored at PayPlus <bad>"],
+      ranAt: startsAt,
+      timezone,
+    });
+    expect(subject).toContain("2 thing(s)");
+    expect(html).toContain("2 reminder(s) failed to send");
+    expect(html).toContain("&lt;bad&gt;");
+    expect(html).not.toContain("<bad>");
   });
 });

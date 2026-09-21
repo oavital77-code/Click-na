@@ -328,6 +328,10 @@ export const en = {
       subject: (name: string) => `New user signed up: ${name}`,
       title: "New user",
     },
+    opsAlert: {
+      subject: (count: number) => `Cleana+ daily job: ${count} thing(s) need a look`,
+      title: "The daily job needs a look",
+    },
   },
 
   ics: {
