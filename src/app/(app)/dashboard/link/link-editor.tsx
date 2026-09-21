@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { bookingLinkPrefix } from "@/lib/public-url";
+import { bookingLinkPrefix, publicOrigin } from "@/lib/public-url";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { OnboardingInput } from "@/lib/onboarding-schema";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
@@ -79,7 +79,13 @@ export function LinkEditor({
   }
 
   const slugCooldownActive = isSlugCooldownActive(profile.slugChangedAt);
-  const publicUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/book/${savedSlug}`;
+  // The configured origin on both renders; the browser's own only after
+  // mount, so the server and the first client render never disagree.
+  const [origin, setOrigin] = useState(publicOrigin() ?? "");
+  useEffect(() => {
+    if (!origin) setOrigin(window.location.origin);
+  }, [origin]);
+  const publicUrl = `${origin}/book/${savedSlug}`;
 
   async function copyLink() {
     try {

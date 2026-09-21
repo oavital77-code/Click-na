@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { appUrl, bookingLinkPrefix } from "@/lib/public-url";
+import { appUrl, bookingLinkPrefix, publicOrigin } from "@/lib/public-url";
 
 const APP_URL = "NEXT_PUBLIC_APP_URL";
 const VERCEL_URL = "VERCEL_PROJECT_PRODUCTION_URL";
@@ -65,5 +65,26 @@ describe("bookingLinkPrefix", () => {
   it("degrades to a relative prefix when the variable is unset", () => {
     delete process.env[APP_URL];
     expect(bookingLinkPrefix()).toBe("/book/");
+  });
+});
+
+describe("publicOrigin", () => {
+  const original = process.env[APP_URL];
+
+  afterEach(() => {
+    if (original === undefined) delete process.env[APP_URL];
+    else process.env[APP_URL] = original;
+  });
+
+  it("is the configured origin, without a trailing slash", () => {
+    process.env[APP_URL] = "https://click-na.vercel.app/";
+    expect(publicOrigin()).toBe("https://click-na.vercel.app");
+  });
+
+  // Rendered on the server and in the browser alike, so it must not reach for
+  // window: the two renders would differ and React would flag the mismatch.
+  it("is null when nothing is configured, never a guessed host", () => {
+    delete process.env[APP_URL];
+    expect(publicOrigin()).toBeNull();
   });
 });

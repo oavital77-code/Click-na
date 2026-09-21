@@ -34,3 +34,14 @@ export function bookingLinkPrefix(): string {
   if (!appUrl) return "/book/";
   return `${appUrl.replace(/^https?:\/\//, "").replace(/\/+$/, "")}/book/`;
 }
+
+/**
+ * The configured public origin, for links a client component renders and the
+ * server renders first. Null when unset: reaching for window.location here
+ * would give the server one answer and the browser another, and React flags
+ * that as a hydration mismatch. Callers fill the gap after mount if they must.
+ */
+export function publicOrigin(): string | null {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL;
+  return explicit ? explicit.replace(/\/+$/, "") : null;
+}
