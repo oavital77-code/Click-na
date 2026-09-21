@@ -81,9 +81,11 @@ export async function startCheckout(
     deps.fetchImpl
   );
 
+  // Appended, never replaced: a second click opens a second page, and the
+  // therapist may well pay on the first one.
   await prisma.subscription.update({
     where: { therapistId: therapist.id },
-    data: { pendingPageRequestUid: checkout.pageRequestUid },
+    data: { pendingPageRequestUids: { push: checkout.pageRequestUid } },
   });
 
   return { ok: true, url: checkout.url };
@@ -128,7 +130,7 @@ export async function applyVerifiedTransaction(
   const subscription =
     (deps.therapistId ? await prisma.subscription.findUnique({ where: { therapistId: deps.therapistId } }) : null) ??
     (verified.pageRequestUid
-      ? await prisma.subscription.findFirst({ where: { pendingPageRequestUid: verified.pageRequestUid } })
+      ? await prisma.subscription.findFirst({ where: { pendingPageRequestUids: { has: verified.pageRequestUid } } })
       : null) ??
     (verified.tokenUid ? await prisma.subscription.findFirst({ where: { payplusTokenUid: verified.tokenUid } }) : null);
   if (!subscription) return { applied: false, reason: "unknown_therapist" };
@@ -177,7 +179,7 @@ export async function applyVerifiedTransaction(
       data: {
         currentPeriodStart: period.start,
         graceEndsAt: null,
-        pendingPageRequestUid: null,
+        pendingPageRequestUids: [],
         payplusTokenUid: tokenUid,
         payplusCustomerUid: customerUid,
         payplusTerminalUid: terminalUid,

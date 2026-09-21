@@ -206,9 +206,10 @@ model Subscription {
   // When we last tried to charge the token, so a retry is at most daily and two
   // overlapping cron runs cannot both charge.
   lastChargeAttemptAt   DateTime?          @map("last_charge_attempt_at") @db.Timestamptz
-  // The checkout link most recently handed to this therapist. Lets the callback
-  // find the account even when more_info did not round-trip.
-  pendingPageRequestUid String?            @map("pending_page_request_uid") @db.VarChar(255)
+  // Every checkout page handed to this therapist and not yet paid. Lets the
+  // callback find the account even when more_info did not round-trip — and
+  // whichever of two open tabs they paid on, since each page is remembered.
+  pendingPageRequestUids String[]          @default([]) @map("pending_page_request_uids") @db.VarChar(255)
   // After the trial (or a failed renewal) the dashboard stays open until this
   // moment, then locks. Stored, not derived, so the grace length can change
   // without moving anybody's deadline retroactively.

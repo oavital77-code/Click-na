@@ -70,7 +70,26 @@ describe("startCheckout", () => {
     const result = await startCheckout(id, { fetchImpl });
     expect(result).toEqual({ ok: true, url: "https://pay/x" });
     const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
-    expect(sub.pendingPageRequestUid).toBe("req_9");
+    expect(sub.pendingPageRequestUids).toEqual(["req_9"]);
+  });
+
+  // Two clicks, two pages, and the therapist pays on the first tab. The
+  // account used to remember only the last page, so that payment found no
+  // account, wrote nothing and unlocked nothing — while the card was charged.
+  it("remembers every page handed out, so paying on an earlier one still counts", async () => {
+    payplusEnv();
+    const id = await therapist("twopages");
+    let n = 0;
+    const fetchImpl = (async () =>
+      new Response(JSON.stringify({ data: { payment_page_link: `https://pay/${++n}`, page_request_uid: `req_${n}` } }))) as typeof fetch;
+    await startCheckout(id, { fetchImpl });
+    await startCheckout(id, { fetchImpl });
+
+    const r = await applyVerifiedTransaction(tx({ pageRequestUid: "req_1", tokenUid: null }), {});
+    expect(r).toEqual({ applied: true, outcome: "activated" });
+    const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
+    expect(sub.status).toBe("active");
+    expect(sub.pendingPageRequestUids).toEqual([]);
   });
 });
 
@@ -111,12 +130,12 @@ describe("applyVerifiedTransaction", () => {
   it("finds the account by the pending page request when more_info is missing", async () => {
     payplusEnv();
     const id = await therapist("bypage");
-    await prisma.subscription.update({ where: { therapistId: id }, data: { pendingPageRequestUid: "req_42" } });
+    await prisma.subscription.update({ where: { therapistId: id }, data: { pendingPageRequestUids: ["req_42"] } });
     const r = await applyVerifiedTransaction(tx({ pageRequestUid: "req_42" }), {});
     expect(r).toEqual({ applied: true, outcome: "activated" });
     const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
     expect(sub.status).toBe("active");
-    expect(sub.pendingPageRequestUid).toBeNull();
+    expect(sub.pendingPageRequestUids).toEqual([]);
   });
 
   it("records a successful charge for the wrong amount without unlocking anything", async () => {
