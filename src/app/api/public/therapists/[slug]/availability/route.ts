@@ -35,7 +35,8 @@ export async function GET(
     where: { slug },
     include: { settings: true, subscription: true },
   });
-  if (!therapist || therapist.status !== "active" || !therapist.settings) {
+  // The same door as the therapist's page: nothing public before onboarding is done.
+  if (!therapist || therapist.status !== "active" || !therapist.onboardingCompleted || !therapist.settings) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
   if (therapist.subscription && !acceptsNewBookings(accessState(therapist.subscription))) {

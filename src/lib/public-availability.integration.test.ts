@@ -75,6 +75,32 @@ describe("public availability by place (against a live database)", () => {
 
   // The pattern let "2026-99-99" through, date-fns turned it into an Invalid
   // Date, and Prisma threw: a 500 on a public endpoint from one bad query string.
+  // The therapist's page already answers 404 before onboarding is done; the
+  // availability behind it did not, and served slots for a half-set-up account.
+  it("an account that has not finished onboarding has no public availability", async () => {
+    const other = await prisma.therapist.create({
+      data: {
+        email: "public-availability-unfinished@example.com",
+        fullName: "Unfinished",
+        slug: "public-availability-unfinished",
+        onboardingCompleted: false,
+        subscription: { create: {} },
+        settings: { create: {} },
+      },
+    });
+    try {
+      const request = new NextRequest(`http://localhost/api/public/therapists/${other.slug}/availability?from=${from}&to=${to}`, {
+        headers: { "x-forwarded-for": "203.0.113.8" },
+      });
+      const res = await GET(request, { params: Promise.resolve({ slug: other.slug }) });
+      expect(res.status).toBe(404);
+    } finally {
+      await prisma.therapistSettings.deleteMany({ where: { therapistId: other.id } });
+      await prisma.subscription.deleteMany({ where: { therapistId: other.id } });
+      await prisma.therapist.delete({ where: { id: other.id } });
+    }
+  });
+
   it("a date that matches the pattern but is not a date is a 400, not a 500", async () => {
     const res = await call(`from=2026-99-99&to=${to}`);
     expect(res.status).toBe(400);
