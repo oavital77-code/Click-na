@@ -11,7 +11,8 @@ export async function GET() {
     omit: { clerkUserId: true },
     include: {
       settings: true,
-      subscription: true,
+      // The PayPlus identifiers are ours to charge with, not the therapist's to keep.
+      subscription: { omit: { payplusTokenUid: true, payplusCustomerUid: true, payplusTerminalUid: true, payplusCashierUid: true, pendingPageRequestUids: true } },
       locations: true,
       availabilityRules: true,
       clients: true,

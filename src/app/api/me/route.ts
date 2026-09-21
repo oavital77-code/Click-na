@@ -11,7 +11,8 @@ export async function GET() {
 
   const therapist = await prisma.therapist.findUnique({
     where: { clerkUserId: userId },
-    include: { subscription: true, settings: true },
+    // The PayPlus identifiers are ours to charge with, not the therapist's to see.
+    include: { subscription: { omit: { payplusTokenUid: true, payplusCustomerUid: true, payplusTerminalUid: true, payplusCashierUid: true, pendingPageRequestUids: true } }, settings: true },
   });
   if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
