@@ -64,6 +64,22 @@ describe("availability-rules (against a live database)", () => {
     expect(rules[0]).toMatchObject({ futureOpenCount: expect.any(Number), futureBookedCount: 0 });
   });
 
+  it("listRulesWithCounts counts open and booked future slots per rule, in one query", async () => {
+    await createRules(therapistId, { days: [0, 1, 2, 3, 4, 5, 6], startTime: "09:00", endTime: "11:00", slotDurationMinutes: 50 });
+    const [rule] = await prisma.availabilityRule.findMany({ where: { therapistId }, orderBy: { dayOfWeek: "asc" } });
+    const slot = await prisma.session.findFirstOrThrow({ where: { generatedFromRuleId: rule.id, status: "open" } });
+    await prisma.session.update({ where: { id: slot.id }, data: { status: "booked" } });
+    const openLeft = await prisma.session.count({ where: { generatedFromRuleId: rule.id, status: "open", startsAt: { gt: new Date() } } });
+
+    const rules = await listRulesWithCounts(therapistId);
+    const counted = rules.find((r) => r.id === rule.id)!;
+    expect(counted.futureBookedCount).toBe(1);
+    expect(counted.futureOpenCount).toBe(openLeft);
+    // A rule with no sessions at all still reports zeros rather than going missing.
+    expect(rules).toHaveLength(7);
+    expect(rules.every((r) => typeof r.futureOpenCount === "number" && typeof r.futureBookedCount === "number")).toBe(true);
+  });
+
   it("updateRule changes the rule but never touches already-generated sessions (spec 11.3)", async () => {
     await createRules(therapistId, {
       days: [3],

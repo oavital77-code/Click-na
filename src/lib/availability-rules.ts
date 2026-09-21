@@ -10,20 +10,25 @@ export async function listRulesWithCounts(therapistId: string) {
     orderBy: [{ dayOfWeek: "asc" }, { startTime: "asc" }],
   });
 
-  const now = new Date();
-  return Promise.all(
-    rules.map(async (rule) => {
-      const [futureOpenCount, futureBookedCount] = await Promise.all([
-        prisma.session.count({
-          where: { generatedFromRuleId: rule.id, status: "open", startsAt: { gt: now } },
-        }),
-        prisma.session.count({
-          where: { generatedFromRuleId: rule.id, status: "booked", startsAt: { gt: now } },
-        }),
-      ]);
-      return { ...rule, futureOpenCount, futureBookedCount };
-    })
-  );
+  // One grouped count for every rule, instead of two queries per rule.
+  const counts = await prisma.session.groupBy({
+    by: ["generatedFromRuleId", "status"],
+    where: { therapistId, generatedFromRuleId: { not: null }, status: { in: ["open", "booked"] }, startsAt: { gt: new Date() } },
+    _count: { _all: true },
+  });
+  const byRule = new Map<string, { open: number; booked: number }>();
+  for (const row of counts) {
+    if (!row.generatedFromRuleId) continue;
+    const entry = byRule.get(row.generatedFromRuleId) ?? { open: 0, booked: 0 };
+    if (row.status === "open") entry.open = row._count._all;
+    if (row.status === "booked") entry.booked = row._count._all;
+    byRule.set(row.generatedFromRuleId, entry);
+  }
+  return rules.map((rule) => ({
+    ...rule,
+    futureOpenCount: byRule.get(rule.id)?.open ?? 0,
+    futureBookedCount: byRule.get(rule.id)?.booked ?? 0,
+  }));
 }
 
 export async function createRules(therapistId: string, input: RuleCreateInput) {
