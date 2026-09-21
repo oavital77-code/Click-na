@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
 
 const createSchema = z
   .object({
-    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    date: z.iso.date(),
     startTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     // Where the slot is. Omitted: the therapist's default place.

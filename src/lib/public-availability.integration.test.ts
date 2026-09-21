@@ -73,6 +73,13 @@ describe("public availability by place (against a live database)", () => {
     expect(ids).toEqual([ramatGanId]);
   });
 
+  // The pattern let "2026-99-99" through, date-fns turned it into an Invalid
+  // Date, and Prisma threw: a 500 on a public endpoint from one bad query string.
+  it("a date that matches the pattern but is not a date is a 400, not a 500", async () => {
+    const res = await call(`from=2026-99-99&to=${to}`);
+    expect(res.status).toBe(400);
+  });
+
   it("with a place that is not theirs: not found, never a fall-through", async () => {
     const res = await call(`from=${from}&to=${to}&location=hod-hasharon`);
     expect(res.status).toBe(404);

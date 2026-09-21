@@ -8,8 +8,10 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/http";
 
 const querySchema = z.object({
-  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  // A real calendar date, not just the shape of one: "2026-99-99" matched the
+  // pattern, became an Invalid Date and made Prisma throw a 500.
+  from: z.iso.date(),
+  to: z.iso.date(),
   // A place's link handle. Given: only that place's slots. Absent: all of them,
   // each saying where it is, so the page can offer the choice.
   location: z.string().trim().min(1).max(40).optional(),
