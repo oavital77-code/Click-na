@@ -366,6 +366,7 @@ export const en = {
     note: (note: string) => `Note: ${note}`,
     cancelReasonPlaceholder: "Reason for cancelling (optional, sent to the client)",
     confirmCancel: "Confirm cancellation",
+    confirmBooking: "Confirm appointment",
     cancelBooking: "Cancel appointment",
     paid: "Paid ✓",
     unpaid: "Unpaid",

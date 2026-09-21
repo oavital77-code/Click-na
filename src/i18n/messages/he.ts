@@ -355,6 +355,7 @@ export const he: Messages = {
     note: (note) => `הערה: ${note}`,
     cancelReasonPlaceholder: "סיבת ביטול (אופציונלי, יישלח ללקוח)",
     confirmCancel: "אשר ביטול",
+    confirmBooking: "אשר תור",
     cancelBooking: "בטל תור",
     paid: "שולם ✓",
     unpaid: "לא שולם",

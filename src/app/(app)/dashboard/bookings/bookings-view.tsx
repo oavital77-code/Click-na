@@ -121,6 +121,20 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
       .catch(() => {});
   }
 
+  async function confirmBooking(id: string) {
+    setError(null);
+    try {
+      const res = await fetch(`/api/bookings/${id}/confirm`, { method: "POST" });
+      if (!res.ok) {
+        setError(m.common.genericError);
+        return;
+      }
+      setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status: "confirmed" } : b)));
+    } catch {
+      setError(m.common.networkError);
+    }
+  }
+
   async function confirmCancel(id: string) {
     setError(null);
     try {
@@ -189,6 +203,11 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
                       {m.bookings.status[booking.status as keyof typeof m.bookings.status] ?? booking.status}
                     </span>
                   </div>
+                  {booking.status === "pending" && (
+                    <Button type="button" size="sm" className="w-full md:w-fit" onClick={() => confirmBooking(booking.id)}>
+                      {m.bookings.confirmBooking}
+                    </Button>
+                  )}
                   {CANCELABLE.has(booking.status) && (
                     <PaymentControls
                       booking={booking}

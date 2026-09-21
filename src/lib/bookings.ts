@@ -144,6 +144,33 @@ function isAlreadyCanceled(status: string) {
   return status === "canceled_by_client" || status === "canceled_by_therapist";
 }
 
+export type ConfirmResult =
+  | { ok: true; bookingId: string }
+  | { ok: false; error: "not_found" | "not_pending" };
+
+/**
+ * The therapist's "yes" to a booking that came in while auto-confirm was off.
+ * Until now a pending booking had no way out of pending: the switch existed,
+ * the door behind it did not.
+ */
+export async function confirmBookingByTherapist(therapistId: string, bookingId: string): Promise<ConfirmResult> {
+  const booking = await prisma.booking.findUnique({ where: { id: bookingId }, select: { therapistId: true, status: true } });
+  if (!booking || booking.therapistId !== therapistId) {
+    return { ok: false, error: "not_found" };
+  }
+  if (booking.status !== "pending") {
+    return { ok: false, error: "not_pending" };
+  }
+  // Conditional on the status, so two clicks (or a click racing a
+  // cancellation) cannot confirm something that is no longer pending.
+  const updated = await prisma.booking.updateMany({
+    where: { id: bookingId, therapistId, status: "pending" },
+    data: { status: "confirmed" },
+  });
+  if (updated.count === 0) return { ok: false, error: "not_pending" };
+  return { ok: true, bookingId };
+}
+
 /** Therapist-side cancellation (spec 9.3, 11.2) — always reopens the slot. */
 export async function cancelBookingByTherapist(
   therapistId: string,

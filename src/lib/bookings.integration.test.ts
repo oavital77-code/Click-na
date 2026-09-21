@@ -4,6 +4,7 @@ import { ensureDefaultLocation } from "@/lib/locations";
 import {
   holdSession,
   createBooking,
+  confirmBookingByTherapist,
   cancelBookingByTherapist,
   cancelBookingByClient,
   rescheduleBookingByClient,
@@ -108,6 +109,39 @@ describe("bookings (against a live database)", () => {
     } finally {
       await prisma.therapistSettings.update({ where: { therapistId }, data: { requirePhone: true } });
     }
+  });
+
+  describe("confirmBookingByTherapist", () => {
+    async function pendingBooking() {
+      await prisma.therapistSettings.update({ where: { therapistId }, data: { autoConfirm: false } });
+      try {
+        const result = await createBooking((await makeSession(48)).id, { fullName: "דנה לוי", email: "pending@example.com", phone: "0501234567" });
+        if (!result.ok) throw new Error("setup");
+        expect(result.booking.status).toBe("pending");
+        return result.booking;
+      } finally {
+        await prisma.therapistSettings.update({ where: { therapistId }, data: { autoConfirm: true } });
+      }
+    }
+
+    it("moves a pending booking to confirmed", async () => {
+      const booking = await pendingBooking();
+      expect(await confirmBookingByTherapist(therapistId, booking.id)).toEqual({ ok: true, bookingId: booking.id });
+      const after = await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } });
+      expect(after.status).toBe("confirmed");
+    });
+
+    it("refuses a booking that is not pending", async () => {
+      const result = await createBooking((await makeSession(48)).id, { fullName: "דנה לוי", email: "auto@example.com", phone: "0501234567" });
+      if (!result.ok) throw new Error("setup");
+      expect(await confirmBookingByTherapist(therapistId, result.booking.id)).toEqual({ ok: false, error: "not_pending" });
+    });
+
+    it("is scoped to the therapist's own bookings", async () => {
+      const booking = await pendingBooking();
+      expect(await confirmBookingByTherapist("00000000-0000-4000-8000-000000000000", booking.id)).toEqual({ ok: false, error: "not_found" });
+      expect((await prisma.booking.findUniqueOrThrow({ where: { id: booking.id } })).status).toBe("pending");
+    });
   });
 
   it("rejects double-booking the same session", async () => {
