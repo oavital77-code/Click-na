@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getCurrentTherapist } from "@/lib/auth";
 import { toLocale } from "@/i18n";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 import {
   INTEGRATION_PROVIDERS,
   connectIntegration,
@@ -33,18 +32,17 @@ async function payload(therapistId: string, locale: string) {
 }
 
 export async function GET() {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireTherapist();
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   return NextResponse.json(await payload(therapist.id, therapist.locale));
 }
 
 export async function POST(request: NextRequest) {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {

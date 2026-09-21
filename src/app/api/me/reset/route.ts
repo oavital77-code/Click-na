@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { getCurrentTherapist } from "@/lib/auth";
 import { resetSchedule } from "@/lib/reset";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 
 const bodySchema = z.object({
   scope: z.enum(["slots", "everything"]),
@@ -12,11 +11,9 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {

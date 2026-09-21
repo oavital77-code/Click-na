@@ -1,14 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentTherapist } from "@/lib/auth";
-import { writeBlocked } from "@/lib/require-access";
 import { archiveLocation, locationSchema, updateLocation } from "@/lib/locations";
 import { getMessages, toLocale, translateIssue } from "@/i18n";
+import { requireTherapist } from "@/lib/route-auth";
 
 export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/me/locations/[id]">) {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = locationSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {
@@ -27,10 +25,9 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/me/loc
 
 /** Archive, not delete: past bookings keep pointing at the place they happened. */
 export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/me/locations/[id]">) {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const { id } = await ctx.params;
   const result = await archiveLocation(therapist.id, id);

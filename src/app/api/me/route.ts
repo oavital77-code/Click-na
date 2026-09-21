@@ -1,32 +1,29 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
 import { profileSchema } from "@/lib/settings-schema";
 import { updateProfile } from "@/lib/profile";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 
 export async function GET() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireTherapist();
+  if (!gate.ok) return gate.response;
+  // The PayPlus identifiers are ours to charge with, not the therapist's to see.
+  const { subscription, ...therapist } = gate.therapist;
+  const visibleSubscription = subscription && {
+    ...subscription,
+    payplusTokenUid: undefined,
+    payplusCustomerUid: undefined,
+    payplusTerminalUid: undefined,
+    payplusCashierUid: undefined,
+    pendingPageRequestUids: undefined,
+  };
 
-  const therapist = await prisma.therapist.findUnique({
-    where: { clerkUserId: userId },
-    // The PayPlus identifiers are ours to charge with, not the therapist's to see.
-    include: { subscription: { omit: { payplusTokenUid: true, payplusCustomerUid: true, payplusTerminalUid: true, payplusCashierUid: true, pendingPageRequestUids: true } }, settings: true },
-  });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-
-  return NextResponse.json({ therapist });
+  return NextResponse.json({ therapist: { ...therapist, subscription: visibleSubscription ?? null } });
 }
 
 export async function PATCH(request: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = profileSchema.safeParse(await request.json());
   if (!parsed.success) {

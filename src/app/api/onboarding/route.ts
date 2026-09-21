@@ -1,20 +1,13 @@
 import { NextResponse, after, type NextRequest } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
+import { requireTherapist } from "@/lib/route-auth";
 import { onboardingSchema } from "@/lib/onboarding-schema";
 import { completeOnboarding } from "@/lib/onboarding";
 import { sendOnboardingCompleteEmail } from "@/lib/account-emails";
 
 export async function POST(request: NextRequest) {
-  const { userId } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) {
-    return NextResponse.json({ error: "not_found" }, { status: 404 });
-  }
+  const gate = await requireTherapist();
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
   // One-time door. Afterwards the slug changes only through the profile,
   // which enforces the cooldown and leaves a redirect from the old link, and
   // the hours change only through the availability screen.

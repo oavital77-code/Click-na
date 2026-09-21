@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,6 +48,9 @@ function isSlugCooldownActive(slugChangedAt: string | null) {
   return Date.now() - new Date(slugChangedAt).getTime() < 30 * 24 * 60 * 60 * 1000;
 }
 
+/** window.location.origin never changes while the page is open; nothing to subscribe to. */
+const subscribeToNothing = () => () => {};
+
 export function LinkEditor({
   profile: initialProfile,
   settings: initialSettings,
@@ -79,12 +82,10 @@ export function LinkEditor({
   }
 
   const slugCooldownActive = isSlugCooldownActive(profile.slugChangedAt);
-  // The configured origin on both renders; the browser's own only after
-  // mount, so the server and the first client render never disagree.
-  const [origin, setOrigin] = useState(publicOrigin() ?? "");
-  useEffect(() => {
-    if (!origin) setOrigin(window.location.origin);
-  }, [origin]);
+  // The configured origin on both renders; the browser's own only once
+  // hydrated (the server snapshot is empty), so the two never disagree.
+  const browserOrigin = useSyncExternalStore(subscribeToNothing, () => window.location.origin, () => "");
+  const origin = publicOrigin() ?? browserOrigin;
   const publicUrl = `${origin}/book/${savedSlug}`;
 
   async function copyLink() {

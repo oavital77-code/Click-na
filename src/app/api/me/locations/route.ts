@@ -1,20 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getCurrentTherapist } from "@/lib/auth";
-import { writeBlocked } from "@/lib/require-access";
 import { createLocation, listLocations, locationSchema } from "@/lib/locations";
 import { getMessages, toLocale, translateIssue } from "@/i18n";
+import { requireTherapist } from "@/lib/route-auth";
 
 export async function GET() {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const gate = await requireTherapist();
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
   return NextResponse.json({ locations: await listLocations(therapist.id) });
 }
 
 export async function POST(request: NextRequest) {
-  const therapist = await getCurrentTherapist();
-  if (!therapist) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = locationSchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {

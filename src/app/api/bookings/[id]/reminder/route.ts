@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 
 /**
  * Records that the therapist sent this booking's reminder themselves — by
@@ -12,13 +11,9 @@ import { writeBlocked } from "@/lib/require-access";
  * answers "was this client reminded?" regardless of who pressed send.
  */
 export async function POST(_request: NextRequest, ctx: RouteContext<"/api/bookings/[id]/reminder">) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const { id } = await ctx.params;
   const booking = await prisma.booking.findUnique({ where: { id } });

@@ -1,10 +1,8 @@
 import { NextResponse, type NextRequest, after } from "next/server";
 import { z } from "zod";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
 import { cancelBookingByTherapist } from "@/lib/bookings";
 import { sendBookingCanceledNotifications } from "@/lib/notifications";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 
 const bodySchema = z.object({ reason: z.string().trim().max(500).optional() });
 
@@ -14,13 +12,9 @@ const STATUS_BY_ERROR: Record<string, number> = {
 };
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/bookings/[id]/cancel">) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) {

@@ -1,9 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { auth } from "@clerk/nextjs/server";
 import { prisma } from "@/lib/prisma";
 import { updateRule, deleteRule } from "@/lib/availability-rules";
 import { ruleUpdateSchema } from "@/lib/availability-rule-schema";
-import { writeBlocked } from "@/lib/require-access";
+import { requireTherapist } from "@/lib/route-auth";
 
 async function getOwnedRule(therapistId: string, ruleId: string) {
   const rule = await prisma.availabilityRule.findUnique({ where: { id: ruleId } });
@@ -15,13 +14,9 @@ export async function PATCH(
   request: NextRequest,
   ctx: RouteContext<"/api/availability-rules/[id]">
 ) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const { id } = await ctx.params;
   const existing = await getOwnedRule(therapist.id, id);
@@ -40,13 +35,9 @@ export async function DELETE(
   request: NextRequest,
   ctx: RouteContext<"/api/availability-rules/[id]">
 ) {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
-  const blocked = await writeBlocked(therapist.id);
-  if (blocked) return blocked;
+  const gate = await requireTherapist({ write: true });
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   const { id } = await ctx.params;
   const existing = await getOwnedRule(therapist.id, id);

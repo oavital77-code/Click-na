@@ -1,16 +1,13 @@
 import { NextResponse } from "next/server";
-import { auth } from "@clerk/nextjs/server";
-import { prisma } from "@/lib/prisma";
 import { startCheckout } from "@/lib/billing";
 import { PayPlusError } from "@/lib/payplus";
+import { requireTherapist } from "@/lib/route-auth";
 
 /** Opens a PayPlus payment page for the signed-in therapist and returns its URL. */
 export async function POST() {
-  const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-
-  const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: userId }, select: { id: true } });
-  if (!therapist) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  const gate = await requireTherapist();
+  if (!gate.ok) return gate.response;
+  const { therapist } = gate;
 
   try {
     const result = await startCheckout(therapist.id);
