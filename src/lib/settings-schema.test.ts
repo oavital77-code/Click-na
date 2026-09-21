@@ -45,6 +45,9 @@ describe("settingsSchema", () => {
     sendEmailReminder: false,
     sendSmsReminder: false,
     reminderHoursBefore: 24,
+    blockHolidays: true,
+    blockHolidayEves: false,
+    blockCholHamoed: false,
   };
 
   it("accepts a valid settings payload", () => {

@@ -19,6 +19,7 @@ import { buildTimeAxis } from "@/lib/schedule-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
+import { holidaysByDate, yearsBetween } from "@/lib/holidays";
 
 type SessionRow = {
   id: string;
@@ -178,6 +179,7 @@ export function DashboardSchedule({
     () => (granularity === "day" ? [anchorDate] : Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i))),
     [granularity, anchorDate]
   );
+  const holidays = useMemo(() => holidaysByDate(yearsBetween(columns[0], columns[columns.length - 1])), [columns]);
 
   const isCurrentPeriod =
     granularity === "day"
@@ -468,9 +470,12 @@ export function DashboardSchedule({
                 column) so a swipe never leaves a cell cut in half. Sticky cells
                 need border-separate — with border-collapse the row line is owned
                 by the table and tears when the pinned column scrolls over it. */}
+            {/* Bounded and scrolling both ways, so the day header pins to the
+                top and the hour column to the edge on every browser — sticky
+                needs a scrolling ancestor on each axis, and the page is not one. */}
             <div
               className={cn(
-                "snap-x snap-mandatory scroll-ps-12 overflow-x-auto",
+                "snap-x snap-mandatory scroll-ps-12 max-h-[70vh] overflow-auto",
                 granularity === "week" && "hidden md:block"
               )}
             >
@@ -485,16 +490,21 @@ export function DashboardSchedule({
               >
                 <thead>
                   <tr>
-                    <th className="bg-card sticky start-0 z-10 w-12 min-w-12" />
+                    <th className="bg-card sticky start-0 top-0 z-30 w-12 min-w-12" />
                     {columns.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th key={dateKey} className="min-w-[148px] snap-start pb-2 text-center font-medium">
+                        <th key={dateKey} className="bg-card sticky top-0 z-20 min-w-[148px] snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>{m.labels.daysShort[dow]}</div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
                           </div>
+                          {holidays.has(dateKey) && (
+                            <div className="text-primary text-[10px] leading-tight font-normal">
+                              {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
+                            </div>
+                          )}
                         </th>
                       );
                     })}

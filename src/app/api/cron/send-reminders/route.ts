@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { sendDueReminders } from "@/lib/notifications";
 import { pruneRateLimits } from "@/lib/rate-limit";
+import { pruneClosedDaysForEveryone } from "@/lib/holiday-slots";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
 
 /**
@@ -43,5 +44,8 @@ export async function GET(request: NextRequest) {
   // disappearing promptly.
   const prunedRateLimits = await pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
-  return NextResponse.json({ ...summary, billing, prunedRateLimits });
+  // Empty windows on Israeli holidays, for everyone who closes on them.
+  const prunedHolidaySlots = await pruneClosedDaysForEveryone();
+
+  return NextResponse.json({ ...summary, billing, prunedRateLimits, prunedHolidaySlots });
 }

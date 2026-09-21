@@ -18,6 +18,7 @@ import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { cn } from "@/lib/utils";
 import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
+import { holidaysByDate, yearsBetween } from "@/lib/holidays";
 
 type SessionRow = {
   id: string;
@@ -74,6 +75,7 @@ export function AvailabilityView({
     () => Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i)),
     [anchorDate]
   );
+  const holidays = useMemo(() => holidaysByDate(yearsBetween(weekDates[0], weekDates[6])), [weekDates]);
 
   const range = useMemo(() => {
     if (granularity === "month") {
@@ -282,24 +284,32 @@ export function AvailabilityView({
               }}
             />
           ) : (
-            // Same pinned-hours + column snapping as the dashboard grid, so a
-            // swipe on a phone never stops mid-cell or hides the hour labels.
-            <div className="snap-x snap-mandatory scroll-ps-14 overflow-x-auto">
+            // One box that scrolls both ways, bounded in height: that is what lets
+            // the day header pin to its top and the hour column to its edge on
+            // every browser, phones included — sticky only ever works against
+            // the nearest scrolling ancestor, and a page-scrolled table has none
+            // for the vertical axis. The corner cell sits above both.
+            <div className="snap-x snap-mandatory scroll-ps-14 max-h-[70vh] overflow-auto">
               <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
                 <thead>
                   <tr>
-                    <th className="bg-card sticky start-0 z-10 w-14" />
+                    <th className="bg-card sticky start-0 top-0 z-30 w-14" />
                     {weekDates.map((dateKey) => {
                       const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
                       const isToday = dateKey === today;
                       return (
-                        <th key={dateKey} className="snap-start pb-2 text-center font-medium">
+                        <th key={dateKey} className="bg-card sticky top-0 z-20 snap-start pb-2 text-center font-medium">
                           <div className={isToday ? "text-primary" : undefined}>
                             {m.labels.daysShort[dow]}
                           </div>
                           <div className="num text-muted-foreground text-xs">
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
                           </div>
+                          {holidays.has(dateKey) && (
+                            <div className="text-primary text-[10px] leading-tight font-normal">
+                              {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
+                            </div>
+                          )}
                         </th>
                       );
                     })}

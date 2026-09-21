@@ -280,6 +280,12 @@ model TherapistSettings {
   // in src/lib/notifications.ts. Renaming the column would break every existing row.
   sendSmsReminder         Boolean      @default(false) @map("send_sms_reminder")
   reminderHoursBefore     Int          @default(24) @map("reminder_hours_before")
+  // Israeli holidays, computed from the Hebrew calendar (src/lib/holidays.ts):
+  // no slot is opened on a closed day, and the daily job removes empty ones
+  // that got there before the switch was set. Booked appointments are never touched.
+  blockHolidays           Boolean      @default(true) @map("block_holidays")
+  blockHolidayEves        Boolean      @default(false) @map("block_holiday_eves")
+  blockCholHamoed         Boolean      @default(false) @map("block_chol_hamoed")
   brandColor              String?      @map("brand_color") @db.VarChar(7)
   brandLogoUrl            String?      @map("brand_logo_url")
   bookingPageHeadline     String?      @map("booking_page_headline") @db.VarChar(255)

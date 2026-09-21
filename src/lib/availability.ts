@@ -1,5 +1,6 @@
 import { fromZonedTime } from "date-fns-tz";
 import type { Prisma } from "@/generated/prisma/client";
+import { blockedDates, yearsBetween } from "@/lib/holidays";
 
 type Tx = Prisma.TransactionClient;
 
@@ -71,11 +72,15 @@ export async function generateOpenSessions(tx: Tx, therapistId: string) {
   const now = new Date();
   const earliestStart = new Date(now.getTime() + settings.minNoticeHours * 60 * 60 * 1000);
   const todayStr = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
+  const lastStr = addDaysUtc(todayStr, settings.maxAdvanceDays);
+  // The holidays this therapist closes on, for every year the window touches.
+  const closed = blockedDates(settings, yearsBetween(todayStr, lastStr));
 
   const candidates: Prisma.SessionCreateManyInput[] = [];
 
   for (let offset = 0; offset <= settings.maxAdvanceDays; offset++) {
     const dateStr = addDaysUtc(todayStr, offset);
+    if (closed.has(dateStr)) continue;
     const dayOfWeek = new Date(`${dateStr}T00:00:00Z`).getUTCDay();
 
     for (const rule of rules) {

@@ -13,7 +13,8 @@ describe("availability-rules (against a live database)", () => {
         slug: "rules-integration-test",
         timezone: "Asia/Jerusalem",
         subscription: { create: {} },
-        settings: { create: { minNoticeHours: 1, maxAdvanceDays: 14 } },
+        // Holidays off: these tests count generated slots and must not depend on the calendar.
+        settings: { create: { minNoticeHours: 1, maxAdvanceDays: 14, blockHolidays: false } },
       },
     });
     therapistId = therapist.id;

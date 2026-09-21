@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { settingsSchema } from "@/lib/settings-schema";
 import { updateSettings } from "@/lib/settings";
 import { writeBlocked } from "@/lib/require-access";
+import { applyHolidayPolicy } from "@/lib/holiday-slots";
 
 export async function GET() {
   const { userId } = await auth();
@@ -33,5 +34,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const settings = await updateSettings(therapist.id, parsed.data);
+  // Closed days take effect now, not at the next daily sweep.
+  await applyHolidayPolicy(therapist.id);
   return NextResponse.json({ settings });
 }

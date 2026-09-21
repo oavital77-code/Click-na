@@ -52,6 +52,9 @@ export const settingsSchema = z
     sendEmailReminder: z.boolean(),
     sendSmsReminder: z.boolean(),
     reminderHoursBefore: timeUnitSchema.max(24 * 14),
+    blockHolidays: z.boolean(),
+    blockHolidayEves: z.boolean(),
+    blockCholHamoed: z.boolean(),
     brandColor: z
       .string()
       .trim()

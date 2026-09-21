@@ -40,6 +40,9 @@ describe("updateSettings (against a live database)", () => {
       sendEmailReminder: true,
       sendSmsReminder: false,
       reminderHoursBefore: 12,
+      blockHolidays: true,
+      blockHolidayEves: false,
+      blockCholHamoed: false,
       brandColor: "#ff00aa",
       bookingPageHeadline: "ברוכים הבאים",
     };
@@ -79,6 +82,9 @@ describe("updateSettings (against a live database)", () => {
       sendEmailReminder: false,
       sendSmsReminder: false,
       reminderHoursBefore: 24,
+    blockHolidays: true,
+    blockHolidayEves: false,
+    blockCholHamoed: false,
     });
 
     const afterClear = await updateSettings(therapistId, {
@@ -94,6 +100,9 @@ describe("updateSettings (against a live database)", () => {
       sendEmailReminder: false,
       sendSmsReminder: false,
       reminderHoursBefore: 24,
+    blockHolidays: true,
+    blockHolidayEves: false,
+    blockCholHamoed: false,
     });
 
     expect(afterClear.cancellationPolicyText).toBeNull();

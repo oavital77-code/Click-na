@@ -34,6 +34,9 @@ type SettingsState = {
   sendEmailReminder: boolean;
   sendSmsReminder: boolean;
   reminderHoursBefore: number;
+  blockHolidays: boolean;
+  blockHolidayEves: boolean;
+  blockCholHamoed: boolean;
   brandColor: string;
   brandLogoUrl: string;
   bookingPageHeadline: string;

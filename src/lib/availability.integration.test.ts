@@ -15,7 +15,7 @@ describe("generateOpenSessions (against a live database)", () => {
         timezone: "Asia/Jerusalem",
         subscription: { create: {} },
         settings: {
-          create: { minNoticeHours: 1, maxAdvanceDays: 14, bufferBeforeMinutes: 0, bufferAfterMinutes: 10 },
+          create: { minNoticeHours: 1, maxAdvanceDays: 14, bufferBeforeMinutes: 0, bufferAfterMinutes: 10, blockHolidays: false },
         },
       },
     });

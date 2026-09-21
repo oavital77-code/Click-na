@@ -55,6 +55,9 @@ type SettingsState = {
   sendEmailReminder: boolean;
   sendSmsReminder: boolean;
   reminderHoursBefore: number;
+  blockHolidays: boolean;
+  blockHolidayEves: boolean;
+  blockCholHamoed: boolean;
   brandColor: string;
   brandLogoUrl: string;
   bookingPageHeadline: string;
@@ -356,6 +359,32 @@ export function SettingsView({
       </Card>
 
       <LocationsCard initial={locations} />
+
+      {/* Israeli holidays */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{m.settings.holidaysCard}</CardTitle>
+          <CardDescription>{m.settings.holidaysDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <ToggleRow
+            label={m.settings.blockHolidays}
+            checked={settings.blockHolidays}
+            onChange={(v) => updateSettings("blockHolidays", v)}
+          />
+          <ToggleRow
+            label={m.settings.blockHolidayEves}
+            checked={settings.blockHolidayEves}
+            onChange={(v) => updateSettings("blockHolidayEves", v)}
+          />
+          <ToggleRow
+            label={m.settings.blockCholHamoed}
+            checked={settings.blockCholHamoed}
+            onChange={(v) => updateSettings("blockCholHamoed", v)}
+          />
+          <p className="text-muted-foreground text-xs">{m.settings.holidaysNote}</p>
+        </CardContent>
+      </Card>
 
       {/* Cancellation and booking policy */}
       <Card>
