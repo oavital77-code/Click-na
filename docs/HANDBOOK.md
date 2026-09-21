@@ -204,9 +204,11 @@ Therapist ─┬─ TherapistSettings   (1:1)  מדיניות: התראה מוק
   └─▶ GET /api/public/therapists/<slug>/availability?location=<place>   ← מוגבל 120/דקה לכתובת IP
         מחשב מועדים פנויים מהכללים + ההזמנות הקיימות + מדיניות ההתראה המוקדמת
   └─▶ POST /api/public/sessions/<id>/hold
-        תופס את המועד ל-10 דקות (hold_expires_at) — לא הזמנה, רק שריון
-  └─▶ POST /api/public/bookings
-        טרנזקציה אחת: אימות ההחזקה → יצירת/איתור לקוח → Booking → manage_token
+        תופס את המועד ל-10 דקות (hold_expires_at) — לא הזמנה, רק שריון.
+        מחזיר hold_token: ההחזקה שייכת למי שמחזיק אותו
+  └─▶ POST /api/public/bookings  (עם hold_token)
+        טרנזקציה אחת: אימות ההחזקה (מועד פנוי, או החזקה שפגה, או ההחזקה שלי לפי הטוקן)
+        → יצירת/איתור לקוח → Booking → manage_token
   └─▶ מייל אישור ללקוח (עם ICS) + התראה למטפל
 ```
 

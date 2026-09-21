@@ -61,6 +61,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
   );
   const [selectedSlot, setSelectedSlot] = useState<Slot | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<Date | null>(null);
+  const [holdToken, setHoldToken] = useState<string | null>(null);
   const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   const [fullName, setFullName] = useState("");
@@ -121,6 +122,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
     }
     setSelectedSlot(slot);
     setHoldExpiresAt(new Date(data.holdExpiresAt)); // the ticking effect below fills in secondsLeft
+    setHoldToken(data.holdToken ?? null);
     setStep("form");
   }
 
@@ -132,7 +134,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
       const res = await fetch("/api/public/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId: selectedSlot.id, fullName, phone, email, note }),
+        body: JSON.stringify({ sessionId: selectedSlot.id, fullName, phone, email, note, holdToken: holdToken ?? undefined }),
       });
       const data = await res.json();
       if (!res.ok) {

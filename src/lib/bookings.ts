@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { isExclusionViolation } from "@/lib/prisma-errors";
-import type { Booking, Session } from "@/generated/prisma/client";
+import type { Booking, Prisma, Session } from "@/generated/prisma/client";
 import { accessState, acceptsNewBookings } from "@/lib/access";
 
 const HOLD_MINUTES = 10;
@@ -9,24 +9,26 @@ const HOLD_MINUTES = 10;
 class SlotUnavailableError extends Error {}
 
 export type HoldSessionResult =
-  | { ok: true; holdExpiresAt: Date }
+  | { ok: true; holdExpiresAt: Date; holdToken: string }
   | { ok: false; error: "SLOT_ON_HOLD" | "SLOT_ALREADY_BOOKED" };
 
 /**
  * The 10-minute public hold (spec 7.3/11.1). Only reclaims a slot that's open
  * or held-and-expired — never a live held slot — so two visitors can never
- * hold the same slot at once.
+ * hold the same slot at once. The token handed back is what makes the hold
+ * the holder's: createBooking accepts a live hold only with it.
  */
 export async function holdSession(sessionId: string): Promise<HoldSessionResult> {
   const now = new Date();
   const holdExpiresAt = new Date(now.getTime() + HOLD_MINUTES * 60 * 1000);
+  const holdToken = randomBytes(16).toString("hex");
 
   const claimed = await prisma.session.updateMany({
     where: {
       id: sessionId,
       OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
     },
-    data: { status: "held", holdExpiresAt },
+    data: { status: "held", holdExpiresAt, holdToken },
   });
 
   if (claimed.count === 0) {
@@ -34,7 +36,22 @@ export async function holdSession(sessionId: string): Promise<HoldSessionResult>
     return { ok: false, error: session?.status === "booked" ? "SLOT_ALREADY_BOOKED" : "SLOT_ON_HOLD" };
   }
 
-  return { ok: true, holdExpiresAt };
+  return { ok: true, holdExpiresAt, holdToken };
+}
+
+/**
+ * Who may claim a slot right now: anyone, when it is open or its hold has
+ * lapsed; only the holder, while a hold is live. Shared by booking and
+ * rescheduling so the two cannot disagree.
+ */
+function claimableBy(holdToken: string | null | undefined, now: Date): Prisma.SessionWhereInput {
+  return {
+    OR: [
+      { status: "open" },
+      { status: "held", holdExpiresAt: { lt: now } },
+      ...(holdToken ? [{ status: "held" as const, holdToken }] : []),
+    ],
+  };
 }
 
 export type CreateBookingInput = {
@@ -43,6 +60,8 @@ export type CreateBookingInput = {
   phone?: string | null;
   email: string;
   note?: string;
+  /** From holdSession. Needed only while the slot is held; an open slot needs none. */
+  holdToken?: string | null;
 };
 
 export type CreateBookingResult =
@@ -86,10 +105,11 @@ export async function createBooking(
 
   try {
     const booking = await prisma.$transaction(async (tx) => {
-      // Whoever wins this update owns the slot; anything else (already booked, blocked, etc.) is a conflict.
+      // Whoever wins this update owns the slot; anything else (already booked,
+      // blocked, held by somebody else) is a conflict.
       const claimed = await tx.session.updateMany({
-        where: { id: sessionId, status: { in: ["open", "held"] } },
-        data: { status: "booked" },
+        where: { id: sessionId, ...claimableBy(input.holdToken, new Date()) },
+        data: { status: "booked", holdToken: null },
       });
       if (claimed.count === 0) {
         throw new SlotUnavailableError();
@@ -278,8 +298,8 @@ export async function rescheduleBookingByClient(
   try {
     await prisma.$transaction(async (tx) => {
       const claimed = await tx.session.updateMany({
-        where: { id: newSessionId, status: { in: ["open", "held"] } },
-        data: { status: "booked" },
+        where: { id: newSessionId, ...claimableBy(null, new Date()) },
+        data: { status: "booked", holdToken: null },
       });
       if (claimed.count === 0) {
         throw new SlotUnavailableError();

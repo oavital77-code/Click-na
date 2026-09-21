@@ -12,6 +12,8 @@ const bookingSchema = z.object({
   phone: z.string().trim().max(50).optional().or(z.literal("")),
   email: z.string().trim().toLowerCase().email().max(255),
   note: z.string().trim().max(200).optional(),
+  // What the hold handed back. Absent, only an open (or lapsed-hold) slot can be taken.
+  holdToken: z.string().trim().max(64).optional(),
 });
 
 const STATUS_BY_ERROR: Record<string, number> = {

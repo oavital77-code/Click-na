@@ -22,5 +22,5 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/public/
     return NextResponse.json({ error: result.error }, { status: 409 });
   }
 
-  return NextResponse.json({ holdExpiresAt: result.holdExpiresAt.toISOString() });
+  return NextResponse.json({ holdExpiresAt: result.holdExpiresAt.toISOString(), holdToken: result.holdToken });
 }

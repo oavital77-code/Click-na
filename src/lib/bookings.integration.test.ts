@@ -63,6 +63,35 @@ describe("bookings (against a live database)", () => {
     expect(second).toEqual({ ok: false, error: "SLOT_ON_HOLD" });
   });
 
+  // A hold used to be a status and nothing more: any caller who knew the
+  // session id could book a slot somebody else was holding, and the holder
+  // learned that after filling in the form.
+  it("a live hold belongs to whoever holds it: booking without its token is refused", async () => {
+    const session = await makeSession(48);
+    const hold = await holdSession(session.id);
+    expect(hold.ok).toBe(true);
+    const other = await createBooking(session.id, { fullName: "מישהו אחר", email: "other@example.com", phone: "0501234567" });
+    expect(other).toEqual({ ok: false, error: "SLOT_ALREADY_BOOKED" });
+  });
+
+  it("the holder books with the token the hold handed back", async () => {
+    const session = await makeSession(48);
+    const hold = await holdSession(session.id);
+    if (!hold.ok) throw new Error("setup");
+    const result = await createBooking(session.id, { fullName: "דנה לוי", email: "holder@example.com", phone: "0501234567", holdToken: hold.holdToken });
+    expect(result.ok).toBe(true);
+  });
+
+  it("an expired hold is anyone's again", async () => {
+    const session = await makeSession(48);
+    await prisma.session.update({
+      where: { id: session.id },
+      data: { status: "held", holdToken: "stale", holdExpiresAt: new Date(Date.now() - 60 * 1000) },
+    });
+    const result = await createBooking(session.id, { fullName: "דנה לוי", email: "late@example.com", phone: "0501234567" });
+    expect(result.ok).toBe(true);
+  });
+
   it("creates a booking and marks the session booked", async () => {
     const session = await makeSession(48);
     const result = await createBooking(session.id, {

@@ -328,6 +328,10 @@ model Session {
   blockedNote         String?       @map("blocked_note") @db.VarChar(80)
   generatedFromRuleId String?       @map("generated_from_rule_id") @db.Uuid
   holdExpiresAt       DateTime?     @map("hold_expires_at") @db.Timestamptz
+  // Handed to whoever placed the hold; booking a live hold needs it back.
+  // Without it a hold was a status and nothing more, and anyone who knew the
+  // session id could book the slot out from under the person holding it.
+  holdToken           String?       @map("hold_token") @db.VarChar(64)
   version             Int           @default(0)
   // Where this slot takes place. One therapist, one calendar: the overlap
   // constraint spans every location, because nobody is in two clinics at once.
