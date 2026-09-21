@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { mapWithConcurrency } from "@/lib/concurrency";
 import { sendEmail } from "@/lib/email";
 import { generateBookingIcs } from "@/lib/ics";
 import { appUrl as getAppUrl } from "@/lib/public-url";
@@ -533,20 +534,4 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
   });
 
   return summary;
-}
-
-/** Runs `fn` over `items` with at most `limit` in flight; a failure in one never stops the others. */
-export async function mapWithConcurrency<T>(items: T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
-  let next = 0;
-  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
-    while (next < items.length) {
-      const item = items[next++];
-      try {
-        await fn(item);
-      } catch (error) {
-        console.error("[notifications] reminder failed", error);
-      }
-    }
-  });
-  await Promise.all(workers);
 }

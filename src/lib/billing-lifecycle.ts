@@ -3,6 +3,7 @@ import { graceEndFor } from "@/lib/access";
 import { GRACE_DAYS, RENEWAL_CONFIRMATION_DAYS, TRIAL_DAYS, TRIAL_REMINDER_DAYS } from "@/lib/plan";
 import { sendTrialEmail } from "@/lib/account-emails";
 import { chargeDueRenewals, type RenewalSummary } from "@/lib/billing";
+import { mapWithConcurrency } from "@/lib/concurrency";
 
 /**
  * The daily pass over every subscription that is not simply "paid and fine".
@@ -28,6 +29,8 @@ export type LifecycleSummary = {
 };
 
 const DAY = 24 * 60 * 60 * 1000;
+/** Rows in flight at once. Low: the database pool is three connections per instance. */
+const LIFECYCLE_CONCURRENCY = 3;
 
 export async function runBillingLifecycle(
   now: Date = new Date(),
@@ -46,7 +49,10 @@ export async function runBillingLifecycle(
     where: { status: "trialing", trialEndsAt: { not: null } },
     select: { id: true, therapistId: true, trialEndsAt: true, lastTrialReminderDay: true },
   });
-  for (const sub of trialing) {
+  // A few at a time, never one after another: each step may wait on the mail
+  // provider (up to three attempts with backoff), and the cron has a minute.
+  // A row that fails is logged and costs nobody else their turn.
+  await mapWithConcurrency(trialing, LIFECYCLE_CONCURRENCY, async (sub) => {
     const trialEndsAt = sub.trialEndsAt!;
     if (trialEndsAt <= now) {
       // 2. The trial is over: grace begins.
@@ -56,15 +62,15 @@ export async function runBillingLifecycle(
       });
       await sendTrialEmail(sub.therapistId, { kind: "ended", graceDays: GRACE_DAYS });
       summary.ended++;
-      continue;
+      return;
     }
     const dayOfTrial = TRIAL_DAYS - Math.ceil((trialEndsAt.getTime() - now.getTime()) / DAY) + 1;
     const due = [...TRIAL_REMINDER_DAYS].filter((d) => d <= dayOfTrial && d > (sub.lastTrialReminderDay ?? 0)).pop();
-    if (due === undefined) continue;
+    if (due === undefined) return;
     await prisma.subscription.update({ where: { id: sub.id }, data: { lastTrialReminderDay: due } });
     await sendTrialEmail(sub.therapistId, { kind: "reminder", daysLeft: Math.max(0, TRIAL_DAYS - dayOfTrial) });
     summary.reminders++;
-  }
+  });
 
   // 3. Renewals: charge the stored cards whose period has ended (and retry
   //    through grace). A success moves the period on; a decline starts grace.
@@ -75,11 +81,11 @@ export async function runBillingLifecycle(
     where: { status: "past_due", graceEndsAt: { lte: now } },
     select: { id: true, therapistId: true },
   });
-  for (const sub of lapsed) {
+  await mapWithConcurrency(lapsed, LIFECYCLE_CONCURRENCY, async (sub) => {
     await prisma.subscription.update({ where: { id: sub.id }, data: { status: "unpaid" } });
     await sendTrialEmail(sub.therapistId, { kind: "locked" });
     summary.locked++;
-  }
+  });
 
   // 5. Paid periods that ended with no renewal confirmed — see RENEWAL_CONFIRMATION_DAYS.
   const unconfirmed = await prisma.subscription.findMany({
@@ -90,14 +96,14 @@ export async function runBillingLifecycle(
     },
     select: { id: true, therapistId: true, currentPeriodEnd: true },
   });
-  for (const sub of unconfirmed) {
+  await mapWithConcurrency(unconfirmed, LIFECYCLE_CONCURRENCY, async (sub) => {
     await prisma.subscription.update({
       where: { id: sub.id },
       data: { status: "past_due", graceEndsAt: graceEndFor(sub.currentPeriodEnd!) },
     });
     await sendTrialEmail(sub.therapistId, { kind: "renewal_unconfirmed", graceDays: GRACE_DAYS });
     summary.unconfirmed++;
-  }
+  });
 
   return summary;
 }

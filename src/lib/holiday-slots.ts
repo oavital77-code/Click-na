@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, generateOpenSessions, todayIn, zonedDateTimeToUtc } from "@/lib/availability";
 import { blockedDates, yearsBetween, type HolidayPolicy } from "@/lib/holidays";
+import { mapWithConcurrency } from "@/lib/concurrency";
 
 /** How far ahead closed days are enforced. Past maxAdvanceDays anyway. */
 const HORIZON_DAYS = 400;
@@ -64,8 +65,14 @@ export async function pruneClosedDaysForEveryone(): Promise<number> {
     select: { id: true, timezone: true, settings: { select: { blockHolidays: true, blockHolidayEves: true, blockCholHamoed: true } } },
   });
   let removed = 0;
-  for (const t of therapists) {
-    if (t.settings) removed += await pruneClosedDays(t.id, t.timezone, t.settings);
-  }
+  // Each therapist has their own timezone, so it stays one delete per
+  // therapist — but three at a time, inside the cron's minute.
+  await mapWithConcurrency(therapists, 3, async (t) => {
+    if (!t.settings) return;
+    // Two steps on purpose: `removed += await …` reads the total before the
+    // await and writes it back after, so a neighbour's count gets lost.
+    const count = await pruneClosedDays(t.id, t.timezone, t.settings);
+    removed += count;
+  });
   return removed;
 }
