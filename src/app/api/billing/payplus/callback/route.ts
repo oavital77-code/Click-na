@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { mergeVerifiedWithHints, parseTransaction, payplusConfig, verifyCallbackSignature } from "@/lib/payplus";
 import { applyVerifiedTransaction, verifyWithPayPlus } from "@/lib/billing";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { unsignedCallbackRefused } from "@/lib/payplus-callbacks";
 import { tooManyRequests } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,10 @@ export async function POST(request: NextRequest) {
   const hash = request.headers.get("hash");
   if (hash !== null && !verifyCallbackSignature(rawBody, { hash, userAgent: request.headers.get("user-agent") }, cfg.secretKey)) {
     return NextResponse.json({ error: "bad_signature" }, { status: 401 });
+  }
+  if (hash === null) {
+    const refused = unsignedCallbackRefused("billing");
+    if (refused) return refused;
   }
 
   let body: unknown;

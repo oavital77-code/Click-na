@@ -5,6 +5,7 @@ import { payplusConfigFor } from "@/lib/integration-verify";
 import { mergeVerifiedWithHints, parseTransaction, verifyCallbackSignature } from "@/lib/payplus";
 import { applyClientPayment, verifyClientTransactionWithPayPlus } from "@/lib/client-payments";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
+import { unsignedCallbackRefused } from "@/lib/payplus-callbacks";
 import { tooManyRequests } from "@/lib/http";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,10 @@ export async function POST(request: NextRequest) {
   const hash = request.headers.get("hash");
   if (hash !== null && !verifyCallbackSignature(rawBody, { hash, userAgent: request.headers.get("user-agent") }, cfg.secretKey)) {
     return NextResponse.json({ error: "bad_signature" }, { status: 401 });
+  }
+  if (hash === null) {
+    const refused = unsignedCallbackRefused("client");
+    if (refused) return refused;
   }
 
   const verified = await verifyClientTransactionWithPayPlus(cfg, hinted.transactionUid);
