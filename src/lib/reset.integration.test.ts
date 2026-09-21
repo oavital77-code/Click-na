@@ -47,6 +47,7 @@ describe("reset (against a live database)", () => {
   afterEach(async () => {
     for (const therapistId of therapistIds.splice(0)) {
       await prisma.notification.deleteMany({ where: { booking: { therapistId } } });
+      await prisma.clientPayment.deleteMany({ where: { therapistId } });
       await prisma.booking.deleteMany({ where: { therapistId } });
       await prisma.client.deleteMany({ where: { therapistId } });
       await prisma.session.deleteMany({ where: { therapistId } });
@@ -171,6 +172,24 @@ describe("reset (against a live database)", () => {
       expect(await prisma.session.count({ where: { therapistId } })).toBe(0);
       expect(await prisma.booking.count({ where: { therapistId } })).toBe(0);
       expect(await prisma.client.count({ where: { therapistId } })).toBe(0);
+    });
+
+    // A booking that was paid for carries a client_payments row with a
+    // RESTRICT foreign key. Deleting the booking underneath it threw, so the
+    // "start over" button failed for exactly the therapists who had used the
+    // product most.
+    it("removes bookings that carry a recorded client payment", async () => {
+      const therapistId = await makeTherapist();
+      const booking = await makeBooking(therapistId);
+      await prisma.clientPayment.create({
+        data: { therapistId, bookingId: booking.id, provider: "payplus", transactionUid: `reset-${booking.id}`, amount: 100, status: "succeeded" },
+      });
+
+      const summary = await resetSchedule(therapistId, "everything");
+
+      expect(summary.bookings).toBe(1);
+      expect(await prisma.clientPayment.count({ where: { therapistId } })).toBe(0);
+      expect(await prisma.booking.count({ where: { therapistId } })).toBe(0);
     });
 
     // The therapist keeps their account, settings and public link — this is a

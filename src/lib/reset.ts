@@ -41,11 +41,12 @@ export async function resetSchedule(
     };
 
     if (scope === "everything") {
-      // Children before parents: notifications reference bookings, bookings
-      // reference both sessions and clients.
+      // Children before parents: notifications and client payments reference
+      // bookings, bookings reference both sessions and clients.
       summary.notifications = (
         await tx.notification.deleteMany({ where: { booking: { therapistId } } })
       ).count;
+      await tx.clientPayment.deleteMany({ where: { therapistId } });
       summary.bookings = (await tx.booking.deleteMany({ where: { therapistId } })).count;
       summary.clients = (await tx.client.deleteMany({ where: { therapistId } })).count;
       summary.sessions = (await tx.session.deleteMany({ where: { therapistId } })).count;
