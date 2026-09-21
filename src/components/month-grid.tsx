@@ -5,6 +5,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, startOfMonthUtc, startOfWeekUtc } from "@/lib/availability";
 import { useI18n } from "@/i18n/client";
+import { holidaysByDate, yearsBetween } from "@/lib/holidays";
 
 /** The least a session needs to expose to be summarised on a month cell. Both the
  *  dashboard and the availability page pass richer rows than this. */
@@ -39,6 +40,7 @@ export function MonthGrid({
   const currentMonth = anchorDate.slice(0, 7);
   const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
   const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDaysUtc(gridStart, i)), [gridStart]);
+  const holidays = useMemo(() => holidaysByDate(yearsBetween(days[0], days[days.length - 1])), [days]);
 
   const summaryByDay = useMemo(() => {
     const map = new Map<string, { open: number; bookedNames: string[] }>();
@@ -79,6 +81,11 @@ export function MonthGrid({
               )}
             >
               <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
+              {holidays.has(date) && (
+                <span className="text-primary block w-full truncate text-[9px] leading-tight">
+                  {m.holidays[holidays.get(date)!.key as keyof typeof m.holidays]}
+                </span>
+              )}
               {summary && (
                 <div className="flex w-full flex-col gap-0.5">
                   <div className="flex flex-wrap gap-0.5">
