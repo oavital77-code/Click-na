@@ -74,6 +74,33 @@ describe("generateOpenSessions (against a live database)", () => {
     }
   });
 
+  // A blocked window is the therapist saying "not then". The exclusion
+  // constraint left blocked rows out, so regeneration put a fresh open slot
+  // right on top of one, and the blocked time went back on sale.
+  it("never re-opens a window the therapist blocked", async () => {
+    const first = await prisma.session.findFirstOrThrow({ where: { therapistId, status: "open" }, orderBy: { startsAt: "asc" } });
+    await prisma.session.update({ where: { id: first.id }, data: { status: "blocked", blockedNote: "off" } });
+    try {
+      await prisma.$transaction((tx) => generateOpenSessions(tx, therapistId));
+      const atThatTime = await prisma.session.findMany({ where: { therapistId, startsAt: first.startsAt } });
+      expect(atThatTime.map((s) => s.status)).toEqual(["blocked"]);
+    } finally {
+      await prisma.session.update({ where: { id: first.id }, data: { status: "open", blockedNote: null } });
+    }
+  });
+
+  it("the database refuses a hand-made slot on top of a blocked one", async () => {
+    const first = await prisma.session.findFirstOrThrow({ where: { therapistId, status: "open" }, orderBy: { startsAt: "asc" } });
+    await prisma.session.update({ where: { id: first.id }, data: { status: "blocked" } });
+    try {
+      await expect(
+        prisma.session.create({ data: { therapistId, locationId: first.locationId, startsAt: first.startsAt, endsAt: first.endsAt } })
+      ).rejects.toMatchObject({ code: "P2039" });
+    } finally {
+      await prisma.session.update({ where: { id: first.id }, data: { status: "open" } });
+    }
+  });
+
   it("never generates a slot that overlaps an existing one (DB exclusion constraint holds)", async () => {
     const sessions = await prisma.session.findMany({ where: { therapistId }, orderBy: { startsAt: "asc" } });
     for (let i = 1; i < sessions.length; i++) {
