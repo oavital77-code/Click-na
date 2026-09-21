@@ -159,39 +159,26 @@ export async function applyVerifiedTransaction(
       },
     });
   } catch (error) {
-    if (isUniqueError(error)) return { applied: false, reason: "duplicate" };
-    throw error;
+    if (!isUniqueError(error)) throw error;
+    // Recorded before. Usually a redelivery of something already applied —
+    // but the row is written before the subscription is touched, so a crash
+    // between the two leaves a paid-for account that was never activated.
+    // Finish that now rather than answer "duplicate" forever.
+    const recorded = await prisma.payment.findUnique({ where: { transactionUid: verified.transactionUid } });
+    const activationPending =
+      recorded?.status === "succeeded" &&
+      recorded.periodEnd !== null &&
+      recorded.therapistId === subscription.therapistId &&
+      !(subscription.status === "active" && subscription.currentPeriodEnd && subscription.currentPeriodEnd >= recorded.periodEnd);
+    if (!activationPending || !recorded?.periodStart || !recorded.periodEnd) return { applied: false, reason: "duplicate" };
+    await activate(subscription, verified, { start: recorded.periodStart, end: recorded.periodEnd }, deps);
+    return { applied: true, outcome: "activated" };
   }
 
   if (succeeded && !amountOk) return { applied: false, reason: "amount_mismatch" };
 
   if (succeeded && period) {
-    const customerUid = verified.customerUid ?? subscription.payplusCustomerUid;
-    const terminalUid = verified.terminalUid ?? subscription.payplusTerminalUid;
-    const cashierUid = verified.cashierUid ?? subscription.payplusCashierUid;
-    const tokenUid =
-      verified.tokenUid ??
-      subscription.payplusTokenUid ??
-      (await tokenFromPayPlus({ terminalUid, customerUid }, deps.fetchImpl));
-
-    await prisma.subscription.update({
-      where: { id: subscription.id },
-      data: {
-        currentPeriodStart: period.start,
-        graceEndsAt: null,
-        pendingPageRequestUids: [],
-        payplusTokenUid: tokenUid,
-        payplusCustomerUid: customerUid,
-        payplusTerminalUid: terminalUid,
-        payplusCashierUid: cashierUid,
-        trialEndsAt: subscription.trialEndsAt,
-      },
-    });
-    await changeSubscription(subscription.therapistId, {
-      tier: PLAN_TIER,
-      status: "active",
-      currentPeriodEnd: period.end,
-    });
+    await activate(subscription, verified, period, deps);
     return { applied: true, outcome: "activated" };
   }
 
@@ -211,6 +198,43 @@ export async function applyVerifiedTransaction(
     });
   }
   return { applied: true, outcome: "failed" };
+}
+
+type SubscriptionRow = NonNullable<Awaited<ReturnType<typeof prisma.subscription.findUnique>>>;
+
+/** The subscription becomes paid for `period`, with whatever card details the transaction carried. */
+async function activate(
+  subscription: SubscriptionRow,
+  verified: CallbackTransaction,
+  period: { start: Date; end: Date },
+  deps: ApplyDeps
+) {
+  const customerUid = verified.customerUid ?? subscription.payplusCustomerUid;
+  const terminalUid = verified.terminalUid ?? subscription.payplusTerminalUid;
+  const cashierUid = verified.cashierUid ?? subscription.payplusCashierUid;
+  const tokenUid =
+    verified.tokenUid ??
+    subscription.payplusTokenUid ??
+    (await tokenFromPayPlus({ terminalUid, customerUid }, deps.fetchImpl));
+
+  await prisma.subscription.update({
+    where: { id: subscription.id },
+    data: {
+      currentPeriodStart: period.start,
+      graceEndsAt: null,
+      pendingPageRequestUids: [],
+      payplusTokenUid: tokenUid,
+      payplusCustomerUid: customerUid,
+      payplusTerminalUid: terminalUid,
+      payplusCashierUid: cashierUid,
+      trialEndsAt: subscription.trialEndsAt,
+    },
+  });
+  await changeSubscription(subscription.therapistId, {
+    tier: PLAN_TIER,
+    status: "active",
+    currentPeriodEnd: period.end,
+  });
 }
 
 /** Token/List, for a confirmed create_token payment whose callback carried no token. */

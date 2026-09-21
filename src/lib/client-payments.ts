@@ -213,20 +213,26 @@ export async function applyClientPayment(
       },
     });
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      return { applied: false, reason: "duplicate" };
-    }
-    throw error;
+    if (!(error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002")) throw error;
+    // Recorded before. A redelivery of an applied payment is a no-op — but
+    // the row is written before the booking is marked, so a crash between
+    // the two left a paid booking showing unpaid. Finish that now.
+    const recorded = await prisma.clientPayment.findUnique({ where: { transactionUid: verified.transactionUid } });
+    const pending = recorded?.status === "succeeded" && recorded.bookingId === booking.id && amountOk && booking.paymentStatus === "unpaid";
+    if (!pending) return { applied: false, reason: "duplicate" };
+    await markPaid(booking.id);
+    return { applied: true, bookingId: booking.id };
   }
 
   if (!succeeded) return { applied: false, reason: "not_succeeded" };
   if (!amountOk) return { applied: false, reason: "amount_mismatch" };
 
-  await prisma.booking.update({
-    where: { id: booking.id },
-    data: { paymentStatus: "paid", paidAt: new Date() },
-  });
+  await markPaid(booking.id);
   return { applied: true, bookingId: booking.id };
+}
+
+function markPaid(bookingId: string) {
+  return prisma.booking.update({ where: { id: bookingId }, data: { paymentStatus: "paid", paidAt: new Date() } });
 }
 
 /**

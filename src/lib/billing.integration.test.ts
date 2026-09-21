@@ -138,6 +138,31 @@ describe("applyVerifiedTransaction", () => {
     expect(sub.pendingPageRequestUids).toEqual([]);
   });
 
+  // The Payment row is written before the subscription is touched. A crash in
+  // between left a paid-for account that was never activated — and PayPlus's
+  // retry came back as "duplicate", which did nothing. The retry now finishes
+  // what the first delivery started.
+  it("a redelivery finishes an activation that was recorded but never applied", async () => {
+    payplusEnv();
+    const id = await therapist("halfway");
+    const now = new Date("2026-09-10T08:00:00Z");
+    const t = tx({});
+    const period = periodAfter(now);
+    await prisma.payment.create({
+      data: { therapistId: id, transactionUid: t.transactionUid!, amount: 89.9, status: "succeeded", statusCode: "000", paidAt: now, periodStart: period.start, periodEnd: period.end },
+    });
+
+    const r = await applyVerifiedTransaction(t, {}, now, own(id));
+    expect(r).toEqual({ applied: true, outcome: "activated" });
+    const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
+    expect(sub.status).toBe("active");
+    expect(sub.currentPeriodEnd).toEqual(period.end);
+    expect(await prisma.payment.count({ where: { therapistId: id } })).toBe(1);
+
+    // And once applied, the next redelivery really is a no-op.
+    expect(await applyVerifiedTransaction(t, {}, now, own(id))).toEqual({ applied: false, reason: "duplicate" });
+  });
+
   it("records a successful charge for the wrong amount without unlocking anything", async () => {
     payplusEnv();
     const id = await therapist("wrongamount");

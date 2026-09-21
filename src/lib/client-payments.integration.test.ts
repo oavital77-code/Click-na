@@ -194,6 +194,18 @@ describe("client payments (against a live database)", () => {
       expect(await prisma.clientPayment.count({ where: { bookingId } })).toBe(1);
     });
 
+    it("a redelivery marks the booking paid when the first delivery recorded the payment but crashed before that", async () => {
+      const t = tx();
+      await prisma.clientPayment.create({
+        data: { therapistId, bookingId, provider: "payplus", transactionUid: t.transactionUid!, amount: 350, status: "succeeded", statusCode: "000" },
+      });
+      expect(await applyClientPayment(bookingId, "payplus", t, null)).toEqual({ applied: true, bookingId });
+      const row = await prisma.booking.findUniqueOrThrow({ where: { id: bookingId } });
+      expect(row.paymentStatus).toBe("paid");
+      expect(await prisma.clientPayment.count({ where: { bookingId } })).toBe(1);
+      expect(await applyClientPayment(bookingId, "payplus", t, null)).toEqual({ applied: false, reason: "duplicate" });
+    });
+
     it("records a success for the wrong amount but does not call the booking paid on it", async () => {
       const out = await applyClientPayment(bookingId, "payplus", tx({ amount: 100 }), null);
       expect(out).toEqual({ applied: false, reason: "amount_mismatch" });
