@@ -7,10 +7,18 @@ import { mapWithConcurrency } from "@/lib/concurrency";
 const HORIZON_DAYS = 400;
 
 /**
- * Removes the empty windows that sit on a day the policy closes. Only `open`
- * slots: a booked one is somebody's appointment, a held one is being booked
- * this minute, a `blocked` one the therapist marked by hand and may have a
- * reason for. Each closed date is one range in the therapist's timezone.
+ * Removes the empty windows that the weekly hours put on a day the policy
+ * closes. Only `open` slots: a booked one is somebody's appointment, a held
+ * one is being booked this minute, a `blocked` one the therapist marked by
+ * hand and may have a reason for.
+ *
+ * And only slots a rule generated. A window the therapist opened by hand on a
+ * holiday is a decision — they work that day, whatever the country does — and
+ * a nightly job that deleted it would be overruling them. Slots whose rule was
+ * later deleted keep the same protection, which is right: the therapist chose
+ * to keep those when they removed the rule.
+ *
+ * Each closed date is one range in the therapist's timezone.
  */
 export async function pruneClosedDays(
   therapistId: string,
@@ -26,6 +34,7 @@ export async function pruneClosedDays(
     where: {
       therapistId,
       status: "open",
+      generatedFromRuleId: { not: null },
       OR: closed.map((date) => ({
         startsAt: { gte: zonedDateTimeToUtc(date, "00:00", timezone), lt: zonedDateTimeToUtc(addDaysUtc(date, 1), "00:00", timezone) },
       })),

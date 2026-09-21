@@ -136,7 +136,7 @@ export const en = {
     blockHolidays: "Close on holidays (Rosh Hashana, Yom Kippur, Sukkot, Pesach, Shavuot, Independence Day)",
     blockHolidayEves: "Also close on holiday eves and Memorial Day",
     blockCholHamoed: "Also close on Chol HaMoed (the days between)",
-    holidaysNote: "Empty slots on a closed day are removed; booked appointments are never touched. A slot you open by hand on a closed day is removed at the next daily sweep.",
+    holidaysNote: "Your weekly hours skip a closed day, and empty slots already there are cleared. Booked appointments are never touched, and a slot you open by hand on a closed day stays: working a holiday is your call.",
     saveSettings: "Save settings",
     privacyCard: "Privacy",
     privacyDescription: "Your data only — never visible to other therapists",

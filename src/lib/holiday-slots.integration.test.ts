@@ -56,19 +56,40 @@ describe("holiday closures (against a live database)", () => {
     for (const date of closed) expect(await sessionsOn(date)).toBe(0);
   });
 
-  it("the daily sweep removes an empty slot that got onto a closed day, and leaves a booked one", async () => {
+  it("the daily sweep removes a rule's empty slot from a closed day, and leaves a booked one", async () => {
     const date = closed[0];
-    const open = await prisma.session.create({
-      data: { therapistId, locationId, startsAt: zonedDateTimeToUtc(date, "15:00", TZ), endsAt: zonedDateTimeToUtc(date, "15:50", TZ) },
+    const rule = await prisma.availabilityRule.findFirstOrThrow({ where: { therapistId } });
+    const fromRule = await prisma.session.create({
+      data: { therapistId, locationId, generatedFromRuleId: rule.id, startsAt: zonedDateTimeToUtc(date, "15:00", TZ), endsAt: zonedDateTimeToUtc(date, "15:50", TZ) },
     });
     const booked = await prisma.session.create({
-      data: { therapistId, locationId, status: "booked", startsAt: zonedDateTimeToUtc(date, "16:00", TZ), endsAt: zonedDateTimeToUtc(date, "16:50", TZ) },
+      data: { therapistId, locationId, generatedFromRuleId: rule.id, status: "booked", startsAt: zonedDateTimeToUtc(date, "16:00", TZ), endsAt: zonedDateTimeToUtc(date, "16:50", TZ) },
     });
 
     const removed = await pruneClosedDaysForEveryone();
     expect(removed).toBeGreaterThanOrEqual(1);
-    expect(await prisma.session.findUnique({ where: { id: open.id } })).toBeNull();
+    expect(await prisma.session.findUnique({ where: { id: fromRule.id } })).toBeNull();
     expect(await prisma.session.findUnique({ where: { id: booked.id } })).not.toBeNull();
+  });
+
+  // The therapist works some holidays and not others, and only they know which.
+  // A window they opened by hand on a closed day is a decision, not a leftover:
+  // the sweep clears what the weekly hours put there, never what they typed.
+  it("the daily sweep never touches a window the therapist opened by hand", async () => {
+    const date = closed[0];
+    const byHand = await prisma.session.create({
+      data: { therapistId, locationId, startsAt: zonedDateTimeToUtc(date, "18:00", TZ), endsAt: zonedDateTimeToUtc(date, "18:50", TZ) },
+    });
+    try {
+      await pruneClosedDaysForEveryone();
+      expect(await prisma.session.findUnique({ where: { id: byHand.id } })).not.toBeNull();
+
+      // And saving the settings again does not take it either.
+      await applyHolidayPolicy(therapistId);
+      expect(await prisma.session.findUnique({ where: { id: byHand.id } })).not.toBeNull();
+    } finally {
+      await prisma.session.deleteMany({ where: { id: byHand.id } });
+    }
   });
 
   it("switching the policy off reopens the days", async () => {
