@@ -114,16 +114,22 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
 
   async function selectSlot(slot: Slot) {
     setFormError(null);
-    const res = await fetch(`/api/public/sessions/${slot.id}/hold`, { method: "POST" });
-    const data = await res.json();
-    if (!res.ok) {
-      setFormError(ERROR_MESSAGES[data.error] ?? b.errors.slotGone);
-      return;
+    try {
+      const res = await fetch(`/api/public/sessions/${slot.id}/hold`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        setFormError(ERROR_MESSAGES[data.error] ?? b.errors.slotGone);
+        return;
+      }
+      setSelectedSlot(slot);
+      setHoldExpiresAt(new Date(data.holdExpiresAt)); // the ticking effect below fills in secondsLeft
+      setHoldToken(data.holdToken ?? null);
+      setStep("form");
+    } catch {
+      // A dropped connection used to surface as nothing at all: no form, no
+      // message, a tap that seemed to do nothing.
+      setFormError(m.common.networkError);
     }
-    setSelectedSlot(slot);
-    setHoldExpiresAt(new Date(data.holdExpiresAt)); // the ticking effect below fills in secondsLeft
-    setHoldToken(data.holdToken ?? null);
-    setStep("form");
   }
 
   async function submitBooking() {
