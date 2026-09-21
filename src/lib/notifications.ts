@@ -432,24 +432,46 @@ const REMINDER_ATTEMPT_LIMIT = 3;
 export const REMINDER_BATCH = 150;
 const REMINDER_CONCURRENCY = 3;
 
+/**
+ * How far ahead one run looks. The cron is the only thing that sends
+ * reminders, and it runs on a fixed schedule (vercel.json), so a reminder
+ * that falls due between two runs has to go out on the earlier one — or it
+ * goes out on the later one, an hour before the appointment instead of the
+ * day before. Set REMINDER_LOOKAHEAD_HOURS to the cron interval: 24 for the
+ * daily schedule Hobby allows, 1 or less once the schedule is tighter.
+ */
+export function reminderLookaheadMs(env: Record<string, string | undefined> = process.env): number {
+  const hours = Number(env.REMINDER_LOOKAHEAD_HOURS);
+  return (Number.isFinite(hours) && hours >= 0 ? hours : 24) * 60 * 60 * 1000;
+}
+
 /** Cron entry point (spec 8.6: reminders go out `reminder_hours_before` ahead of the session). */
 export async function sendDueReminders(now = new Date()): Promise<SendDueRemindersSummary> {
+  // A reminder for an appointment that has already started helps nobody and
+  // reads as a mistake. Retired before anything is picked up, so the message
+  // log shows "cancelled" rather than "waiting" forever.
+  await prisma.notification.updateMany({
+    where: {
+      type: "reminder",
+      status: { in: ["pending", "failed"] },
+      booking: { is: { session: { startsAt: { lte: now } } } },
+    },
+    data: { status: "canceled" },
+  });
+
   const due = await prisma.notification.findMany({
     take: REMINDER_BATCH,
     orderBy: { scheduledFor: "asc" },
     where: {
       type: "reminder",
-      scheduledFor: { lte: now },
+      scheduledFor: { lte: new Date(now.getTime() + reminderLookaheadMs()) },
+      booking: { is: { session: { startsAt: { gt: now } } } },
       OR: [
         { status: "pending" },
         // Retried on a later run — but only while the appointment is still
-        // ahead. A reminder for something already over helps nobody, so those
-        // rows stay failed and simply stop being picked up.
-        {
-          status: "failed",
-          attempts: { lt: REMINDER_ATTEMPT_LIMIT },
-          booking: { is: { session: { startsAt: { gt: now } } } },
-        },
+        // ahead, which the filter above guarantees. Past the attempt limit
+        // the row stays failed and simply stops being picked up.
+        { status: "failed", attempts: { lt: REMINDER_ATTEMPT_LIMIT } },
       ],
     },
     include: { booking: { include: { session: { include: { location: true } }, therapist: true } } },

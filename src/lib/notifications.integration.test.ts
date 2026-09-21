@@ -210,9 +210,9 @@ describe("notifications (against a live database)", () => {
       expect(reminder?.status).toBe("sent");
     });
 
-    it("leaves reminders scheduled for the future untouched", async () => {
+    it("leaves reminders that fall due after the next run untouched", async () => {
       therapistId = await makeTherapist();
-      const booking = await makeBookingFor(therapistId, 48);
+      const booking = await makeBookingFor(therapistId, 72);
       await prisma.notification.create({
         data: {
           therapistId,
@@ -220,7 +220,7 @@ describe("notifications (against a live database)", () => {
           type: "reminder",
           channel: "email",
           recipient: booking.clientEmailSnapshot!,
-          scheduledFor: new Date(Date.now() + 60 * 60 * 1000),
+          scheduledFor: new Date(Date.now() + 30 * 60 * 60 * 1000),
           status: "pending",
         },
       });
@@ -230,6 +230,78 @@ describe("notifications (against a live database)", () => {
       const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
       expect(reminder?.status).toBe("pending");
       expect(sendEmailMock).not.toHaveBeenCalled();
+    });
+
+    // The cron runs once a day. A reminder that falls due an hour after this
+    // run would otherwise wait for tomorrow's — and arrive an hour before the
+    // appointment instead of the day before. Whatever falls due before the
+    // next run goes out now.
+    it("sends a reminder that falls due before the next run", async () => {
+      therapistId = await makeTherapist();
+      const booking = await makeBookingFor(therapistId, 48);
+      await prisma.notification.create({
+        data: {
+          therapistId,
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot!,
+          scheduledFor: new Date(Date.now() + 20 * 60 * 60 * 1000),
+          status: "pending",
+        },
+      });
+
+      const summary = await sendDueReminders();
+
+      expect(summary.sent).toBe(1);
+      const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
+      expect(reminder?.status).toBe("sent");
+    });
+
+    it("never sends a reminder for an appointment that has already started; the row is canceled", async () => {
+      therapistId = await makeTherapist();
+      const location = await ensureDefaultLocation(therapistId);
+      const session = await prisma.session.create({
+        data: {
+          therapistId,
+          locationId: location.id,
+          startsAt: new Date(Date.now() - 60 * 60 * 1000),
+          endsAt: new Date(Date.now()),
+          status: "booked",
+        },
+      });
+      const client = await prisma.client.create({
+        data: { therapistId, fullName: "דנה לוי", email: `past-${session.id}@example.com`, phone: "0501234567" },
+      });
+      const booking = await prisma.booking.create({
+        data: {
+          therapistId,
+          sessionId: session.id,
+          clientId: client.id,
+          clientNameSnapshot: client.fullName,
+          clientEmailSnapshot: client.email,
+          manageToken: session.id.replace(/-/g, "").padEnd(64, "0"),
+          status: "confirmed",
+        },
+      });
+      await prisma.notification.create({
+        data: {
+          therapistId,
+          bookingId: booking.id,
+          type: "reminder",
+          channel: "email",
+          recipient: booking.clientEmailSnapshot!,
+          scheduledFor: new Date(Date.now() - 3 * 60 * 60 * 1000),
+          status: "pending",
+        },
+      });
+
+      const summary = await sendDueReminders();
+
+      expect(summary.sent).toBe(0);
+      expect(sendEmailMock).not.toHaveBeenCalled();
+      const reminder = await prisma.notification.findFirst({ where: { bookingId: booking.id, type: "reminder" } });
+      expect(reminder?.status).toBe("canceled");
     });
 
     // A send that failed once used to stay failed forever: the query only looked
