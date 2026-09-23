@@ -102,7 +102,9 @@ describe("verifyCredentials — failure handling", () => {
     timeout.name = "TimeoutError";
     fetchMock.mockRejectedValue(timeout);
 
-    const result = await verifyCredentials("whatsapp", TWILIO);
+    // Language given explicitly: the point is that a timeout reads as a timeout,
+    // not which language the product defaults to.
+    const result = await verifyCredentials("whatsapp", TWILIO, "en");
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("did not respond in time");
   });

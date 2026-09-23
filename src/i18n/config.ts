@@ -6,12 +6,19 @@ import type { Locale as DateFnsLocale } from "date-fns";
  * it governs everything they and their clients see: the dashboard, the public
  * booking page, the manage link, emails, WhatsApp messages and calendar entries.
  *
- * English is the default for new accounts — the group site and the landing page
- * are English, and the product is meant to read the same way out of the box.
+ * Hebrew is the default: for new accounts, for a visitor who is not signed in,
+ * and for the sign-in and sign-up screens. The practitioner this is sold to is
+ * Israeli and arrives from a Hebrew landing page; until 23.9.2026 the default was
+ * English, and they signed up from Hebrew into an English dashboard. Accounts
+ * created before then keep the "en" stored on their row — nothing here moves an
+ * existing therapist, and English is one click away in settings.
+ *
+ * This constant is the one source: signup writes it onto the new row explicitly
+ * (src/lib/webhooks.ts), and the column default only mirrors it.
  */
 export const LOCALES = ["en", "he"] as const;
 export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "en";
+export const DEFAULT_LOCALE: Locale = "he";
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);

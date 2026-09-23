@@ -180,11 +180,11 @@ const H2 = "font-sans text-3xl font-bold tracking-tight text-balance md:text-4xl
 export default function Home() {
   return (
     // Hebrew and right-to-left, for the Israeli practitioner this is written
-    // for. The page sets its own direction rather than trusting the layout:
-    // a signed-out visitor gets the product default there (DEFAULT_LOCALE,
-    // English), and the wrapper keeps the server render right with no flash
-    // of LTR. HtmlLangDir then corrects <html lang dir> for screen readers
-    // and translation tools, exactly as the public booking pages do.
+    // for. The page pins its own direction rather than trusting the layout:
+    // the layout follows the signed-in therapist's language, so an English
+    // account looking at the landing page would otherwise get it LTR. The
+    // wrapper keeps the server render right, and HtmlLangDir corrects
+    // <html lang dir> the same way the public booking pages do.
     <div dir="rtl" className="flex flex-1 flex-col">
       <HtmlLangDir locale="he" />
       <header className="border-border/60 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-sm">

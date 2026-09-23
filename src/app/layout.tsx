@@ -3,7 +3,7 @@ import { Heebo, Inter, Frank_Ruhl_Libre, Geist_Mono } from "next/font/google";
 import { DirectionProvider } from "@radix-ui/react-direction";
 import { appUrl } from "@/lib/public-url";
 import { getCurrentLocale } from "@/lib/auth";
-import { dirFor, langTag } from "@/i18n/config";
+import { DEFAULT_LOCALE, dirFor, langTag } from "@/i18n/config";
 import "./globals.css";
 
 // Heebo carries body text in both scripts (it ships Latin as well as Hebrew);
@@ -43,7 +43,7 @@ export const metadata: Metadata = {
   description,
   openGraph: {
     type: "website",
-    locale: "en_US",
+    locale: DEFAULT_LOCALE === "he" ? "he_IL" : "en_US",
     siteName: "Cleana+",
     title: "Cleana+",
     description,

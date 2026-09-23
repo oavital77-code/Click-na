@@ -153,7 +153,7 @@ model Therapist {
   // "en" | "he" — governs the dashboard, the public booking page and every
   // message to clients. English by default: the group site and the landing page
   // are English, and the product is meant to read the same way out of the box.
-  locale              String          @default("en") @db.VarChar(10)
+  locale              String          @default("he") @db.VarChar(10)
   status              TherapistStatus @default(active)
   onboardingCompleted Boolean         @default(false) @map("onboarding_completed")
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz

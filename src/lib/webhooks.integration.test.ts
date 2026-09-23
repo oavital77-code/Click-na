@@ -50,6 +50,21 @@ describe("handleUserCreated (against a live database)", () => {
     expect(therapist!.settings).not.toBeNull();
   });
 
+  // The buyer is an Israeli practitioner who just signed up from a Hebrew
+  // landing page; their dashboard, booking page and emails should follow.
+  it("starts a new account in Hebrew", async () => {
+    const id = clerkUserId("locale");
+    await handleUserCreated({
+      id,
+      email_addresses: [{ id: "ea_1", email_address: "webhook-locale@example.com" }],
+      primary_email_address_id: "ea_1",
+      first_name: "נועה",
+      last_name: "לוי",
+    });
+    const therapist = await prisma.therapist.findUnique({ where: { clerkUserId: id } });
+    expect(therapist!.locale).toBe("he");
+  });
+
   it("falls back to the email's local part when no name is given", async () => {
     const id = clerkUserId("noname");
     await handleUserCreated({
