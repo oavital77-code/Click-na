@@ -41,6 +41,7 @@ import {
   TrustRow,
 } from "@/components/landing";
 import { formatPriceIls, planPriceIls, TRIAL_DAYS } from "@/lib/plan";
+import { HtmlLangDir } from "@/i18n/client";
 
 // The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
 // build time cannot carry it — its scripts would be blocked in production only.
@@ -49,9 +50,10 @@ import { formatPriceIls, planPriceIls, TRIAL_DAYS } from "@/lib/plan";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Cleana+ — scheduling for independent practitioners",
+  title: "Cleana+ — יומן וזימון תורים למטפלים/ות עצמאיים/ות",
   description:
-    "A booking link your clients understand at a glance, and a calendar that never double-books. One plan, every feature, no commission on what you earn.",
+    "לינק הזמנה שהמטופלים/ות מבינים במבט, ויומן שלא נכפל לעולם. מסלול אחד, כל היכולות, בלי עמלה על מה שאתם מרוויחים.",
+  openGraph: { locale: "he_IL" },
 };
 
 /**
@@ -62,74 +64,74 @@ export const metadata: Metadata = {
  */
 const PRICE: { amount: string; period: string } | null = (() => {
   const price = planPriceIls();
-  return price === null ? null : { amount: formatPriceIls(price, "en"), period: "month, VAT included" };
+  return price === null ? null : { amount: formatPriceIls(price, "he"), period: "לחודש, כולל מע\"מ" };
 })();
 
-const TRUST = ["No card required", "Live in minutes", "Cancel any time"];
+const TRUST = ["בלי כרטיס אשראי", "עולה באוויר בדקות", "ביטול בכל רגע"];
 
 const CHIPS = [
-  { icon: Link2, label: "Booking link" },
-  { icon: CalendarDays, label: "Calendar" },
-  { icon: BellRing, label: "Reminders" },
-  { icon: Users, label: "Clients" },
+  { icon: Link2, label: "לינק הזמנה" },
+  { icon: CalendarDays, label: "יומן" },
+  { icon: BellRing, label: "תזכורות" },
+  { icon: Users, label: "מטופלים/ות" },
 ];
 
 /** What the product answers, in the order a practitioner meets it. */
 const ANSWERS = [
   {
-    title: "One link. They book themselves.",
-    text: "Clients see the hours you opened and nothing else. No back-and-forth about Tuesday, no phone tag, no double entry.",
+    title: "לינק אחד. הם מזמינים לבד.",
+    text: "המטופלים/ות רואים את השעות שפתחתם ותו לא. בלי הלוך ושוב על יום שלישי, בלי לרדוף בטלפון, בלי להקליד פעמיים.",
   },
   {
-    title: "The calendar holds itself.",
-    text: "A slot taken is a slot closed — instantly, everywhere. Double-booking stops being something you watch for.",
+    title: "היומן שומר על עצמו.",
+    text: "משבצת שנתפסה נסגרת — מיד, בכל מקום. כפל הזמנות מפסיק להיות משהו שצריך לשמור ממנו.",
   },
   {
-    title: "Reminders that stay quiet.",
-    text: "A confirmation when they book, a reminder before they arrive. Enough to cut no-shows. Not enough to become noise.",
+    title: "תזכורות שלא מציקות.",
+    text: "אישור כשהם מזמינים, תזכורת לפני שהם מגיעים. מספיק כדי לצמצם אי-הגעות. לא מספיק כדי להפוך לרעש.",
   },
 ];
 
 const STEPS = [
   {
     icon: CalendarCheck2,
-    title: "Set the hours you work",
-    text: "Weekly rules, exceptions, a buffer between sessions. Your calendar fills only where you said it may.",
+    title: "קובעים את שעות העבודה",
+    text: "חוקים שבועיים, חריגים, מרווח בין מפגשים. היומן מתמלא רק איפה שאמרתם שמותר.",
   },
   {
     icon: Share2,
-    title: "Share one link",
-    text: "In your name, in Hebrew or English. Put it in WhatsApp, your bio, your signature — wherever clients already are.",
+    title: "משתפים לינק אחד",
+    text: "בשם שלכם, בעברית או באנגלית. בוואטסאפ, בביו, בחתימה — איפה שהמטופלים/ות כבר נמצאים.",
   },
   {
     icon: BellRing,
-    title: "They book. You get told.",
-    text: "A confirmation for them, a note for you, a reminder before they arrive. The calendar you already use stays in sync.",
+    title: "הם מזמינים. אתם מקבלים הודעה.",
+    text: "אישור להם, הודעה לכם, תזכורת לפני שהם מגיעים. היומן שאתם כבר עובדים איתו נשאר מסונכרן.",
   },
 ];
 
 const AUDIENCE = [
-  { icon: Briefcase, label: "Coaching" },
-  { icon: Brain, label: "Psychotherapy" },
-  { icon: HandHeart, label: "Bodywork" },
-  { icon: Building2, label: "Private clinics" },
-  { icon: Compass, label: "Consulting" },
+  { icon: Briefcase, label: "אימון" },
+  { icon: Brain, label: "פסיכותרפיה" },
+  { icon: HandHeart, label: "טיפולי גוף" },
+  { icon: Building2, label: "קליניקות פרטיות" },
+  { icon: Compass, label: "ייעוץ" },
 ];
 
 const SECURITY_INCLUDED = [
-  "Sign-in with Google or a one-time code — no passwords to leak",
-  "Every practice's data scoped to its own account, always",
-  "Booking and manage links carry private, single-purpose tokens",
-  "Card details never touch Cleana+ — PayPlus's secure page takes payment",
-  "Every confirmation and reminder logged, so you can see what was sent",
-  "Encrypted in transit, end to end",
+  "כניסה עם Google או קוד חד-פעמי — אין סיסמאות שידלפו",
+  "המידע של כל קליניקה שייך לחשבון שלה בלבד, תמיד",
+  "לינקי ההזמנה והניהול נושאים מפתחות פרטיים, לשימוש אחד",
+  "פרטי האשראי לא נוגעים ב-Cleana+ — הדף המאובטח של PayPlus גובה",
+  "כל אישור ותזכורת נרשמים, כך שאפשר לראות מה נשלח",
+  "מוצפן בהעברה, מקצה לקצה",
 ];
 
 const SECURITY_FACTS = [
-  { title: "Clerk", sub: "Sign-in and sessions" },
-  { title: "PayPlus", sub: "PCI-compliant payments" },
-  { title: "HTTPS everywhere", sub: "Encrypted in transit" },
-  { title: "Vercel", sub: "Hosting and delivery" },
+  { title: "Clerk", sub: "כניסה וניהול סשנים" },
+  { title: "PayPlus", sub: "סליקה בתקן PCI" },
+  { title: "HTTPS בכל מקום", sub: "מוצפן בהעברה" },
+  { title: "Vercel", sub: "אחסון והגשה" },
 ];
 
 /**
@@ -137,39 +139,39 @@ const SECURITY_FACTS = [
  * that the feature list is the problem.
  */
 const OMISSIONS = [
-  "No tiers to compare, and nothing held back behind a higher one.",
-  "No add-ons that unlock what should have been included.",
-  "No commission. What your clients pay you is yours.",
-  "No dashboard of numbers you were never going to act on.",
+  "אין מסלולים להשוות, ושום דבר לא נעול מאחורי מסלול יקר יותר.",
+  "אין תוספות שפותחות את מה שהיה צריך להיות כלול מלכתחילה.",
+  "אין עמלה. מה שהמטופלים/ות משלמים לכם — שלכם.",
+  "אין לוח מחוונים של מספרים שלא התכוונתם לעשות איתם כלום.",
 ];
 
 /** What the one plan includes — the pricing card's checklist. */
 const INCLUDED = [
-  "Your own booking link, in your name",
-  "A calendar that never double-books",
-  "Email confirmations and reminders, automatic",
-  "WhatsApp reminders from your own phone, one tap",
-  "Client list, built as they book",
-  "Syncs to Google, Apple and Outlook calendars",
-  "Hebrew and English, for you and for your clients",
+  "לינק הזמנה משלכם, בשם שלכם",
+  "יומן שלא נכפל לעולם",
+  "אישורים ותזכורות במייל, אוטומטית",
+  "תזכורות וואטסאפ מהטלפון שלכם, בלחיצה",
+  "רשימת מטופלים/ות שנבנית תוך כדי הזמנות",
+  "סנכרון ליומני Google, Apple ו-Outlook",
+  "עברית ואנגלית, לכם ולמטופלים/ות",
 ];
 
 const FAQ = [
   {
-    q: "Do you take a cut of what I charge?",
-    a: "No. What your clients pay you is yours. Cleana+ is a flat subscription and nothing else.",
+    q: "אתם לוקחים אחוז ממה שאני גובה?",
+    a: "לא. מה שהמטופלים/ות משלמים לכם — שלכם. Cleana+ הוא מנוי קבוע ותו לא.",
   },
   {
-    q: "How long does it take to set up?",
-    a: "Minutes. Set the hours you work, share your link, and you are taking bookings.",
+    q: "כמה זמן לוקחת ההקמה?",
+    a: "דקות. קובעים את שעות העבודה, משתפים את הלינק, ומתחילים לקבל הזמנות.",
   },
   {
-    q: "I already live in another calendar.",
-    a: "Subscribe to your Cleana+ feed from Google Calendar, the iPhone calendar or Outlook, and your appointments appear there alongside everything else.",
+    q: "אני כבר עובד/ת עם יומן אחר.",
+    a: "מתחברים לפיד של Cleana+ מ-Google Calendar, מיומן האייפון או מ-Outlook, והתורים מופיעים שם לצד כל השאר.",
   },
   {
-    q: "What do my clients have to install?",
-    a: "Nothing. They open a link, pick a time, and leave their details. There is no account to create.",
+    q: "מה המטופלים/ות צריכים להתקין?",
+    a: "כלום. פותחים לינק, בוחרים שעה ומשאירים פרטים. אין חשבון לפתוח.",
   },
 ];
 
@@ -177,8 +179,14 @@ const H2 = "font-sans text-3xl font-bold tracking-tight text-balance md:text-4xl
 
 export default function Home() {
   return (
-    // The app is Hebrew and right-to-left; this one page is not.
-    <div dir="ltr" className="flex flex-1 flex-col">
+    // Hebrew and right-to-left, for the Israeli practitioner this is written
+    // for. The page sets its own direction rather than trusting the layout:
+    // a signed-out visitor gets the product default there (DEFAULT_LOCALE,
+    // English), and the wrapper keeps the server render right with no flash
+    // of LTR. HtmlLangDir then corrects <html lang dir> for screen readers
+    // and translation tools, exactly as the public booking pages do.
+    <div dir="rtl" className="flex flex-1 flex-col">
+      <HtmlLangDir locale="he" />
       <header className="border-border/60 bg-background/80 sticky top-0 z-40 border-b backdrop-blur-sm">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-3.5 md:px-8 lg:px-12">
           <Link href="/" className="inline-flex min-h-11 items-center">
@@ -186,10 +194,10 @@ export default function Home() {
           </Link>
           <div className="flex items-center gap-3 text-sm">
             <Link href="/signup" className="text-muted-foreground hover:text-foreground hidden min-h-11 items-center font-medium sm:inline-flex">
-              Sign up
+              הרשמה
             </Link>
             <Button asChild size="lg" className="rounded-2xl px-6 font-semibold">
-              <Link href="/login">Log in</Link>
+              <Link href="/login">כניסה</Link>
             </Button>
           </div>
         </div>
@@ -199,34 +207,34 @@ export default function Home() {
         {/* Hero */}
         <section className="relative overflow-hidden">
           <GridPaper />
-          <div aria-hidden className="bg-accent/15 pointer-events-none absolute -top-32 start-1/2 hidden h-96 w-[36rem] -translate-x-1/2 rounded-full blur-3xl md:block" />
+          <div aria-hidden className="bg-accent/15 pointer-events-none absolute -top-32 left-1/2 hidden h-96 w-[36rem] -translate-x-1/2 rounded-full blur-3xl md:block" />
           <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-7 px-5 pt-16 pb-10 text-center md:px-8 md:pt-24">
-            <Eyebrow icon={Sparkles}>Scheduling for independent practitioners</Eyebrow>
+            <Eyebrow icon={Sparkles}>זימון תורים למטפלים/ות עצמאיים/ות</Eyebrow>
             <h1 className="font-sans text-[2.6rem] leading-[1.05] font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              Less back-and-forth.
+              פחות הלוך ושוב.
               <br />
-              <span className="text-primary">More practice.</span>
+              <span className="text-primary">יותר טיפול.</span>
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
-              A booking link your clients understand at a glance, and a calendar that never double-books.
-              That is the whole product, and it is enough.
+              לינק הזמנה שהמטופלים/ות מבינים במבט, ויומן שלא נכפל לעולם.
+              זה כל המוצר, וזה מספיק.
             </p>
             <div className="flex w-full max-w-md flex-col gap-3">
               <Button asChild size="lg" variant="accent" className="h-14 w-full rounded-2xl text-base font-semibold shadow-lg shadow-accent/25">
                 <Link href="/signup">
-                  Create your booking link
-                  <ArrowRight className="size-5" aria-hidden />
+                  ליצור את לינק ההזמנה שלי
+                  <ArrowRight className="size-5 rtl:rotate-180" aria-hidden />
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-14 w-full rounded-2xl text-base font-semibold">
-                <Link href="#how-it-works">See how it works</Link>
+                <Link href="#how-it-works">איך זה עובד</Link>
               </Button>
             </div>
             <TrustRow items={TRUST} />
             <div className="border-border/60 bg-card inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-full border px-6 py-3 text-sm shadow-sm">
               <span className="text-accent" aria-hidden>★★★★★</span>
               <span>
-                <strong>First {TRIAL_DAYS} days free</strong> · one plan · no commission
+                <strong>{TRIAL_DAYS} הימים הראשונים בחינם</strong> · מסלול אחד · בלי עמלה
               </span>
             </div>
           </div>
@@ -242,17 +250,17 @@ export default function Home() {
                     <span className="bg-border h-2.5 w-56 rounded-full" />
                   </div>
                   <div className="grid grid-cols-3 gap-3">
-                    <Kpi label="This week" value="28" delta="+12%" />
-                    <Kpi label="Clients" value="64" delta="+5" />
-                    <Kpi label="No-shows" value="1" delta="−3" />
+                    <Kpi label="השבוע" value="28" delta="+12%" />
+                    <Kpi label="מטופלים/ות" value="64" delta="+5" />
+                    <Kpi label="אי-הגעות" value="1" delta="−3" />
                   </div>
                   <ScheduleList
-                    title="Today"
-                    meta="Sunday, 19 Apr"
+                    title="היום"
+                    meta="ראשון, 19 באפריל"
                     rows={[
-                      { time: "09:00", name: "Noa Levi", status: "Confirmed", tone: "open" },
-                      { time: "10:30", name: "Dan Ari", status: "Pending", tone: "held" },
-                      { time: "12:00", name: "Maya Cohen", status: "Upcoming", tone: "booked" },
+                      { time: "09:00", name: "נועה לוי", status: "מאושר", tone: "open" },
+                      { time: "10:30", name: "דן ארי", status: "ממתין", tone: "held" },
+                      { time: "12:00", name: "מאיה כהן", status: "בקרוב", tone: "booked" },
                     ]}
                   />
                 </div>
@@ -282,36 +290,35 @@ export default function Home() {
           <GridPaper />
           <div className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-5 py-16 md:grid-cols-2 md:px-8 md:py-24">
             <div className="flex flex-col gap-5 text-center md:text-start">
-              <Eyebrow icon={CalendarDays}>The week at a glance</Eyebrow>
+              <Eyebrow icon={CalendarDays}>השבוע במבט אחד</Eyebrow>
               <h2 className={H2}>
-                Open, pending, booked. <span className="text-primary">Nothing else to track.</span>
+                פנוי, ממתין, מוזמן. <span className="text-primary">אין מה עוד לעקוב.</span>
               </h2>
               <p className="text-muted-foreground text-lg leading-relaxed">
-                Every slot is one of three things. A booking moves it across the board by itself, and a
-                cancellation moves it back.
+                כל משבצת היא אחד משלושה דברים. הזמנה מזיזה אותה על הלוח לבד, וביטול מחזיר אותה.
               </p>
             </div>
             <Board
-              title="Your week"
-              badge="6 booked this week"
+              title="השבוע שלך"
+              badge="6 הזמנות השבוע"
               columns={[
                 {
-                  title: "Open",
+                  title: "פנוי",
                   tone: "open",
                   cards: [
-                    { title: "Sun 16:00", sub: "60 min" },
-                    { title: "Mon 09:00", sub: "60 min" },
+                    { title: "א׳ 16:00", sub: "60 דק׳" },
+                    { title: "ב׳ 09:00", sub: "60 דק׳" },
                   ],
                   placeholders: 1,
                 },
-                { title: "Pending", tone: "held", cards: [{ title: "Dan Ari", sub: "Tue 10:30" }], placeholders: 1 },
+                { title: "ממתין", tone: "held", cards: [{ title: "דן ארי", sub: "ג׳ 10:30" }], placeholders: 1 },
                 {
-                  title: "Booked",
+                  title: "מוזמן",
                   tone: "booked",
                   cards: [
-                    { title: "Noa Levi", sub: "Sun 09:00" },
-                    { title: "Maya Cohen", sub: "Sun 12:00" },
-                    { title: "Yael Shapira", sub: "Wed 17:00" },
+                    { title: "נועה לוי", sub: "א׳ 09:00" },
+                    { title: "מאיה כהן", sub: "א׳ 12:00" },
+                    { title: "יעל שפירא", sub: "ד׳ 17:00" },
                   ],
                 },
               ]}
@@ -323,9 +330,9 @@ export default function Home() {
         <section id="how-it-works" className="border-border/60 border-t">
           <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-5 py-16 md:px-8 md:py-24">
             <div className="flex flex-col items-center gap-4 text-center">
-              <Eyebrow icon={Check}>How it works</Eyebrow>
+              <Eyebrow icon={Check}>איך זה עובד</Eyebrow>
               <h2 className={H2}>
-                Three steps. <span className="text-primary">Then it runs itself.</span>
+                שלושה שלבים. <span className="text-primary">ומשם זה רץ לבד.</span>
               </h2>
             </div>
             <Steps steps={STEPS} />
@@ -335,7 +342,7 @@ export default function Home() {
         {/* Audience */}
         <section className="border-border/60 border-t">
           <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-10 px-5 py-16 text-center md:px-8 md:py-24">
-            <h2 className={H2}>Built for one practitioner and their calendar</h2>
+            <h2 className={H2}>בנוי למטפל/ת אחד/ת והיומן שלו/ה</h2>
             <div className="flex flex-wrap justify-center gap-x-10 gap-y-8">
               {AUDIENCE.map(({ icon: Icon, label }) => (
                 <div key={label} className="flex flex-col items-center gap-3">
@@ -354,19 +361,19 @@ export default function Home() {
           <GridPaper />
           <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-12 px-5 py-16 md:px-8 md:py-24">
             <div className="flex flex-col items-center gap-4 text-center">
-              <Eyebrow icon={ShieldCheck}>Security &amp; privacy</Eyebrow>
+              <Eyebrow icon={ShieldCheck}>אבטחה ופרטיות</Eyebrow>
               <h2 className={H2}>
-                Your clients&rsquo; details. <span className="text-primary">Kept to yourself.</span>
+                הפרטים של המטופלים/ות שלכם. <span className="text-primary">נשארים אצלכם.</span>
               </h2>
               <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
-                We know how personal a client list is. So the foundations are built to the same standard as
-                everything else here: fewer moving parts, and each one accounted for.
+                אנחנו יודעים כמה אישית רשימת מטופלים/ות. לכן היסודות בנויים באותה רמה כמו כל השאר כאן:
+                פחות חלקים נעים, וכל אחד מהם מתועד.
               </p>
             </div>
             <div className="grid grid-cols-1 items-center gap-10 md:grid-cols-2">
               <Orbit center={ShieldCheck} satellites={[Lock, KeyRound, Database, Cloud]} />
               <div className="flex flex-col gap-6">
-                <CheckCard title="What's included" items={SECURITY_INCLUDED} />
+                <CheckCard title="מה כלול" items={SECURITY_INCLUDED} />
                 <FactList facts={SECURITY_FACTS} />
               </div>
             </div>
@@ -375,16 +382,16 @@ export default function Home() {
 
         {/* Pricing */}
         <section className="border-border/60 relative overflow-hidden border-t">
-          <div aria-hidden className="bg-accent/15 pointer-events-none absolute -bottom-40 start-1/2 hidden h-[28rem] w-[44rem] -translate-x-1/2 rounded-full blur-3xl md:block" />
+          <div aria-hidden className="bg-accent/15 pointer-events-none absolute -bottom-40 left-1/2 hidden h-[28rem] w-[44rem] -translate-x-1/2 rounded-full blur-3xl md:block" />
           <div className="relative mx-auto flex w-full max-w-6xl flex-col items-center gap-10 px-5 py-16 md:px-8 md:py-24">
             <div className="flex flex-col items-center gap-4 text-center">
-              <Eyebrow icon={CreditCard}>The plan</Eyebrow>
+              <Eyebrow icon={CreditCard}>המסלול</Eyebrow>
               <h2 className={H2}>
-                One plan. <span className="text-primary">Everything in it.</span>
+                מסלול אחד. <span className="text-primary">הכול בפנים.</span>
               </h2>
               <p className="text-muted-foreground max-w-lg text-lg leading-relaxed">
-                You are not paying for a pile of features you will never open. There is one version of Cleana+,
-                every practitioner has all of it, and the price does not move as your practice does.
+                אתם לא משלמים על ערימת יכולות שלעולם לא תפתחו. יש גרסה אחת של Cleana+, כל מטפל/ת מקבל/ת
+                את כולה, והמחיר לא זז כשהקליניקה שלכם גדלה.
               </p>
             </div>
 
@@ -394,27 +401,27 @@ export default function Home() {
                 <div className="border-border/60 flex flex-col items-center justify-center gap-5 border-b px-6 py-10 text-center md:items-start md:border-e md:border-b-0 md:px-10 md:text-start">
                   <span className="bg-st-open-bg/70 text-st-open border-st-open/35 inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold">
                     <Check className="size-3.5" aria-hidden />
-                    First {TRIAL_DAYS} days free · no card
+                    {TRIAL_DAYS} הימים הראשונים בחינם · בלי כרטיס
                   </span>
                   <div className="flex flex-col gap-1">
                     <span className="text-muted-foreground text-sm font-medium">Cleana+</span>
                     {PRICE ? (
                       <p className="flex flex-wrap items-baseline justify-center gap-x-2 md:justify-start">
                         <span className="num text-5xl font-extrabold tracking-tight md:text-6xl">{PRICE.amount}</span>
-                        <span className="text-muted-foreground text-sm">/ {PRICE.period}</span>
+                        <span className="text-muted-foreground text-sm">{PRICE.period}</span>
                       </p>
                     ) : (
-                      <p className="text-muted-foreground text-sm">Price coming soon</p>
+                      <p className="text-muted-foreground text-sm">המחיר יפורסם בקרוב</p>
                     )}
                   </div>
                   <p className="text-muted-foreground max-w-xs text-sm leading-relaxed">
-                    One monthly payment after your free month. Stop it any time from your dashboard — no call,
-                    no form.
+                    תשלום חודשי אחד אחרי החודש החינמי. אפשר לעצור בכל רגע מהדשבורד — בלי שיחה,
+                    בלי טופס.
                   </p>
                   <Button asChild size="lg" variant="accent" className="h-12 w-full rounded-2xl font-semibold md:w-auto">
                     <Link href="/signup">
-                      Start your free month
-                      <ArrowRight className="size-4" aria-hidden />
+                      להתחיל חודש חינם
+                      <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
                     </Link>
                   </Button>
                 </div>
@@ -445,7 +452,7 @@ export default function Home() {
         {/* FAQ */}
         <section className="border-border/60 border-t">
           <div className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-5 py-16 md:px-8 md:py-24">
-            <h2 className={cn(H2, "text-center")}>Questions</h2>
+            <h2 className={cn(H2, "text-center")}>שאלות</h2>
             <div className="flex flex-col gap-3">
               {FAQ.map((item) => (
                 <div key={item.q} className="border-border/60 bg-card rounded-2xl border p-5 shadow-sm md:p-6">
@@ -462,15 +469,15 @@ export default function Home() {
           <GridPaper />
           <div className="relative mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-5 py-16 text-center md:px-8 md:py-24">
             <h2 className={H2}>
-              Take your <span className="text-primary">first booking</span>
+              קבלו את <span className="text-primary">ההזמנה הראשונה</span>
             </h2>
             <p className="text-muted-foreground max-w-md text-lg leading-relaxed">
-              Set the hours you work and share one link. The rest is already done.
+              קובעים את שעות העבודה ומשתפים לינק אחד. כל השאר כבר מוכן.
             </p>
             <Button asChild size="lg" variant="accent" className="h-14 w-full max-w-md rounded-2xl text-base font-semibold shadow-lg shadow-accent/25">
               <Link href="/signup">
-                Create your booking link
-                <ArrowRight className="size-5" aria-hidden />
+                ליצור את לינק ההזמנה שלי
+                <ArrowRight className="size-5 rtl:rotate-180" aria-hidden />
               </Link>
             </Button>
             <TrustRow items={TRUST} />
@@ -478,7 +485,7 @@ export default function Home() {
         </section>
       </main>
 
-      <SiteFooter english />
+      <SiteFooter />
     </div>
   );
 }
