@@ -8,7 +8,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "תנאי שימוש — Cleana+" };
 
-const CONTACT_EMAIL = "cleanaplus77@gmail.com";
+const CONTACT_EMAIL = "baclinica5@gmail.com";
+const CONTACT_WHATSAPP = "052-2474885";
 // A fixed date, not new Date(): this is when the text changed, not when the
 // build ran — a runtime date would "update" the page on every deploy.
 const LAST_UPDATED = "21/10/2026";
@@ -161,7 +162,7 @@ const SECTIONS: LegalSection[] = [
   },
   {
     title: "18. יצירת קשר",
-    body: [`לכל שאלה, בקשה או פנייה בנוגע לתנאים אלה, ניתן לפנות אלינו בדוא"ל: ${CONTACT_EMAIL}.`],
+    body: [`לכל שאלה, בקשה או פנייה בנוגע לתנאים אלה, ניתן לפנות אלינו בדוא"ל: ${CONTACT_EMAIL}, או בוואטסאפ: ${CONTACT_WHATSAPP}.`],
   },
 ];
 

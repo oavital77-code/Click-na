@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "מדיניות פרטיות — Cleana+" };
 
-const CONTACT_EMAIL = "cleanaplus77@gmail.com";
+const CONTACT_EMAIL = "baclinica5@gmail.com";
+const CONTACT_WHATSAPP = "052-2474885";
 // A fixed date, not new Date() — see the same note in src/app/terms/page.tsx.
 const LAST_UPDATED = "21/10/2026";
 
@@ -113,7 +114,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   },
   {
     title: "13. יצירת קשר",
-    body: [`לכל שאלה או בקשה בנוגע למדיניות זו, לרבות מימוש זכויות פרטיות, ניתן לפנות אלינו בדוא"ל: ${CONTACT_EMAIL}.`],
+    body: [`לכל שאלה או בקשה בנוגע למדיניות זו, לרבות מימוש זכויות פרטיות, ניתן לפנות אלינו בדוא"ל: ${CONTACT_EMAIL}, או בוואטסאפ: ${CONTACT_WHATSAPP}.`],
   },
 ];
 
