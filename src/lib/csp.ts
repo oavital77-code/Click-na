@@ -22,7 +22,7 @@ const PUBLIC_PREFIXES = [
   "/api/webhooks/",
 ];
 
-const PUBLIC_EXACT = new Set(["/", "/terms", "/privacy", "/cookies"]);
+const PUBLIC_EXACT = new Set(["/", "/terms", "/privacy", "/cookies", "/accessibility"]);
 
 export function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT.has(pathname)) return true;

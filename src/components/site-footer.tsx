@@ -16,12 +16,15 @@ export function SiteFooter({ english = false }: { english?: boolean } = {}) {
         <Link href="/" className="hover:text-foreground inline-flex min-h-11 items-center">
           <BrandMark className="text-foreground text-base" />
         </Link>
-        <div className="flex items-center gap-6">
+        <div className="flex flex-wrap items-center justify-center gap-x-6">
           <Link href="/terms" className="hover:text-foreground inline-flex min-h-11 items-center">
             {english ? "Terms" : "תנאי שימוש"}
           </Link>
           <Link href="/privacy" className="hover:text-foreground inline-flex min-h-11 items-center">
             {english ? "Privacy" : "מדיניות פרטיות"}
+          </Link>
+          <Link href="/accessibility" className="hover:text-foreground inline-flex min-h-11 items-center">
+            {english ? "Accessibility" : "הצהרת נגישות"}
           </Link>
           {/* The group site links to Cleana+; this closes the loop the other way.
               Plain <a>: it is a different origin, so there is nothing to prefetch.

@@ -3,7 +3,7 @@ import { createNonce, isPublicPath, publicCsp } from "./csp";
 
 describe("isPublicPath", () => {
   it("covers the pages a visitor reaches without an account", () => {
-    for (const path of ["/", "/terms", "/privacy", "/cookies"]) {
+    for (const path of ["/", "/terms", "/privacy", "/cookies", "/accessibility"]) {
       expect(isPublicPath(path)).toBe(true);
     }
   });
