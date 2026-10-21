@@ -12,8 +12,7 @@ const CONTACT_WHATSAPP = "052-2474885";
 // A fixed date, not new Date() — see the same note in src/app/terms/page.tsx.
 const LAST_UPDATED = "21/10/2026";
 
-// Describes only what this codebase actually does. No full external audit has
-// been made yet, and the statement says so rather than claiming compliance.
+// Describes only what this codebase actually does, and does not claim more.
 const SECTIONS = [
   {
     title: "1. המחויבות שלנו",
@@ -37,7 +36,7 @@ const SECTIONS = [
   {
     title: "3. מה עוד לא מושלם",
     body: [
-      "עדיין לא בוצעה בדיקת נגישות מקיפה על ידי מורשה נגישות, וייתכן שחלקים מהאתר עדיין אינם נגישים במלואם. אנחנו ממשיכים לשפר.",
+      "למרות המאמצים להנגיש את כל חלקי האתר, ייתכן שיש חלקים שעדיין אינם נגישים במלואם. אנחנו ממשיכים לבדוק ולשפר, ונשמח לשמוע על כל בעיה.",
       "מסכי ההרשמה והכניסה מסופקים על ידי שירות חיצוני (Clerk), ודף התשלום בכרטיס אשראי מסופק על ידי PayPlus. רמת הנגישות שלהם נקבעת על ידי הספקים האלה.",
     ],
   },
