@@ -27,16 +27,12 @@ import { SiteFooter } from "@/components/site-footer";
 import { BrandMark } from "@/components/brand-mark";
 import {
   Board,
-  BrowserFrame,
   CheckCard,
   Chips,
   Eyebrow,
   FactList,
   GridPaper,
-  Kpi,
   Orbit,
-  ScheduleList,
-  SidebarRail,
   Steps,
   TrustRow,
 } from "@/components/landing";
@@ -228,7 +224,7 @@ export default function Home() {
                 </Link>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-14 w-full rounded-2xl text-base font-semibold">
-                <Link href="#how-it-works">איך זה עובד</Link>
+                <Link href="#video">לצפייה בסרטון ההסבר</Link>
               </Button>
             </div>
             <TrustRow items={TRUST} />
@@ -240,33 +236,28 @@ export default function Home() {
             </div>
           </div>
 
-          {/* The product, as a window */}
-          <div className="relative mx-auto w-full max-w-4xl px-5 pb-16 md:px-8 md:pb-24">
-            <BrowserFrame>
-              <div className="flex">
-                <SidebarRail />
-                <div className="flex flex-1 flex-col gap-4 p-4 md:p-6">
-                  <div className="flex flex-col gap-2">
-                    <span className="bg-foreground/85 h-3 w-40 rounded-full" />
-                    <span className="bg-border h-2.5 w-56 rounded-full" />
-                  </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    <Kpi label="תורים השבוע" value="28" delta="+12%" />
-                    <Kpi label="מטופלים" value="64" delta="+5" />
-                    <Kpi label="לא הגיעו" value="1" delta="−3" />
-                  </div>
-                  <ScheduleList
-                    title="היום"
-                    meta="יום ראשון, 19 באפריל"
-                    rows={[
-                      { time: "09:00", name: "נועה לוי", status: "מאושר", tone: "open" },
-                      { time: "10:30", name: "דן ארי", status: "ממתין", tone: "held" },
-                      { time: "12:00", name: "מאיה כהן", status: "בקרוב", tone: "booked" },
-                    ]}
-                  />
-                </div>
-              </div>
-            </BrowserFrame>
+          {/* The product, explained: 50 seconds with a Hebrew voiceover and
+              captions. Served from /public so the page's own CSP (default-src
+              'self') covers it; preload="metadata" keeps the first load light. */}
+          <div id="video" className="relative mx-auto w-full max-w-4xl scroll-mt-20 px-5 pb-16 md:px-8 md:pb-24">
+            <div className="border-border/60 bg-card overflow-hidden rounded-3xl border shadow-2xl shadow-black/10">
+              <video
+                className="aspect-video w-full"
+                controls
+                playsInline
+                preload="metadata"
+                poster="/video/cleanaplus-explainer-poster.jpg"
+                aria-label="סרטון הסבר על Cleana+"
+              >
+                <source src="/video/cleanaplus-explainer.mp4" type="video/mp4" />
+                {/* For browsers built without H.264 (some Linux builds of Chromium). */}
+                <source src="/video/cleanaplus-explainer.webm" type="video/webm" />
+                <track kind="captions" src="/video/cleanaplus-explainer.he.vtt" srcLang="he" label="עברית" default />
+              </video>
+            </div>
+            <p className="text-muted-foreground mt-3 text-center text-sm">
+              איך <bdi dir="ltr">Cleana+</bdi> עובדת, ב-50 שניות
+            </p>
           </div>
         </section>
 

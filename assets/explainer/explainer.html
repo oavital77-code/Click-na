@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<style>
+  @font-face { font-family: "Heebo"; src: url(fonts/heebo-he.woff2) format("woff2"); font-weight: 100 900; unicode-range: U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F; }
+  @font-face { font-family: "Heebo"; src: url(fonts/heebo-latin.woff2) format("woff2"); font-weight: 100 900; }
+  @font-face { font-family: "Frank"; src: url(fonts/frank-he.woff2) format("woff2"); font-weight: 500 700; unicode-range: U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F; }
+  @font-face { font-family: "Frank"; src: url(fonts/frank-latin.woff2) format("woff2"); font-weight: 500 700; }
+  :root {
+    --bg: #f4e9d6; --card: #f9f2e8; --ink: #201d1b; --muted: #6d6154;
+    --primary: #c6723a; --primary-strong: #8e4a1a; --gold: #c99422;
+    --open: #7a8a5d; --open-bg: #d6e0bd; --booked-bg: #ffe3d1;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 720px; overflow: hidden; background: var(--bg); }
+  body { font-family: "Heebo", sans-serif; color: var(--ink); position: relative; }
+  .grain { position: absolute; inset: 0; background:
+      radial-gradient(1200px 500px at 85% -10%, rgba(201,148,34,.14), transparent 60%),
+      radial-gradient(900px 500px at 0% 110%, rgba(198,114,58,.16), transparent 60%); }
+  .scene { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 64px; padding: 0 96px; opacity: 0; }
+  .copy { width: 480px; display: flex; flex-direction: column; gap: 18px; }
+  .kicker { font-size: 20px; font-weight: 600; color: var(--primary-strong); letter-spacing: .02em; }
+  h1 { font-family: "Frank", serif; font-weight: 700; font-size: 58px; line-height: 1.08; }
+  h1 .hl { color: var(--primary); }
+  .lead { font-size: 24px; line-height: 1.5; color: var(--muted); }
+  .phone { width: 300px; height: 600px; border-radius: 44px; background: #1f1b18; padding: 12px; box-shadow: 0 40px 80px -30px rgba(80,40,10,.45); flex-shrink: 0; }
+  .screen { width: 100%; height: 100%; border-radius: 34px; background: #fffaf3; overflow: hidden; position: relative; padding: 52px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .notch { position: absolute; top: 12px; left: 50%; width: 96px; height: 26px; margin-left: -48px; border-radius: 14px; background: #1f1b18; }
+  .bubble { max-width: 80%; padding: 10px 14px; border-radius: 18px; font-size: 17px; line-height: 1.35; }
+  .in { background: #ece3d6; align-self: flex-start; border-end-start-radius: 4px; }
+  .out { background: #dcf3c8; align-self: flex-end; border-end-end-radius: 4px; }
+  .badge { position: absolute; width: 34px; height: 34px; border-radius: 50%; background: #d94b3b; color: #fff; font-weight: 700; font-size: 17px; display: flex; align-items: center; justify-content: center; }
+  .card { background: var(--card); border-radius: 22px; box-shadow: 0 24px 50px -28px rgba(80,40,10,.4); border: 1px solid #ead9c2; }
+  .logo-mark { width: 150px; height: 150px; border-radius: 40px; background: var(--primary); display: flex; align-items: center; justify-content: center; box-shadow: 0 30px 60px -25px rgba(198,114,58,.7); }
+  .logo-mark i { width: 70px; height: 70px; border-radius: 50%; border: 13px solid #f4e9d6; display: block; }
+  .wordmark { font-family: "Frank", serif; font-weight: 700; font-size: 96px; direction: ltr; }
+  .wordmark b { color: var(--gold); }
+  .grid { display: grid; grid-template-columns: repeat(5, 92px); gap: 10px; padding: 22px; }
+  .day { text-align: center; font-weight: 600; color: var(--muted); font-size: 18px; }
+  .slot { height: 34px; border-radius: 9px; background: #efe3d2; }
+  .slot.on { background: var(--open-bg); border: 1.5px solid var(--open); }
+  .link-pill { direction: ltr; font-size: 23px; font-weight: 500; padding: 16px 22px; border-radius: 16px; background: #fff; border: 2px solid var(--primary); color: var(--primary-strong); white-space: nowrap; overflow: hidden; }
+  .chips { display: flex; gap: 8px; }
+  .chip { flex: 1; text-align: center; padding: 8px 0; border-radius: 12px; background: #f1e6d6; font-size: 15px; font-weight: 600; }
+  .chip.sel { background: var(--primary); color: #fff; }
+  .time { padding: 12px; border-radius: 12px; border: 1.5px solid #e3cfb4; text-align: center; font-size: 18px; font-weight: 600; background: #fff; }
+  .time.sel { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .ok { display: flex; align-items: center; gap: 10px; padding: 14px; border-radius: 14px; background: var(--open-bg); color: #3e4a2b; font-weight: 700; font-size: 18px; }
+  .tick { width: 30px; height: 30px; border-radius: 50%; background: var(--open); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .cal { width: 520px; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+  .row { display: flex; align-items: center; gap: 16px; height: 64px; }
+  .hour { width: 70px; color: var(--muted); font-weight: 600; font-size: 19px; direction: ltr; text-align: center; }
+  .cell { flex: 1; height: 100%; border-radius: 14px; background: #efe3d2; position: relative; display: flex; align-items: center; padding: 0 18px; font-weight: 600; font-size: 19px; }
+  .cursor { position: absolute; width: 0; height: 0; border-left: 14px solid transparent; border-right: 14px solid transparent; border-bottom: 30px solid var(--ink); transform-origin: 50% 0; }
+  .toast { position: absolute; padding: 10px 16px; border-radius: 12px; background: #fff; border: 1.5px solid #e9b9a0; color: #9a3a1e; font-weight: 600; font-size: 17px; white-space: nowrap; }
+  .notif { width: 470px; padding: 18px 22px; display: flex; align-items: center; gap: 16px; }
+  .notif .ic { width: 52px; height: 52px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 26px; flex-shrink: 0; }
+  .notif .t { font-weight: 700; font-size: 20px; }
+  .notif .s { color: var(--muted); font-size: 17px; margin-top: 2px; }
+  .apps { display: flex; gap: 14px; }
+  .app { padding: 10px 16px; border-radius: 12px; background: #fff; border: 1px solid #ead9c2; font-weight: 600; font-size: 17px; direction: ltr; }
+  .pay { width: 420px; padding: 26px; display: flex; flex-direction: column; gap: 14px; }
+  .credit { width: 260px; height: 160px; border-radius: 18px; background: linear-gradient(135deg, #2c2622, #5a3a26); color: #f4e9d6; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; direction: ltr; box-shadow: 0 30px 50px -25px rgba(0,0,0,.6); }
+  .chipgold { width: 44px; height: 32px; border-radius: 6px; background: linear-gradient(135deg, #e7c46a, #b88a2a); }
+  .bank { width: 150px; height: 150px; border-radius: 36px; background: #fff; border: 2px solid var(--open); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font-size: 54px; }
+  .bank span { font-size: 17px; font-weight: 700; color: #3e4a2b; }
+  .big30 { font-family: "Frank", serif; font-weight: 700; font-size: 220px; line-height: .9; color: var(--primary); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; height: 76px; padding: 0 44px; border-radius: 24px; background: var(--primary); color: #fff; font-size: 30px; font-weight: 700; box-shadow: 0 24px 40px -18px rgba(198,114,58,.8); }
+  .pill { display: inline-flex; padding: 10px 20px; border-radius: 999px; background: var(--open-bg); color: #3e4a2b; font-weight: 700; font-size: 22px; }
+  .center { flex-direction: column; text-align: center; gap: 22px; }
+  .url { direction: ltr; font-size: 26px; color: var(--muted); font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="grain"></div>
+
+<!-- S1: the problem -->
+<section class="scene" id="s1">
+  <div class="copy">
+    <p class="kicker"><span dir="ltr">Cleana+</span> למטפלים עצמאיים</p>
+    <h1>כמה שעות בשבוע הולכות לכם <span class="hl">על תיאום תורים?</span></h1>
+  </div>
+  <div class="phone" style="position:relative">
+    <div class="screen" id="s1chat">
+      <div class="notch"></div>
+      <div class="bubble in">היי, יש לך מקום ביום שלישי?</div>
+      <div class="bubble out">רק ב-17:00 😊</div>
+      <div class="bubble in">אולי רביעי? או חמישי בבוקר?</div>
+      <div class="bubble in">רגע, אפשר להזיז לשבוע הבא?</div>
+      <div class="bubble out">ראית שהיה לנו תור היום?</div>
+      <div class="bubble in">אוי, שכחתי לגמרי 🙈</div>
+    </div>
+    <div class="badge" id="s1badge" style="top:-10px; right:-10px">7</div>
+  </div>
+</section>
+
+<!-- S2: logo -->
+<section class="scene center" id="s2">
+  <div style="display:flex; align-items:center; gap:34px; direction:ltr">
+    <div class="logo-mark" id="s2mark"><i></i></div>
+    <div class="wordmark" id="s2word">Cleana<b>+</b></div>
+  </div>
+  <h1 id="s2line" style="font-size:52px">עושה את זה <span class="hl">בשבילכם.</span></h1>
+</section>
+
+<!-- S3: hours + link -->
+<section class="scene" id="s3">
+  <div class="copy">
+    <p class="kicker">שלב 1</p>
+    <h1>מגדירים שעות עבודה <span class="hl">פעם אחת.</span></h1>
+    <p class="lead">ומקבלים לינק אישי עם השם שלכם.</p>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:22px; align-items:center">
+    <div class="card grid" id="s3grid"></div>
+    <div class="link-pill" id="s3link"><span id="s3linktext"></span></div>
+  </div>
+</section>
+
+<!-- S4: patient books -->
+<section class="scene" id="s4">
+  <div class="copy">
+    <p class="kicker">שלב 2</p>
+    <h1>המטופלים <span class="hl">קובעים לבד.</span></h1>
+    <p class="lead">שולחים את הלינק בוואטסאפ או שמים בביו. בלי אפליקציה ובלי הרשמה.</p>
+  </div>
+  <div class="phone">
+    <div class="screen">
+      <div class="notch"></div>
+      <p style="font-weight:700; font-size:20px">דנה כהן · טיפול רגשי</p>
+      <p style="color:var(--muted); font-size:15px; margin-top:-6px">בחרו מועד שנוח לכם</p>
+      <div class="chips"><div class="chip">א׳ 18</div><div class="chip sel" id="s4day">ב׳ 19</div><div class="chip">ג׳ 20</div><div class="chip">ד׳ 21</div></div>
+      <div class="time">09:00</div>
+      <div class="time" id="s4t">10:30</div>
+      <div class="time">12:00</div>
+      <div class="time">16:00</div>
+      <div class="ok" id="s4ok"><div class="tick">✓</div>התור נקבע! ב׳ 19.10, 10:30</div>
+    </div>
+  </div>
+</section>
+
+<!-- S5: no double booking -->
+<section class="scene" id="s5">
+  <div class="copy">
+    <p class="kicker">אוטומטית</p>
+    <h1>כל שעה שנקבעת <span class="hl">נסגרת מיד.</span></h1>
+    <p class="lead">אין יותר כפל תורים.</p>
+  </div>
+  <div class="card cal" style="position:relative">
+    <div class="row"><div class="hour">09:00</div><div class="cell" style="background:var(--booked-bg)">נועה לוי</div></div>
+    <div class="row"><div class="hour">10:30</div><div class="cell" id="s5cell">פנוי</div></div>
+    <div class="row"><div class="hour">12:00</div><div class="cell" style="background:var(--open-bg)">פנוי</div></div>
+    <div class="cursor" id="s5c1"></div>
+    <div class="cursor" id="s5c2" style="border-bottom-color:#8e4a1a"></div>
+    <div class="toast" id="s5toast">השעה הזו כבר נתפסה</div>
+  </div>
+</section>
+
+<!-- S6: confirmations, reminders, calendar -->
+<section class="scene" id="s6">
+  <div class="copy">
+    <p class="kicker">תזכורות ואישורים</p>
+    <h1>פחות מטופלים <span class="hl">ששוכחים להגיע.</span></h1>
+    <p class="lead">והתורים מופיעים גם ביומן שאתם כבר עובדים איתו.</p>
+  </div>
+  <div style="display:flex; flex-direction:column; gap:16px; align-items:flex-start">
+    <div class="card notif" id="s6n1"><div class="ic" style="background:var(--open-bg)">✓</div><div><p class="t">התור שלך אושר</p><p class="s">ב׳ 19.10 בשעה 10:30 · נשלח במייל</p></div></div>
+    <div class="card notif" id="s6n2"><div class="ic" style="background:#fbe7c4">⏰</div><div><p class="t">תזכורת: מחר ב-10:30</p><p class="s">אצל דנה כהן · נשלח בוואטסאפ</p></div></div>
+    <div class="card notif" id="s6n3"><div class="ic" style="background:var(--booked-bg)">✦</div><div><p class="t">תור חדש: יעל שפירא</p><p class="s">ד׳ 21.10 בשעה 17:00</p></div></div>
+    <div class="apps" id="s6apps"><div class="app">Google Calendar</div><div class="app">Apple</div><div class="app">Outlook</div></div>
+  </div>
+</section>
+
+<!-- S7: card payments -->
+<section class="scene" id="s7">
+  <div class="copy">
+    <p class="kicker">תשלום בכרטיס אשראי</p>
+    <h1>ממלאים בקשה אחת, <span class="hl">והכסף נכנס אליכם.</span></h1>
+    <p class="lead">ישירות לחשבון הבנק שלכם, בלי הגדרות טכניות.</p>
+  </div>
+  <div style="position:relative; width:560px; height:420px">
+    <div class="card pay" id="s7req" style="position:absolute; top:0; right:0">
+      <p style="font-weight:700; font-size:20px">בקשת תשלום · פגישה רגילה</p>
+      <p style="font-family:Frank,serif; font-weight:700; font-size:64px; color:var(--primary)">350 ₪</p>
+      <div class="ok" id="s7paid"><div class="tick">✓</div>שולם</div>
+    </div>
+    <div class="credit" id="s7card" style="position:absolute; top:150px; right:240px">
+      <div class="chipgold"></div>
+      <div style="font-size:20px; letter-spacing:.14em">•••• 4580</div>
+    </div>
+    <div class="bank" id="s7bank" style="position:absolute; bottom:0; left:0">🏦<span>החשבון שלכם</span></div>
+  </div>
+</section>
+
+<!-- S8: free month -->
+<section class="scene center" id="s8">
+  <div style="display:flex; align-items:baseline; gap:24px">
+    <span class="big30" id="s8num">30</span>
+    <span style="font-family:Frank,serif; font-weight:700; font-size:64px">ימים בחינם</span>
+  </div>
+  <span class="pill" id="s8pill">בלי כרטיס אשראי</span>
+  <p class="lead" id="s8lead" style="font-size:28px">נרשמים בדקה, ומתחילים לקבל תורים עוד היום.</p>
+  <span class="btn" id="s8btn">להרשמה בחינם</span>
+</section>
+
+<!-- S9: close -->
+<section class="scene center" id="s9">
+  <div style="display:flex; align-items:center; gap:30px; direction:ltr">
+    <div class="logo-mark" style="width:120px; height:120px; border-radius:32px"><i style="width:56px; height:56px; border-width:11px"></i></div>
+    <div class="wordmark" style="font-size:84px">Cleana<b>+</b></div>
+  </div>
+  <h1 id="s9line" style="font-size:56px">פחות תיאום, <span class="hl">יותר טיפול.</span></h1>
+  <p class="url" id="s9url">cleanaplus.cleanagroup.app</p>
+</section>
+
+<script>
+  // Scene windows in seconds, from the pauses in the voiceover (take 1).
+  const SCENES = [
+    ["s1", 0.0, 8.0], ["s2", 8.0, 10.6], ["s3", 10.6, 15.25], ["s4", 15.25, 21.4],
+    ["s5", 21.4, 25.6], ["s6", 25.6, 34.1], ["s7", 34.1, 40.85], ["s8", 40.85, 47.44], ["s9", 47.44, 52.0],
+  ];
+  const $ = (id) => document.getElementById(id);
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+  const ease = (x) => 1 - Math.pow(1 - clamp(x), 3);
+  const back = (x) => { x = clamp(x); const c = 1.7; return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2); };
+  /** progress of a tween that starts at `a` and lasts `d` seconds */
+  const p = (t, a, d) => ease((t - a) / d);
+  const pop = (el, k) => { el.style.opacity = clamp(k * 1.4); el.style.transform = `translateY(${(1 - k) * 24}px) scale(${0.92 + 0.08 * k})`; };
+
+  // Build the hours grid once.
+  const grid = $("s3grid");
+  const days = ["א׳", "ב׳", "ג׳", "ד׳", "ה׳"];
+  days.forEach((d) => { const e = document.createElement("div"); e.className = "day"; e.textContent = d; grid.appendChild(e); });
+  const ON = [[1,1,0,1,1],[1,1,1,1,0],[0,1,1,1,1],[1,0,1,1,1],[1,1,1,0,1]];
+  const slots = [];
+  for (let r = 0; r < 5; r++) for (let c = 0; c < 5; c++) {
+    const e = document.createElement("div"); e.className = "slot"; grid.appendChild(e); slots.push({ e, r, c, on: ON[r][c] });
+  }
+  const LINK = "cleanaplus.cleanagroup.app/book/dana";
+
+  function render(t) {
+    for (const [id, a, b] of SCENES) {
+      const fade = Math.min(clamp((t - a) / 0.45), clamp((b - t) / 0.45));
+      const el = $(id);
+      el.style.opacity = id === "s1" && t < 0.45 ? clamp(t / 0.45) : fade;
+      el.style.display = t >= a - 0.5 && t <= b + 0.5 ? "flex" : "none";
+      const k = ease((t - a) / 0.8);
+      el.querySelectorAll(".copy").forEach((c) => (c.style.transform = `translateX(${(1 - k) * 30}px)`));
+    }
+
+    // S1: messages pile up, the badge counts them.
+    const bubbles = [...$("s1chat").querySelectorAll(".bubble")];
+    bubbles.forEach((b, i) => pop(b, p(t, 0.8 + i * 0.95, 0.35)));
+    const shown = bubbles.filter((_, i) => t > 0.8 + i * 0.95).length;
+    $("s1badge").textContent = String(2 + shown);
+    $("s1badge").style.transform = `scale(${1 + 0.25 * Math.max(0, 1 - ((t - 0.8) % 0.95) / 0.25) * (shown > 0 ? 1 : 0)})`;
+
+    // S2: the mark springs in, the wordmark and the line follow.
+    const m2 = back((t - 8.05) / 0.6);
+    $("s2mark").style.transform = `scale(${m2}) rotate(${(1 - clamp((t - 8.05) / 0.6)) * -30}deg)`;
+    pop($("s2word"), p(t, 8.35, 0.5));
+    pop($("s2line"), p(t, 8.8, 0.5));
+
+    // S3: hours fill, then the link types itself.
+    slots.forEach((s) => {
+      const k = p(t, 11.0 + (s.c * 5 + s.r) * 0.06, 0.25);
+      s.e.className = "slot" + (s.on && k > 0.5 ? " on" : "");
+      s.e.style.transform = `scale(${s.on ? 0.85 + 0.15 * k : 1})`;
+    });
+    const chars = Math.floor(clamp((t - 12.9) / 1.4) * LINK.length);
+    $("s3linktext").textContent = LINK.slice(0, chars) + (t > 12.9 && t < 15.2 && Math.floor(t * 3) % 2 ? "|" : "");
+    pop($("s3link"), p(t, 12.6, 0.4));
+
+    // S4: a time is chosen and the booking confirms.
+    const pick = t > 18.2;
+    $("s4t").className = "time" + (pick ? " sel" : "");
+    $("s4t").style.transform = `scale(${pick ? 1 + 0.06 * Math.max(0, 1 - (t - 18.2) / 0.3) : 1})`;
+    pop($("s4ok"), p(t, 18.9, 0.45));
+
+    // S5: two people go for 10:30; the first gets it and it locks.
+    const c1 = $("s5c1"), c2 = $("s5c2");
+    const a1 = p(t, 21.9, 1.0), a2 = p(t, 22.1, 1.1);
+    c1.style.left = `${110 + a1 * 230}px`; c1.style.top = `${330 - a1 * 210}px`; c1.style.transform = "rotate(-20deg)";
+    c2.style.left = `${520 - a2 * 150}px`; c2.style.top = `${360 - a2 * 220}px`; c2.style.transform = "rotate(20deg)";
+    const taken = t > 23.0;
+    const cell = $("s5cell");
+    cell.textContent = taken ? "🔒 מיכל אברהם" : "פנוי";
+    cell.style.background = taken ? "var(--booked-bg)" : "var(--open-bg)";
+    const toast = $("s5toast"); toast.style.left = "150px"; toast.style.top = "262px";
+    pop(toast, p(t, 23.4, 0.35));
+
+    // S6: notifications stack in, then the calendar apps.
+    pop($("s6n1"), p(t, 26.0, 0.45));
+    pop($("s6n2"), p(t, 27.4, 0.45));
+    pop($("s6n3"), p(t, 28.9, 0.45));
+    pop($("s6apps"), p(t, 31.3, 0.5));
+
+    // S7: the card pays, the request turns paid, the money goes to the bank.
+    const card = $("s7card");
+    const cin = p(t, 35.6, 0.9);
+    card.style.transform = `translate(${(1 - cin) * -220}px, ${(1 - cin) * 60}px) rotate(${(1 - cin) * -12}deg)`;
+    card.style.opacity = clamp(cin * 1.5) * (1 - p(t, 38.3, 0.4));
+    pop($("s7paid"), p(t, 36.9, 0.4));
+    pop($("s7bank"), p(t, 37.6, 0.5));
+    $("s7bank").style.boxShadow = t > 38.4 ? `0 0 0 ${10 * Math.max(0, 1 - (t - 38.4) / 0.8)}px rgba(122,138,93,.35)` : "none";
+
+    // S8: the number lands, then the rest; the button breathes.
+    const n = back((t - 41.0) / 0.6);
+    $("s8num").style.transform = `scale(${n})`;
+    pop($("s8pill"), p(t, 41.8, 0.4));
+    pop($("s8lead"), p(t, 43.8, 0.5));
+    const b = p(t, 44.6, 0.5);
+    pop($("s8btn"), b);
+    if (b >= 1) $("s8btn").style.transform = `scale(${1 + 0.035 * Math.sin((t - 45.1) * 5)})`;
+
+    // S9: close.
+    pop($("s9line"), p(t, 48.3, 0.5));
+    pop($("s9url"), p(t, 49.0, 0.5));
+  }
+  window.render = render;
+  window.DURATION = 52.0;
+  render(0);
+</script>
+</body>
+</html>
