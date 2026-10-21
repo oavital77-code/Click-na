@@ -427,3 +427,68 @@ export function opsAlertEmail(input: OpsAlertEmailInput) {
     `),
   };
 }
+
+export type PaymentApplicationAlertEmailInput = Localized & {
+  therapistFullName: string;
+  therapistEmail: string;
+  legalName: string;
+  reviewUrl: string;
+};
+
+/**
+ * Internal — a therapist asked for card payments. Deliberately without the ID
+ * or bank numbers: mail is copied and forwarded, the review screen is not.
+ */
+export function paymentApplicationAlertEmail(input: PaymentApplicationAlertEmailInput) {
+  const m = getMessages(input.locale).messages.paymentSetup;
+  return {
+    subject: m.alertSubject(input.therapistFullName),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.alertTitle}</h1>
+      <p style="font-size:15px;line-height:1.8;">
+        <strong>${esc(input.therapistFullName)}</strong><br/>
+        <span style="color:#6d6154;">${esc(input.therapistEmail)}</span><br/>
+        <span style="color:#6d6154;">${esc(input.legalName)}</span>
+      </p>
+      <p style="font-size:15px;line-height:1.7;">${m.alertBody}</p>
+      <p><a href="${esc(input.reviewUrl)}" style="color:#b86b3c;font-weight:bold;">${m.alertCta}</a></p>
+    `),
+  };
+}
+
+export type PaymentApplicationApprovedEmailInput = Localized & {
+  therapistFullName: string;
+  feePct: number;
+  addonsUrl: string;
+};
+
+export function paymentApplicationApprovedEmail(input: PaymentApplicationApprovedEmailInput) {
+  const m = getMessages(input.locale).messages;
+  return {
+    subject: m.paymentSetup.approvedSubject,
+    html: wrap(input.locale, `
+      <p style="font-size:15px;line-height:1.7;">${m.hello(esc(input.therapistFullName))}</p>
+      <p style="font-size:15px;line-height:1.7;">${m.paymentSetup.approvedBody(input.feePct)}</p>
+      <p><a href="${esc(input.addonsUrl)}" style="color:#b86b3c;font-weight:bold;">${m.paymentSetup.approvedCta}</a></p>
+    `),
+  };
+}
+
+export type PaymentApplicationRejectedEmailInput = Localized & {
+  therapistFullName: string;
+  reason: string;
+  addonsUrl: string;
+};
+
+export function paymentApplicationRejectedEmail(input: PaymentApplicationRejectedEmailInput) {
+  const m = getMessages(input.locale).messages;
+  return {
+    subject: m.paymentSetup.rejectedSubject,
+    html: wrap(input.locale, `
+      <p style="font-size:15px;line-height:1.7;">${m.hello(esc(input.therapistFullName))}</p>
+      <p style="font-size:15px;line-height:1.7;">${m.paymentSetup.rejectedBody}</p>
+      <p style="font-size:15px;line-height:1.7;background:#f6f5f3;border-radius:8px;padding:12px;">${esc(input.reason)}</p>
+      <p><a href="${esc(input.addonsUrl)}" style="color:#b86b3c;font-weight:bold;">${m.paymentSetup.rejectedCta}</a></p>
+    `),
+  };
+}

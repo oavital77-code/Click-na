@@ -196,6 +196,31 @@ export async function disconnectIntegration(therapistId: string, provider: Integ
   });
 }
 
+/**
+ * Switching card payments off and on again, for a PayPlus terminal we were
+ * issued under the partnership. Unlike disconnectIntegration this keeps the
+ * credentials: they are Cleana+'s to hold, not the therapist's, and wiping them
+ * would turn "off for August" into a new application to PayPlus.
+ */
+export async function pauseManagedPayments(therapistId: string) {
+  await prisma.integration.updateMany({
+    where: { therapistId, provider: "payplus" },
+    data: { status: "disconnected", connectedAt: null },
+  });
+}
+
+export async function resumeManagedPayments(therapistId: string): Promise<boolean> {
+  const row = await prisma.integration.findUnique({
+    where: { therapistId_provider: { therapistId, provider: "payplus" } },
+  });
+  if (!row?.credentials) return false;
+  await prisma.integration.update({
+    where: { id: row.id },
+    data: { status: "connected", connectedAt: new Date(), lastError: null },
+  });
+  return true;
+}
+
 /** Records a failure that happened while *using* an add-on, not while connecting. */
 export async function recordIntegrationFailure(
   therapistId: string,

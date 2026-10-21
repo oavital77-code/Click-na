@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getMessages, type Locale } from "@/i18n";
+import { PLATFORM_FEE_PERCENT } from "@/lib/plan";
 
 export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp", "payplus", "paymentLink"] as const;
 
@@ -84,8 +85,11 @@ export function getProviderSpecs(locale: Locale): Record<IntegrationProvider, Pr
     },
     payplus: {
       provider: "payplus",
-      label: m.payplus.label,
-      summary: m.payplus.summary,
+      // Opened for the therapist through our partnership — the card shows the
+      // application, not these fields, which only the owner fills in when
+      // wiring up the terminal PayPlus issued.
+      label: getMessages(locale).paymentSetup.label,
+      summary: getMessages(locale).paymentSetup.summary,
       // The same three values the platform's own billing uses. PayPlus sends
       // its callback to whatever URL each payment page is created with, so
       // there is no fourth step of registering our address on their side.
@@ -98,8 +102,7 @@ export function getProviderSpecs(locale: Locale): Record<IntegrationProvider, Pr
       // A deeper link is not documented publicly, so this stays the landing.
       docsUrl: "https://www.payplus.co.il",
       setupHint: m.payplus.setupHint,
-      note: m.payplus.note,
-      guided: true,
+      note: getMessages(locale).paymentSetup.feeLine(PLATFORM_FEE_PERCENT),
     },
     paymentLink: {
       provider: "paymentLink",

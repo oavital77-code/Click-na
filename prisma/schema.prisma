@@ -87,6 +87,8 @@ enum NotificationType {
   onboarding_complete
   subscription
   trial_reminder
+  // Where their application for card payments stands.
+  payment_setup
 }
 
 enum NotificationChannel {
@@ -173,8 +175,43 @@ model Therapist {
   treatmentTemplates TreatmentTemplate[]
   locations         Location[]
   notifications     Notification[]
+  paymentApplication PaymentApplication?
 
   @@map("therapists")
+}
+
+enum PaymentApplicationStatus {
+  // Sent to us; we forward it to PayPlus, who open the therapist's account.
+  pending
+  // PayPlus opened the account and its terminal is wired into the payplus add-on.
+  active
+  rejected
+}
+
+/// A therapist's request for card payments through Cleana+'s PayPlus
+/// partnership — instead of the therapist pasting API keys they do not have.
+/// The business and bank details are what PayPlus needs to open the account,
+/// kept encrypted like integration credentials (src/lib/secret-box.ts). One per
+/// therapist: a rejected one is resubmitted in place.
+model PaymentApplication {
+  id               String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId      String                   @unique @map("therapist_id") @db.Uuid
+  status           PaymentApplicationStatus @default(pending)
+  details          String                   @db.Text
+  // Which payment terms they agreed to and when, for the record. The fee is
+  // copied in so a later price change does not rewrite what they accepted.
+  termsVersion     String                   @map("terms_version") @db.VarChar(20)
+  termsAcceptedAt  DateTime                 @map("terms_accepted_at") @db.Timestamptz
+  termsAcceptedIp  String?                  @map("terms_accepted_ip") @db.VarChar(64)
+  platformFeePct   Decimal                  @map("platform_fee_pct") @db.Decimal(5, 2)
+  rejectionReason  String?                  @map("rejection_reason")
+  reviewedAt       DateTime?                @map("reviewed_at") @db.Timestamptz
+  createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("payment_applications")
 }
 
 // spec 11.3: an old slug keeps resolving (via redirect) for 90 days after a therapist changes it.

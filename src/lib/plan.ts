@@ -20,6 +20,16 @@ export const RENEWAL_CONFIRMATION_DAYS = 2;
 /** Trial days on which a countdown email goes out. */
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
 
+/**
+ * Cleana+'s fee on every card payment a client makes through our PayPlus
+ * partnership, in percent, on top of PayPlus's own processing fee. Copied onto
+ * each application when the therapist accepts the terms, so changing it here
+ * never rewrites what somebody already agreed to.
+ */
+export const PLATFORM_FEE_PERCENT = 2.5;
+/** Bumped whenever the payment terms (/terms#payments) change in substance. */
+export const PAYMENT_TERMS_VERSION = "2026-10-21";
+
 /** The decided price, shekels with VAT. PLAN_PRICE_ILS overrides it without a deploy. */
 export const DEFAULT_PLAN_PRICE_ILS = 59;
 

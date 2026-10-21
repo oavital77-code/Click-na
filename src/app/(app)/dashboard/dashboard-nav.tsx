@@ -26,11 +26,23 @@ function isActive(pathname: string | null, href: string) {
   return href === "/dashboard" ? pathname === href : (pathname?.startsWith(href) ?? false);
 }
 
-function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigate?: () => void }) {
+/** Only the owner of Cleana+ (OWNER_NOTIFICATION_EMAIL) sees the applications screen. */
+const OWNER_LINK: { href: string; key: keyof Messages["nav"] } = { href: "/dashboard/owner", key: "owner" };
+
+function NavLinks({
+  pathname,
+  onNavigate,
+  isOwner,
+}: {
+  pathname: string | null;
+  onNavigate?: () => void;
+  isOwner: boolean;
+}) {
   const { m } = useI18n();
+  const links = isOwner ? [...LINKS, OWNER_LINK] : LINKS;
   return (
     <>
-      {LINKS.map((link) => (
+      {links.map((link) => (
         <Link
           key={link.href}
           href={link.href}
@@ -64,7 +76,7 @@ function SignOutLink() {
   );
 }
 
-export function DashboardNav() {
+export function DashboardNav({ isOwner = false }: { isOwner?: boolean }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const { m } = useI18n();
@@ -106,7 +118,7 @@ export function DashboardNav() {
                 <X className="size-5" />
               </button>
             </div>
-            <NavLinks pathname={pathname} onNavigate={() => setMobileOpen(false)} />
+            <NavLinks isOwner={isOwner} pathname={pathname} onNavigate={() => setMobileOpen(false)} />
             <div className="mt-auto pt-2">
               <SignOutLink />
             </div>
@@ -119,7 +131,7 @@ export function DashboardNav() {
         <Link href="/dashboard" className="mb-4 px-3">
           <BrandMark className="text-primary text-lg" />
         </Link>
-        <NavLinks pathname={pathname} />
+        <NavLinks isOwner={isOwner} pathname={pathname} />
         <div className="mt-auto pt-2">
           <SignOutLink />
         </div>

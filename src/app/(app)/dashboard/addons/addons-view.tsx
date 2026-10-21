@@ -24,6 +24,8 @@ import { cn } from "@/lib/utils";
 import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 import { PAYMENT_PROVIDERS } from "@/lib/integration-providers";
 import { useI18n } from "@/i18n/client";
+import type { ApplicationSummary } from "@/lib/payment-applications";
+import { PaymentSetupCard } from "./payment-setup";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
@@ -40,10 +42,18 @@ type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolea
 export function AddonsView({
   initial,
   hasTreatments,
+  application,
+  feePct,
+  defaults,
 }: {
   initial: Payload;
   /** Whether Settings has any treatment. Requests are picked from that menu. */
   hasTreatments: boolean;
+  /** Where the therapist's card-payments application stands, if they sent one. */
+  application: ApplicationSummary | null;
+  feePct: number;
+  /** Pre-fills the application with what the account already knows. */
+  defaults: { fullName: string; phone: string; email: string };
 }) {
   const { m } = useI18n();
   const [payload, setPayload] = useState(initial);
@@ -78,21 +88,87 @@ export function AddonsView({
           <p className="text-muted-foreground text-sm">{m.addons.paymentsLead}</p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
-          {payments.map((integration) => (
-            <AddonCard
-              key={integration.provider}
-              integration={integration}
-              onChange={setPayload}
-              hint={
-                integration.state === "connected" && !hasTreatments
-                  ? m.addons.templatesMissing
-                  : null
-              }
-            />
-          ))}
+          {payments.map((integration) =>
+            integration.provider === "payplus" ? (
+              <ManagedPaymentsCard
+                key="payplus"
+                integration={integration}
+                onChange={setPayload}
+                application={application}
+                feePct={feePct}
+                defaults={defaults}
+                hint={!hasTreatments ? m.addons.templatesMissing : null}
+              />
+            ) : (
+              <AddonCard
+                key={integration.provider}
+                integration={integration}
+                onChange={setPayload}
+                hint={
+                  integration.state === "connected" && !hasTreatments
+                    ? m.addons.templatesMissing
+                    : null
+                }
+              />
+            )
+          )}
         </div>
       </section>
     </div>
+  );
+}
+
+/** Card payments through our PayPlus partnership: an application, then an on/off switch. */
+function ManagedPaymentsCard({
+  integration,
+  onChange,
+  application,
+  feePct,
+  defaults,
+  hint,
+}: {
+  integration: IntegrationCard;
+  onChange: (payload: Payload) => void;
+  application: ApplicationSummary | null;
+  feePct: number;
+  defaults: { fullName: string; phone: string; email: string };
+  hint: string | null;
+}) {
+  const { m } = useI18n();
+  const connected = integration.state === "connected";
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onToggle() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/integrations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: connected ? "disconnect" : "connect", provider: "payplus" }),
+      });
+      const data = (await res.json()) as Payload & { error?: string };
+      if (data.integrations) onChange(data);
+      if (!res.ok) setError(data.error ?? m.addons.actionFailed);
+    } catch {
+      setError(m.addons.actionFailed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <PaymentSetupCard
+      connected={connected}
+      application={application}
+      feePct={feePct}
+      defaults={defaults}
+      hint={hint}
+      onToggle={onToggle}
+      busy={busy}
+      toggleError={error}
+    />
   );
 }
 

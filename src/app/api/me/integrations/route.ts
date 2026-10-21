@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { toLocale } from "@/i18n";
+import { getMessages, toLocale } from "@/i18n";
 import { requireTherapist } from "@/lib/route-auth";
 import {
   INTEGRATION_PROVIDERS,
@@ -8,6 +8,8 @@ import {
   credentialStorageReady,
   disconnectIntegration,
   listIntegrations,
+  pauseManagedPayments,
+  resumeManagedPayments,
 } from "@/lib/integrations";
 
 const bodySchema = z.discriminatedUnion("action", [
@@ -47,6 +49,21 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
+  }
+
+  // PayPlus is opened for the therapist under our partnership (see
+  // payment-applications.ts), not connected with keys they paste. They can
+  // still switch it off and back on; only the owner can wire in a terminal.
+  if (parsed.data.provider === "payplus") {
+    if (parsed.data.action === "disconnect") {
+      await pauseManagedPayments(therapist.id);
+    } else if (!(await resumeManagedPayments(therapist.id))) {
+      return NextResponse.json(
+        { error: getMessages(toLocale(therapist.locale)).paymentSetup.errors.notOpened, ...(await payload(therapist.id, therapist.locale)) },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json(await payload(therapist.id, therapist.locale));
   }
 
   if (parsed.data.action === "disconnect") {

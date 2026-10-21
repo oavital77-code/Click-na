@@ -5,6 +5,7 @@ import { DEFAULT_LOCALE, dirFor, toLocale } from "@/i18n/config";
 import { DashboardNav } from "./dashboard-nav";
 import { AccessBanner } from "@/components/access-banner";
 import { accessState } from "@/lib/access";
+import { isOwner } from "@/lib/payment-applications";
 
 export default async function DashboardLayout({
   children,
@@ -23,7 +24,7 @@ export default async function DashboardLayout({
   return (
     <I18nProvider locale={locale}>
       <div dir={dirFor(locale)} className="flex flex-1 flex-col md:flex-row">
-        <DashboardNav />
+        <DashboardNav isOwner={isOwner(therapist?.email)} />
         {/* min-w-0: a flex item defaults to min-width:auto, so the week table
             (1084px) would widen this column and scroll the whole page sideways
             instead of scrolling inside its own container. */}
