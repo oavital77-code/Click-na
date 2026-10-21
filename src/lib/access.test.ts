@@ -48,6 +48,19 @@ describe("accessState", () => {
     expect(l).toEqual({ kind: "locked", reason: "payment_failed" });
   });
 
+  it("says the trial ended, not that a payment failed, once the daily job moves a never-paid trial to past_due", () => {
+    // What billing-lifecycle writes when a trial runs out: past_due, grace set, nothing ever paid.
+    const lapsedTrial = { ...base, status: "past_due" as const, trialEndsAt: days(-6), graceEndsAt: days(1), currentPeriodStart: null };
+    expect(accessState(lapsedTrial, now)).toMatchObject({ kind: "grace", reason: "trial_ended", daysLeft: 1 });
+    expect(accessState({ ...lapsedTrial, status: "unpaid" }, now)).toEqual({ kind: "locked", reason: "trial_ended" });
+    expect(accessState({ ...lapsedTrial, graceEndsAt: days(-1) }, now)).toEqual({ kind: "locked", reason: "trial_ended" });
+  });
+
+  it("still says the payment failed for an account that paid after its trial", () => {
+    const paidOnce = { ...base, status: "past_due" as const, trialEndsAt: days(-40), currentPeriodStart: days(-32), currentPeriodEnd: days(-2) };
+    expect(accessState(paidOnce, now)).toMatchObject({ kind: "grace", reason: "payment_failed" });
+  });
+
   it("keeps a cancelled subscription working until the paid period ends", () => {
     expect(accessState({ ...base, status: "canceled", currentPeriodEnd: days(3) }, now)).toEqual({
       kind: "canceling",

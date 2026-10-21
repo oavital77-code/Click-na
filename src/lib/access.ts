@@ -14,7 +14,18 @@ export type SubscriptionLike = {
   currentPeriodEnd: Date | null;
   graceEndsAt: Date | null;
   cancelAtPeriodEnd: boolean;
+  /** Set by the first payment; still null on an account that only ever had a trial. */
+  currentPeriodStart?: Date | null;
 };
+
+/**
+ * The daily job moves a lapsed trial to past_due, the same status a declined
+ * renewal gets — so the reason comes from whether anything was ever paid, or
+ * someone who never paid would be told their payment failed.
+ */
+function lapseReason(sub: SubscriptionLike): "trial_ended" | "payment_failed" {
+  return sub.trialEndsAt && !sub.currentPeriodStart ? "trial_ended" : "payment_failed";
+}
 
 export type AccessState =
   | { kind: "trialing"; daysLeft: number; trialEndsAt: Date }
@@ -63,9 +74,9 @@ export function accessState(sub: SubscriptionLike, now: Date = new Date()): Acce
     case "past_due": {
       const graceEndsAt = sub.graceEndsAt ?? (sub.currentPeriodEnd ? graceEndFor(sub.currentPeriodEnd) : null);
       if (graceEndsAt && graceEndsAt > now) {
-        return { kind: "grace", daysLeft: daysLeft(graceEndsAt, now), graceEndsAt, reason: "payment_failed" };
+        return { kind: "grace", daysLeft: daysLeft(graceEndsAt, now), graceEndsAt, reason: lapseReason(sub) };
       }
-      return { kind: "locked", reason: "payment_failed" };
+      return { kind: "locked", reason: lapseReason(sub) };
     }
     case "canceled": {
       if (sub.currentPeriodEnd && sub.currentPeriodEnd > now) {
@@ -74,7 +85,7 @@ export function accessState(sub: SubscriptionLike, now: Date = new Date()): Acce
       return { kind: "locked", reason: "canceled" };
     }
     case "unpaid":
-      return { kind: "locked", reason: "payment_failed" };
+      return { kind: "locked", reason: lapseReason(sub) };
   }
 }
 
