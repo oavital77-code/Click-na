@@ -31,7 +31,7 @@ export const PLATFORM_FEE_PERCENT = 2.5;
 export const PAYMENT_TERMS_VERSION = "2026-10-21";
 
 /** The decided price, shekels with VAT. PLAN_PRICE_ILS overrides it without a deploy. */
-export const DEFAULT_PLAN_PRICE_ILS = 59;
+export const DEFAULT_PLAN_PRICE_ILS = 49;
 
 export function planPriceIls(env: Record<string, string | undefined> = process.env): number | null {
   const raw = env.PLAN_PRICE_ILS;
