@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { SiteFooter } from "@/components/site-footer";
 
-export type LegalSection = { title: string; body: string[] };
+/** `id` makes a section linkable (/terms#payments). */
+export type LegalSection = { id?: string; title: string; body: string[] };
 
 /**
  * The shell shared by the terms, privacy and cookies pages.
@@ -34,7 +35,7 @@ export function LegalPage({
 
         <div className="flex flex-col gap-8">
           {sections.map((section) => (
-            <section key={section.title} className="flex flex-col gap-3">
+            <section key={section.title} id={section.id} className="flex scroll-mt-6 flex-col gap-3">
               <h2 className="text-lg font-semibold">{section.title}</h2>
               <div className="text-muted-foreground flex flex-col gap-3 text-sm leading-relaxed">
                 {section.body.map((paragraph, i) => (

@@ -40,7 +40,7 @@ import {
   Steps,
   TrustRow,
 } from "@/components/landing";
-import { formatPriceIls, planPriceIls, TRIAL_DAYS } from "@/lib/plan";
+import { formatPriceIls, planPriceIls, PLATFORM_FEE_PERCENT, TRIAL_DAYS } from "@/lib/plan";
 import { HtmlLangDir } from "@/i18n/client";
 
 // The CSP in src/proxy.ts mints a fresh nonce per request, and a page baked at
@@ -52,7 +52,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "Cleana+ — יומן וזימון תורים למטפלים עצמאיים",
   description:
-    "לינק לקביעת תורים שהמטופלים מבינים מיד, ויומן בלי כפל תורים. מסלול אחד, הכול כלול, ובלי עמלה על מה שאתם מרוויחים.",
+    "לינק לקביעת תורים שהמטופלים מבינים מיד, יומן בלי כפל תורים, ותשלום בכרטיס אשראי ישר לחשבון שלכם. מסלול אחד, הכול כלול.",
   openGraph: { locale: "he_IL" },
 };
 
@@ -141,7 +141,7 @@ const SECURITY_FACTS = [
 const OMISSIONS = [
   "אין מסלולים להשוות, ושום דבר לא שמור למסלול יקר יותר.",
   "אין תוספות בתשלום על דברים שהיו צריכים להיות כלולים מההתחלה.",
-  "אין עמלה. מה שהמטופלים משלמים לכם נשאר אצלכם.",
+  "אין עמלה על תשלומים במזומן, בהעברה או בביט. עמלה קטנה רק על סליקה בכרטיס אשראי דרכנו.",
   "אין מסכים מלאים בגרפים שלא תסתכלו עליהם.",
 ];
 
@@ -153,13 +153,14 @@ const INCLUDED = [
   "תזכורות בוואטסאפ מהטלפון שלכם, בלחיצה",
   "רשימת מטופלים שמתעדכנת לבד עם כל תור",
   "סנכרון עם היומן של Google, Apple או Outlook",
+  `סליקה בכרטיס אשראי ישר לחשבון שלכם (עמלה של ${PLATFORM_FEE_PERCENT}% לעסקה)`,
   "עברית ואנגלית, לכם ולמטופלים",
 ];
 
 const FAQ = [
   {
-    q: "אתם לוקחים אחוז ממה שאני גובה?",
-    a: "לא. מה שהמטופלים משלמים לכם נשאר אצלכם. משלמים לנו רק מנוי חודשי קבוע.",
+    q: "אפשר לקבל תשלום בכרטיס אשראי?",
+    a: `כן. ממלאים בקשה אחת במערכת, ואנחנו פותחים לכם סליקה מול PayPlus, בלי מפתחות ובלי הגדרות טכניות. הכסף נכנס ישירות לחשבון הבנק שלכם. על כל תשלום בכרטיס יש עמלת פלטפורמה של ${PLATFORM_FEE_PERCENT}%, בנוסף לעמלת הסליקה של PayPlus. על תשלומים בדרכים אחרות אין עמלה.`,
   },
   {
     q: "כמה זמן לוקח להתחיל?",
@@ -234,7 +235,7 @@ export default function Home() {
             <div className="border-border/60 bg-card inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 rounded-full border px-6 py-3 text-sm shadow-sm">
               <span className="text-accent" aria-hidden>★★★★★</span>
               <span>
-                <strong>{TRIAL_DAYS} הימים הראשונים בחינם</strong> · מסלול אחד · בלי עמלה
+                <strong>{TRIAL_DAYS} הימים הראשונים בחינם</strong> · מסלול אחד · הכול כלול
               </span>
             </div>
           </div>
