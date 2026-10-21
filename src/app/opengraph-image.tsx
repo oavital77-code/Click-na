@@ -42,7 +42,8 @@ export default async function Image() {
 
         <Line
           position="relative"
-          fontFamily="FrankRuhl"
+          fontFamily="Heebo"
+          fontWeight={700}
           fontSize={84}
           lineHeight={1.15}
           color={COLORS.foreground}
@@ -51,7 +52,8 @@ export default async function Image() {
         </Line>
         <Line
           position="relative"
-          fontFamily="FrankRuhl"
+          fontFamily="Heebo"
+          fontWeight={700}
           fontSize={84}
           lineHeight={1.15}
           color={COLORS.foreground}

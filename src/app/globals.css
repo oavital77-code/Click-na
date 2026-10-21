@@ -116,10 +116,12 @@
   --text-5xl: 3.5rem; /* 56px */
   --text-5xl--line-height: 1.05;
 
+  /* Heebo everywhere. The other roles stay as names so the classes that use
+     them keep working; numbers keep their tabular figures via .num. */
   --font-sans: var(--font-heebo);
-  --font-heading: var(--font-serif-display);
-  --font-num: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-heebo);
+  --font-num: var(--font-heebo);
+  --font-mono: var(--font-heebo);
 }
 
 @layer base {

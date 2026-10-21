@@ -27,23 +27,21 @@ export const COLORS = {
  * therapist's name would render as empty boxes.
  */
 export async function loadFonts() {
-  const [body, bodyBold, display] = await Promise.all([
+  const [body, bodyBold] = await Promise.all([
     readFile(join(process.cwd(), "assets/heebo-400.ttf")),
     readFile(join(process.cwd(), "assets/heebo-700.ttf")),
-    readFile(join(process.cwd(), "assets/frank-ruhl-libre-700.ttf")),
   ]);
 
   return [
     { name: "Heebo", data: body, weight: 400 as const, style: "normal" as const },
     { name: "Heebo", data: bodyBold, weight: 700 as const, style: "normal" as const },
-    { name: "FrankRuhl", data: display, weight: 700 as const, style: "normal" as const },
   ];
 }
 
 /** The Cleana+ wordmark, with the plus always trailing the name. */
 export function Wordmark() {
   return (
-    <div style={{ display: "flex", fontFamily: "FrankRuhl", fontSize: 34, letterSpacing: -1 }}>
+    <div style={{ display: "flex", fontFamily: "Heebo", fontWeight: 700, fontSize: 34, letterSpacing: -1 }}>
       <span style={{ color: COLORS.primary }}>Cleana</span>
       <span style={{ color: COLORS.accent }}>+</span>
     </div>

@@ -68,7 +68,8 @@ export default async function Image({ params }: { params: Promise<{ slug: string
           }}
         >
           <Line
-            fontFamily="FrankRuhl"
+            fontFamily="Heebo"
+          fontWeight={700}
             fontSize={78}
             lineHeight={1.1}
             color={COLORS.foreground}

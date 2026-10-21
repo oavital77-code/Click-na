@@ -23,6 +23,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <ClerkProvider
       dynamic
       localization={locale === "he" ? heIL : enUS}
+      // The sign-in and sign-up cards speak in the app's one typeface too.
+      appearance={{ variables: { fontFamily: "var(--font-heebo), sans-serif" } }}
       signInUrl="/login"
       signUpUrl="/signup"
       signInFallbackRedirectUrl="/dashboard"

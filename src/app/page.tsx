@@ -75,7 +75,7 @@ const CHIPS = [
 /** What the product answers, in the order a practitioner meets it. */
 const ANSWERS = [
   {
-    title: "לינק אחד, והם קובעים לבד",
+    title: "לינק אחד והם קובעים לבד",
     text: "המטופלים רואים רק את השעות שפתחתם. בלי הודעות הלוך ושוב על \"אולי שלישי?\", בלי לרדוף אחרי אנשים בטלפון ובלי להעתיק תורים ליומן.",
   },
   {
@@ -101,7 +101,7 @@ const STEPS = [
   },
   {
     icon: BellRing,
-    title: "הם קובעים, אתם מקבלים הודעה",
+    title: "הם קובעים ואתם מקבלים הודעה",
     text: "המטופל מקבל אישור, אתם מקבלים הודעה, ולפני המפגש נשלחת תזכורת. התורים מופיעים גם ביומן שאתם כבר עובדים איתו.",
   },
 ];
@@ -208,9 +208,9 @@ export default function Home() {
           <div className="relative mx-auto flex w-full max-w-3xl flex-col items-center gap-7 px-5 pt-16 pb-10 text-center md:px-8 md:pt-24">
             <Eyebrow icon={Sparkles}>זימון תורים למטפלים עצמאיים</Eyebrow>
             <h1 className="font-sans text-[2.6rem] leading-[1.05] font-extrabold tracking-tight text-balance sm:text-5xl lg:text-6xl">
-              פחות הלוך ושוב.
+              פחות הלוך ושוב
               <br />
-              <span className="text-primary">יותר טיפול.</span>
+              <span className="text-primary">יותר טיפול</span>
             </h1>
             <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
               לינק לקביעת תורים שהמטופלים מבינים מיד, ויומן בלי כפל תורים.
@@ -284,7 +284,7 @@ export default function Home() {
             <div className="flex flex-col gap-5 text-center md:text-start">
               <Eyebrow icon={CalendarDays}>השבוע במבט אחד</Eyebrow>
               <h2 className={H2}>
-                פנוי, ממתין, מוזמן. <span className="text-primary">זה כל מה שצריך לדעת.</span>
+                פנוי ממתין ומוזמן <span className="text-primary">זה כל מה שצריך לדעת</span>
               </h2>
               <p className="text-muted-foreground text-lg leading-relaxed">
                 כל שעה ביומן נמצאת באחד משלושה מצבים. תור חדש מעדכן את הלוח מיד, וביטול משחרר את השעה.
@@ -324,7 +324,7 @@ export default function Home() {
             <div className="flex flex-col items-center gap-4 text-center">
               <Eyebrow icon={Check}>איך זה עובד</Eyebrow>
               <h2 className={H2}>
-                שלושה צעדים, <span className="text-primary">ומשם זה עובד לבד.</span>
+                שלושה צעדים <span className="text-primary">ומשם זה עובד לבד</span>
               </h2>
             </div>
             <Steps steps={STEPS} />
@@ -355,7 +355,7 @@ export default function Home() {
             <div className="flex flex-col items-center gap-4 text-center">
               <Eyebrow icon={ShieldCheck}>אבטחה ופרטיות</Eyebrow>
               <h2 className={H2}>
-                הפרטים של המטופלים שלכם <span className="text-primary">נשארים אצלכם.</span>
+                הפרטים של המטופלים שלכם <span className="text-primary">נשארים אצלכם</span>
               </h2>
               <p className="text-muted-foreground max-w-xl text-lg leading-relaxed">
                 אנחנו יודעים כמה רגישה רשימת מטופלים. לכן המערכת בנויה בפשטות, עם כמה שפחות חלקים,
@@ -379,7 +379,7 @@ export default function Home() {
             <div className="flex flex-col items-center gap-4 text-center">
               <Eyebrow icon={CreditCard}>מחיר</Eyebrow>
               <h2 className={H2}>
-                מסלול אחד. <span className="text-primary">הכול כלול.</span>
+                מסלול אחד <span className="text-primary">הכול כלול</span>
               </h2>
               <p className="text-muted-foreground max-w-lg text-lg leading-relaxed">
                 לא משלמים על אפשרויות שלא תשתמשו בהן. יש גרסה אחת של Cleana+, כולם מקבלים את כולה,
@@ -461,7 +461,7 @@ export default function Home() {
           <GridPaper />
           <div className="relative mx-auto flex w-full max-w-2xl flex-col items-center gap-6 px-5 py-16 text-center md:px-8 md:py-24">
             <h2 className={H2}>
-              מוכנים לקבל <span className="text-primary">את התור הראשון?</span>
+              מוכנים לקבל <span className="text-primary">את התור הראשון</span>
             </h2>
             <p className="text-muted-foreground max-w-md text-lg leading-relaxed">
               מגדירים שעות עבודה ומשתפים לינק אחד. כל השאר כבר מוכן.

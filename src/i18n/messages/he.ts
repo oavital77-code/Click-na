@@ -724,7 +724,7 @@ export const he: Messages = {
     bookingAlt: "קביעת תור",
     bookingCta: "קביעת תור אונליין",
     siteAlt: "Cleana+ — ניהול תורים למטפלים עצמאיים",
-    headline1: "היומן שלך, בלי הודעות",
+    headline1: "היומן שלך בלי הודעות",
     headline2: "הלוך ושוב",
     subline: "זימון תורים למטפלים ובעלי מקצוע עצמאיים",
   },
