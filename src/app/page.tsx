@@ -473,6 +473,21 @@ export default function Home() {
               </Link>
             </Button>
             <TrustRow items={TRUST} />
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              יש שאלות? אפשר לכתוב לנו בוואטסאפ{" "}
+              <a
+                href="https://wa.me/972522474885"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-primary font-semibold underline underline-offset-4"
+              >
+                <bdi dir="ltr">052-2474885</bdi>
+              </a>{" "}
+              או במייל{" "}
+              <a href="mailto:baclinica5@gmail.com" className="text-primary font-semibold underline underline-offset-4">
+                <bdi dir="ltr">baclinica5@gmail.com</bdi>
+              </a>
+            </p>
           </div>
         </section>
       </main>

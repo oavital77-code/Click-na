@@ -7,7 +7,8 @@ export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "הצהרת נגישות — Cleana+" };
 
-const CONTACT_EMAIL = "cleanaplus77@gmail.com";
+const CONTACT_EMAIL = "baclinica5@gmail.com";
+const CONTACT_WHATSAPP = "052-2474885";
 // A fixed date, not new Date() — see the same note in src/app/terms/page.tsx.
 const LAST_UPDATED = "21/10/2026";
 
@@ -43,7 +44,7 @@ const SECTIONS = [
   {
     title: "4. נתקלתם בבעיה? נשמח לשמוע",
     body: [
-      `אם משהו באתר לא נגיש לכם, או שאתם צריכים מידע בדרך אחרת, כתבו לנו ל-${CONTACT_EMAIL}. כדאי לציין באיזה עמוד הייתה הבעיה, מה ניסיתם לעשות, ובאיזה מכשיר ודפדפן השתמשתם.`,
+      `אם משהו באתר לא נגיש לכם, או שאתם צריכים מידע בדרך אחרת, אפשר לפנות אלינו במייל ${CONTACT_EMAIL} או בוואטסאפ ${CONTACT_WHATSAPP}. כדאי לציין באיזה עמוד הייתה הבעיה, מה ניסיתם לעשות, ובאיזה מכשיר ודפדפן השתמשתם.`,
       "נחזור אליכם בהקדם, ובכל מקרה תוך 14 ימים.",
     ],
   },
