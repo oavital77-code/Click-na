@@ -83,8 +83,10 @@ export function DashboardNav({ isOwner = false }: { isOwner?: boolean }) {
 
   return (
     <>
-      {/* Mobile top bar — the nav itself lives in a drawer, kept off-screen to maximize content space. */}
-      <div className="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden">
+      {/* Mobile top bar — the nav itself lives in a drawer, kept off-screen to maximize content space.
+          Physical sides in every language: the logo on the left, the menu
+          button on the right, where the thumb is. dir="ltr" pins that order. */}
+      <div dir="ltr" className="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden">
         <Link href="/dashboard">
           <BrandMark className="text-primary text-lg" />
         </Link>
@@ -106,7 +108,8 @@ export function DashboardNav({ isOwner = false }: { isOwner?: boolean }) {
             className="absolute inset-0 bg-black/40"
             onClick={() => setMobileOpen(false)}
           />
-          <nav className="bg-card absolute inset-y-0 start-0 flex w-64 flex-col gap-1 p-4 shadow-xl">
+          {/* Slides in from the right, the side its button is on. */}
+          <nav className="bg-card absolute inset-y-0 right-0 flex w-64 flex-col gap-1 p-4 shadow-xl">
             <div className="mb-4 flex items-center justify-between px-1">
               <BrandMark className="text-lg" />
               <button
