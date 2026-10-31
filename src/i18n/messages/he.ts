@@ -324,8 +324,8 @@ export const he: Messages = {
       alertBody: "במסך הבקשות נמצאים הפרטים להעברה ל-PayPlus.",
       alertCta: "למסך הבקשות",
       approvedSubject: "הסליקה בכרטיס אשראי פעילה",
-      approvedBody: (fee) =>
-        `PayPlus פתחה לך את החשבון, והסליקה פעילה. מכל תור אפשר לשלוח ללקוח בקשת תשלום, והתור מסומן כשולם אוטומטית. עמלת Cleana+: ${fee}% מכל תשלום, בנוסף לעמלת PayPlus.`,
+      approvedBody:
+        "PayPlus פתחה לך את החשבון, והסליקה פעילה. מכל תור אפשר לשלוח ללקוח בקשת תשלום, והתור מסומן כשולם אוטומטית.",
       approvedCta: "למסך התוספים",
       rejectedSubject: "הבקשה שלך לסליקה",
       rejectedBody: "עוד לא הצלחנו לפתוח לך סליקה. זו הסיבה שקיבלנו:",
@@ -793,7 +793,6 @@ export const he: Messages = {
     label: "סליקה בכרטיס אשראי",
     summary:
       "הלקוחות משלמים על הטיפול בכרטיס אשראי, והכסף נכנס ישירות לחשבון הבנק שלך. אנחנו פותחים לך את החשבון מול PayPlus, בלי מפתחות API ובלי הגדרות טכניות.",
-    feeLine: (fee) => `עמלת Cleana+: ${fee}% מכל תשלום בכרטיס, בנוסף לעמלת הסליקה של PayPlus.`,
     start: "הגשת בקשה לסליקה",
     formTitle: "פרטי העסק שלך",
     formLead:
@@ -816,7 +815,6 @@ export const he: Messages = {
     monthlyVolume: "סכום משוער של תשלומים בכרטיס בחודש, ₪ (לא חובה)",
     acceptTerms: "קראתי ואישרתי את",
     termsLink: "תנאי הסליקה",
-    acceptTermsFee: (fee) => `כולל עמלה של ${fee}% מכל תשלום.`,
     submit: "שליחת הבקשה",
     submitting: "שולחים…",
     cancel: "ביטול",
@@ -828,7 +826,7 @@ export const he: Messages = {
     rejectedTitle: "הבקשה לא אושרה",
     rejectedReason: (reason) => `הסיבה: ${reason}`,
     resubmit: "תיקון ושליחה מחדש",
-    activeNote: (fee) => `פעיל. עמלת Cleana+: ${fee}% מכל תשלום בכרטיס, בנוסף לעמלת PayPlus.`,
+    activeNote: "פעיל. התשלומים בכרטיס נכנסים ישירות לחשבון הבנק שלך.",
     errors: {
       fixFields: "צריך לתקן כמה שדות.",
       alreadyActive: "הסליקה כבר פעילה בחשבון שלך.",
@@ -844,7 +842,6 @@ export const he: Messages = {
       therapist: "מטפל",
       submitted: "נשלחה",
       terms: (version, date) => `התנאים אושרו (גרסה ${version}) ב-${date}`,
-      fee: (fee) => `עמלה ${fee}%`,
       unreadable: "אי אפשר לקרוא את הפרטים (מפתח ההצפנה השתנה). צריך לבקש מהמטפל לשלוח שוב.",
       approveTitle: "PayPlus פתחה את החשבון? מזינים את הפרטים שלו",
       approve: "בדיקה והפעלה",

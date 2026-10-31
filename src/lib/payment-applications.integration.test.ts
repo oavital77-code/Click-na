@@ -76,7 +76,6 @@ describe("payment applications (against a live database)", () => {
     expect(row.status).toBe("pending");
     expect(row.details).not.toContain("123456782");
     expect(row.details).not.toContain("12345678");
-    expect(Number(row.platformFeePct)).toBe(2.5);
     expect(row.termsAcceptedIp).toBe("203.0.113.5");
 
     // The therapist sees their own application without the ID or the full account.

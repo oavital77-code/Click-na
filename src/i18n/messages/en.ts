@@ -335,8 +335,8 @@ export const en = {
       alertBody: "Open the review screen to see the details to forward to PayPlus.",
       alertCta: "Open applications",
       approvedSubject: "Card payments are on",
-      approvedBody: (fee: number) =>
-        `PayPlus opened your account and card payments are now on. From any booking you can send the client a payment request, and it is marked paid automatically. Cleana+ fee: ${fee}% of each payment, on top of PayPlus's fee.`,
+      approvedBody:
+        "PayPlus opened your account and card payments are now on. From any booking you can send the client a payment request, and it is marked paid automatically.",
       approvedCta: "To your add-ons",
       rejectedSubject: "Your card-payments application",
       rejectedBody: "We could not open card payments for you yet. This is the reason we got:",
@@ -810,8 +810,6 @@ export const en = {
     label: "Card payments",
     summary:
       "Clients pay for the session by card, straight into your bank account. We open the account with PayPlus for you, with no API keys and nothing technical to set up.",
-    feeLine: (fee: number) =>
-      `Cleana+ fee: ${fee}% of each card payment, on top of PayPlus's own processing fee.`,
     start: "Apply for card payments",
     formTitle: "Your business details",
     formLead:
@@ -834,7 +832,6 @@ export const en = {
     monthlyVolume: "Expected card payments per month, ₪ (optional)",
     acceptTerms: "I have read and accept the",
     termsLink: "card payment terms",
-    acceptTermsFee: (fee: number) => `including the ${fee}% fee on each payment.`,
     submit: "Send application",
     submitting: "Sending…",
     cancel: "Cancel",
@@ -846,7 +843,7 @@ export const en = {
     rejectedTitle: "The application was not approved",
     rejectedReason: (reason: string) => `Reason: ${reason}`,
     resubmit: "Fix and send again",
-    activeNote: (fee: number) => `On. Cleana+ fee: ${fee}% of each card payment, on top of PayPlus's fee.`,
+    activeNote: "On. Card payments go straight to your bank account.",
     errors: {
       fixFields: "Some fields need fixing.",
       alreadyActive: "Card payments are already on for your account.",
@@ -862,7 +859,6 @@ export const en = {
       therapist: "Therapist",
       submitted: "Sent",
       terms: (version: string, date: string) => `Accepted terms ${version} on ${date}`,
-      fee: (fee: number) => `Fee ${fee}%`,
       unreadable: "These details cannot be read (the encryption key changed). Ask the therapist to send again.",
       approveTitle: "Account opened at PayPlus? Enter its details",
       approve: "Verify and switch on",

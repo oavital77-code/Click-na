@@ -458,7 +458,6 @@ export function paymentApplicationAlertEmail(input: PaymentApplicationAlertEmail
 
 export type PaymentApplicationApprovedEmailInput = Localized & {
   therapistFullName: string;
-  feePct: number;
   addonsUrl: string;
 };
 
@@ -468,7 +467,7 @@ export function paymentApplicationApprovedEmail(input: PaymentApplicationApprove
     subject: m.paymentSetup.approvedSubject,
     html: wrap(input.locale, `
       <p style="font-size:15px;line-height:1.7;">${m.hello(esc(input.therapistFullName))}</p>
-      <p style="font-size:15px;line-height:1.7;">${m.paymentSetup.approvedBody(input.feePct)}</p>
+      <p style="font-size:15px;line-height:1.7;">${m.paymentSetup.approvedBody}</p>
       <p><a href="${esc(input.addonsUrl)}" style="color:#b86b3c;font-weight:bold;">${m.paymentSetup.approvedCta}</a></p>
     `),
   };

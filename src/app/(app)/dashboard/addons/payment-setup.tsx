@@ -36,7 +36,6 @@ type Values = {
 export function PaymentSetupCard({
   connected,
   application,
-  feePct,
   defaults,
   hint,
   onToggle,
@@ -45,7 +44,6 @@ export function PaymentSetupCard({
 }: {
   connected: boolean;
   application: ApplicationSummary | null;
-  feePct: number;
   defaults: { fullName: string; phone: string; email: string };
   hint: string | null;
   onToggle: () => void;
@@ -93,7 +91,6 @@ export function PaymentSetupCard({
           )}
         </div>
         <CardDescription>{t.summary}</CardDescription>
-        <p className="text-muted-foreground text-xs">{t.feeLine(feePct)}</p>
       </CardHeader>
 
       <CardContent className="flex min-w-0 flex-col gap-3">
@@ -102,7 +99,7 @@ export function PaymentSetupCard({
         {hasAccount && connected && (
           <div className="flex flex-col items-center gap-1 md:items-start">
             <span className={statusBadgeClass("open")}>{m.addons.connected}</span>
-            <span className="text-muted-foreground text-xs">{t.activeNote(app!.feePct)}</span>
+            <span className="text-muted-foreground text-xs">{t.activeNote}</span>
           </div>
         )}
         {hasAccount && connected && hint && (
@@ -143,7 +140,6 @@ export function PaymentSetupCard({
 
         {open && (
           <ApplicationForm
-            feePct={feePct}
             defaults={defaults}
             onDone={(summary) => {
               setApp(summary);
@@ -158,12 +154,10 @@ export function PaymentSetupCard({
 }
 
 function ApplicationForm({
-  feePct,
   defaults,
   onDone,
   onCancel,
 }: {
-  feePct: number;
   defaults: { fullName: string; phone: string; email: string };
   onDone: (summary: ApplicationSummary) => void;
   onCancel: () => void;
@@ -302,7 +296,7 @@ function ApplicationForm({
             <a href="/terms#payments" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">
               {t.termsLink}
             </a>
-            , {t.acceptTermsFee(feePct)}
+            .
           </span>
         </label>
         {fieldErrors.acceptTerms && <p className="text-destructive text-xs">{fieldErrors.acceptTerms}</p>}

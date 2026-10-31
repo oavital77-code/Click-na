@@ -15,7 +15,7 @@ import {
   type BusinessType,
   type PaymentApplicationDetails,
 } from "@/lib/payment-application-schema";
-import { PAYMENT_TERMS_VERSION, PLATFORM_FEE_PERCENT } from "@/lib/plan";
+import { PAYMENT_TERMS_VERSION } from "@/lib/plan";
 import { DEFAULT_LOCALE, getMessages, toLocale, translateIssue, type Locale } from "@/i18n";
 
 /**
@@ -45,7 +45,6 @@ export type ApplicationSummary = {
   submittedAt: string;
   reviewedAt: string | null;
   rejectionReason: string | null;
-  feePct: number;
   legalName: string;
   businessType: BusinessType;
   bankAccount: string;
@@ -69,7 +68,6 @@ export async function getApplicationSummary(therapistId: string): Promise<Applic
     submittedAt: row.updatedAt.toISOString(),
     reviewedAt: row.reviewedAt?.toISOString() ?? null,
     rejectionReason: row.rejectionReason,
-    feePct: Number(row.platformFeePct),
     legalName: details?.legalName ?? "",
     businessType: details?.businessType ?? "exempt",
     bankAccount: details
@@ -116,7 +114,6 @@ export async function submitApplication(
     termsVersion: PAYMENT_TERMS_VERSION,
     termsAcceptedAt: now,
     termsAcceptedIp: options.ip?.slice(0, 64) ?? null,
-    platformFeePct: PLATFORM_FEE_PERCENT,
     rejectionReason: null,
     reviewedAt: null,
   };
@@ -156,7 +153,6 @@ export type OwnerApplication = {
   submittedAt: string;
   termsVersion: string;
   termsAcceptedAt: string;
-  feePct: number;
   rejectionReason: string | null;
   /** Null when the row cannot be decrypted (a rotated key). */
   details: PaymentApplicationDetails | null;
@@ -177,7 +173,6 @@ export async function listApplications(): Promise<OwnerApplication[]> {
     submittedAt: row.updatedAt.toISOString(),
     termsVersion: row.termsVersion,
     termsAcceptedAt: row.termsAcceptedAt.toISOString(),
-    feePct: Number(row.platformFeePct),
     rejectionReason: row.rejectionReason,
     details: readDetails(row.details),
   }));
@@ -207,7 +202,6 @@ export async function approveApplication(applicationId: string, credentials: unk
   const { subject, html } = paymentApplicationApprovedEmail({
     locale,
     therapistFullName: row.therapist.fullName,
-    feePct: Number(row.platformFeePct),
     addonsUrl: `${appUrl()}/dashboard/addons`,
   });
   await recordAccountEmail({ therapistId: row.therapistId, type: "payment_setup", recipient: row.therapist.email, subject, html });

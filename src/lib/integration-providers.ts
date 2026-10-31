@@ -1,6 +1,5 @@
 import { z } from "zod";
 import { getMessages, type Locale } from "@/i18n";
-import { PLATFORM_FEE_PERCENT } from "@/lib/plan";
 
 export const INTEGRATION_PROVIDERS = ["calendar", "zoom", "whatsapp", "payplus", "paymentLink"] as const;
 
@@ -102,7 +101,6 @@ export function getProviderSpecs(locale: Locale): Record<IntegrationProvider, Pr
       // A deeper link is not documented publicly, so this stays the landing.
       docsUrl: "https://www.payplus.co.il",
       setupHint: m.payplus.setupHint,
-      note: getMessages(locale).paymentSetup.feeLine(PLATFORM_FEE_PERCENT),
     },
     paymentLink: {
       provider: "paymentLink",

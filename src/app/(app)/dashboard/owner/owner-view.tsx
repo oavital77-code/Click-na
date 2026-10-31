@@ -106,7 +106,7 @@ function ApplicationCard({
           {a.therapistEmail}
         </p>
         <p className="text-muted-foreground text-xs">
-          {t.owner.submitted} {date(a.submittedAt)} · {t.owner.terms(a.termsVersion, date(a.termsAcceptedAt))} · {t.owner.fee(a.feePct)}
+          {t.owner.submitted} {date(a.submittedAt)} · {t.owner.terms(a.termsVersion, date(a.termsAcceptedAt))}
         </p>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

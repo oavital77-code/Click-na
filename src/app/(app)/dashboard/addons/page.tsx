@@ -4,7 +4,6 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { credentialStorageReady, listIntegrations } from "@/lib/integrations";
 import { prisma } from "@/lib/prisma";
 import { getApplicationSummary } from "@/lib/payment-applications";
-import { PLATFORM_FEE_PERCENT } from "@/lib/plan";
 import { AddonsView } from "./addons-view";
 import { getMessages, toLocale } from "@/i18n";
 
@@ -41,7 +40,6 @@ export default async function AddonsPage() {
         initial={{ integrations, credentialStorageReady: credentialStorageReady() }}
         hasTreatments={treatmentCount > 0}
         application={application}
-        feePct={application?.feePct ?? PLATFORM_FEE_PERCENT}
         defaults={{ fullName: therapist.fullName, phone: therapist.phone ?? "", email: therapist.email }}
       />
     </main>

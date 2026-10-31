@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: "מדיניות פרטיות — Clea
 const CONTACT_EMAIL = "baclinica5@gmail.com";
 const CONTACT_WHATSAPP = "052-2474885";
 // A fixed date, not new Date() — see the same note in src/app/terms/page.tsx.
-const LAST_UPDATED = "21/10/2026";
+const LAST_UPDATED = "31/10/2026";
 
 // Same structure as the Cleana privacy policy on cleanagroup.app. Where the
 // facts differ they follow this codebase, not the sibling's: what the booking
@@ -50,7 +50,7 @@ const SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "4. תשלומים — מה Cleana+ רואה ומה לא",
     body: [
-      "כאשר לקוח משלם למטפל בכרטיס אשראי דרך השירות, התשלום מתבצע בדף מאובטח של ספק הסליקה PayPlus. פרטי הכרטיס נמסרים ל-PayPlus בלבד ואינם עוברים דרך תשתית Cleana+. Cleana+ שומרת רק את תוצאת התשלום: הסכום, המועד, התור שאליו הוא שייך ומזהה העסקה, לצורך סימון התור כשולם, חישוב עמלת הפלטפורמה ותמיכה.",
+      "כאשר לקוח משלם למטפל בכרטיס אשראי דרך השירות, התשלום מתבצע בדף מאובטח של ספק הסליקה PayPlus. פרטי הכרטיס נמסרים ל-PayPlus בלבד ואינם עוברים דרך תשתית Cleana+. Cleana+ שומרת רק את תוצאת התשלום: הסכום, המועד, התור שאליו הוא שייך ומזהה העסקה, לצורך סימון התור כשולם ותמיכה.",
       "פרטי העסק והבנק שמטפל מוסר בבקשה לסליקה מועברים ל-PayPlus לצורך פתיחת חשבון הסליקה, ומשמשים רק לכך. הם נגישים בתוך Cleana+ רק לבעלי המערכת המטפלים בבקשה, ואינם מוצגים למטפל בחזרה במלואם.",
       "דמי המנוי של המטפל ל-Cleana+ נגבים באמצעות PayPlus; גם כאן פרטי כרטיס האשראי נמסרים לספק בלבד.",
     ],

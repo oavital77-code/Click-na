@@ -43,7 +43,6 @@ export function AddonsView({
   initial,
   hasTreatments,
   application,
-  feePct,
   defaults,
 }: {
   initial: Payload;
@@ -51,7 +50,6 @@ export function AddonsView({
   hasTreatments: boolean;
   /** Where the therapist's card-payments application stands, if they sent one. */
   application: ApplicationSummary | null;
-  feePct: number;
   /** Pre-fills the application with what the account already knows. */
   defaults: { fullName: string; phone: string; email: string };
 }) {
@@ -95,7 +93,6 @@ export function AddonsView({
                 integration={integration}
                 onChange={setPayload}
                 application={application}
-                feePct={feePct}
                 defaults={defaults}
                 hint={!hasTreatments ? m.addons.templatesMissing : null}
               />
@@ -123,14 +120,12 @@ function ManagedPaymentsCard({
   integration,
   onChange,
   application,
-  feePct,
   defaults,
   hint,
 }: {
   integration: IntegrationCard;
   onChange: (payload: Payload) => void;
   application: ApplicationSummary | null;
-  feePct: number;
   defaults: { fullName: string; phone: string; email: string };
   hint: string | null;
 }) {
@@ -162,7 +157,6 @@ function ManagedPaymentsCard({
     <PaymentSetupCard
       connected={connected}
       application={application}
-      feePct={feePct}
       defaults={defaults}
       hint={hint}
       onToggle={onToggle}

@@ -198,12 +198,10 @@ model PaymentApplication {
   therapistId      String                   @unique @map("therapist_id") @db.Uuid
   status           PaymentApplicationStatus @default(pending)
   details          String                   @db.Text
-  // Which payment terms they agreed to and when, for the record. The fee is
-  // copied in so a later price change does not rewrite what they accepted.
+  // Which payment terms they agreed to and when, for the record.
   termsVersion     String                   @map("terms_version") @db.VarChar(20)
   termsAcceptedAt  DateTime                 @map("terms_accepted_at") @db.Timestamptz
   termsAcceptedIp  String?                  @map("terms_accepted_ip") @db.VarChar(64)
-  platformFeePct   Decimal                  @map("platform_fee_pct") @db.Decimal(5, 2)
   rejectionReason  String?                  @map("rejection_reason")
   reviewedAt       DateTime?                @map("reviewed_at") @db.Timestamptz
   createdAt        DateTime                 @default(now()) @map("created_at") @db.Timestamptz
