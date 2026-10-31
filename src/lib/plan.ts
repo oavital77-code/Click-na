@@ -20,8 +20,15 @@ export const RENEWAL_CONFIRMATION_DAYS = 2;
 /** Trial days on which a countdown email goes out. */
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
 
+/**
+ * Where a therapist opens their PayPlus account: Cleana+'s referral link, so
+ * every account opened for card payments is credited to us by PayPlus. The
+ * therapist pays nothing extra for it.
+ */
+export const PAYPLUS_SIGNUP_URL = "https://aff.pays.plus/cf3975e1-6a1a-4043-8745-665c8c35be81?ref=";
+
 /** Bumped whenever the payment terms (/terms#payments) change in substance. */
-export const PAYMENT_TERMS_VERSION = "2026-10-31";
+export const PAYMENT_TERMS_VERSION = "2026-11-01";
 
 /** The decided price, shekels with VAT. PLAN_PRICE_ILS overrides it without a deploy. */
 export const DEFAULT_PLAN_PRICE_ILS = 49;

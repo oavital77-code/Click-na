@@ -835,6 +835,10 @@ export const en = {
     submit: "Send application",
     submitting: "Sending…",
     cancel: "Cancel",
+    signupStepTitle: "Next step: open your PayPlus account",
+    signupStepBody:
+      "To switch card payments on, also sign up to PayPlus through the link here. It takes a few minutes, and signing up through this link is how we know to connect your account to Cleana+.",
+    signupStepCta: "Sign up to PayPlus",
     pendingTitle: "Your application is being handled",
     pendingBody:
       "We sent your details to PayPlus. Usually this takes a few business days; we email you when card payments are on. PayPlus may contact you directly to complete documents.",

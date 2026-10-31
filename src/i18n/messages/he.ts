@@ -818,6 +818,10 @@ export const he: Messages = {
     submit: "שליחת הבקשה",
     submitting: "שולחים…",
     cancel: "ביטול",
+    signupStepTitle: "השלב הבא: פתיחת חשבון ב-PayPlus",
+    signupStepBody:
+      "כדי שהסליקה תיפתח, צריך גם להירשם ל-PayPlus דרך הקישור כאן. ההרשמה לוקחת כמה דקות, ודרך הקישור הזה נדע לחבר את החשבון שלך ל-Cleana+.",
+    signupStepCta: "להרשמה ל-PayPlus",
     pendingTitle: "הבקשה שלך בטיפול",
     pendingBody:
       "העברנו את הפרטים שלך ל-PayPlus. זה לוקח בדרך כלל כמה ימי עסקים, ונשלח לך מייל ברגע שהסליקה פעילה. ייתכן ש-PayPlus תפנה אליך ישירות להשלמת מסמכים.",

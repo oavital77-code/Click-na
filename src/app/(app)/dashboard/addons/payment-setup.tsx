@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Clock, CreditCard, XCircle } from "lucide-react";
+import { Clock, CreditCard, ExternalLink, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +10,7 @@ import { statusBadgeClass } from "@/lib/status-badge";
 import type { ApplicationSummary } from "@/lib/payment-applications";
 import { BUSINESS_TYPES, type BusinessType } from "@/lib/payment-application-schema";
 import { useI18n } from "@/i18n/client";
+import { PAYPLUS_SIGNUP_URL } from "@/lib/plan";
 
 type Values = {
   businessType: BusinessType;
@@ -116,6 +117,18 @@ export function PaymentSetupCard({
             <p className="text-muted-foreground text-xs">
               {t.submittedOn(submittedOn)} · <span dir="ltr">{t.summaryLine(app.legalName, app.bankAccount)}</span>
             </p>
+            {/* PayPlus opens the account itself; signing up through our
+                referral link is what ties it back to this application. */}
+            <div className="border-primary/40 bg-primary/5 mt-2 flex flex-col gap-2 rounded-md border p-3">
+              <p className="font-medium">{t.signupStepTitle}</p>
+              <p className="text-muted-foreground">{t.signupStepBody}</p>
+              <Button asChild className="self-center md:self-start">
+                <a href={PAYPLUS_SIGNUP_URL} target="_blank" rel="noreferrer noopener">
+                  {t.signupStepCta}
+                  <ExternalLink className="size-4" />
+                </a>
+              </Button>
+            </div>
           </div>
         )}
 
