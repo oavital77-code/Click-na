@@ -10,7 +10,16 @@ export type ClerkUserFetcher = (userId: string) => Promise<ClerkUserCreatedData 
 
 export const fetchClerkUser: ClerkUserFetcher = async (userId) => {
   const client = await clerkClient();
-  const user = await client.users.getUser(userId).catch(() => null);
+  const user = await client.users.getUser(userId).catch((error: unknown) => {
+    // Silent before: a signed-in person then sat on "finishing your sign-up"
+    // with nothing in the logs to say why.
+    console.error("[provision] Clerk getUser failed", {
+      userId,
+      error: error instanceof Error ? error.message : String(error),
+      status: (error as { status?: number })?.status,
+    });
+    return null;
+  });
   if (!user) return null;
   return {
     id: user.id,

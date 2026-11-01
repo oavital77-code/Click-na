@@ -66,7 +66,9 @@ export const getCurrentTherapist = cache(async () => {
     }
   }
 
-  return findTherapist(userId);
+  const found = await findTherapist(userId);
+  if (!found) console.error("[auth] signed in with no therapist row after provisioning", { userId, provisionedId });
+  return found;
 });
 
 function findTherapist(clerkUserId: string) {
