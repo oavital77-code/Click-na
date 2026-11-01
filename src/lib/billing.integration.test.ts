@@ -289,7 +289,9 @@ describe("requestCancellation", () => {
 
 describe("periodAfter", () => {
   it("adds a calendar month", () => {
-    expect(periodAfter(new Date("2026-01-31T10:00:00Z")).end.toISOString()).toBe("2026-03-03T10:00:00.000Z");
+    expect(periodAfter(new Date("2026-01-31T10:00:00Z")).end.toISOString()).toBe("2026-02-28T10:00:00.000Z");
+    expect(periodAfter(new Date("2028-01-31T10:00:00Z")).end.toISOString()).toBe("2028-02-29T10:00:00.000Z");
+    expect(periodAfter(new Date("2026-12-31T10:00:00Z")).end.toISOString()).toBe("2027-01-31T10:00:00.000Z");
     expect(periodAfter(new Date("2026-09-10T10:00:00Z")).end.toISOString()).toBe("2026-10-10T10:00:00.000Z");
   });
 });
