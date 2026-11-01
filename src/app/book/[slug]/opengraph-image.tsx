@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import { prisma } from "@/lib/prisma";
+import { isPublicPractice } from "@/lib/profile";
 import { getMessages, toLocale, DEFAULT_LOCALE } from "@/i18n";
 import {
   Backdrop,
@@ -18,10 +19,12 @@ export const contentType = OG_CONTENT_TYPE;
 export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
 
-  const therapist = await prisma.therapist.findUnique({
+  const found = await prisma.therapist.findUnique({
     where: { slug },
     include: { settings: true },
   });
+  // A practice that is not public gets the generic card, never its name.
+  const therapist = isPublicPractice(found) ? found : null;
 
   const locale = toLocale(therapist?.locale);
   const m = getMessages(locale);

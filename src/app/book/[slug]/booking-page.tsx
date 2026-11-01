@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
-import { resolveSlugRedirect } from "@/lib/profile";
+import { isPublicPractice, resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
 import { accessState, acceptsNewBookings } from "@/lib/access";
 import { listLocations } from "@/lib/locations";
@@ -20,7 +20,9 @@ export async function bookingMetadata(slug: string, placeSlug: string | null) {
     include: { settings: true, locations: placeSlug ? { where: { slug: placeSlug, archivedAt: null } } : false },
   });
 
-  if (!therapist) return { title: getMessages(DEFAULT_LOCALE).book.notFound };
+  if (!therapist || !isPublicPractice(therapist)) {
+    return { title: getMessages(DEFAULT_LOCALE).book.notFound, robots: { index: false } };
+  }
 
   const locale = toLocale(therapist.locale);
   const m = getMessages(locale);
@@ -54,12 +56,7 @@ export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug
     include: { settings: true, subscription: true },
   });
 
-  if (
-    !therapist ||
-    therapist.status !== "active" ||
-    !therapist.onboardingCompleted ||
-    !therapist.settings
-  ) {
+  if (!therapist || !isPublicPractice(therapist) || !therapist.settings) {
     // spec 11.3: an old slug keeps working via redirect for 90 days after a therapist changes it.
     const currentSlug = await resolveSlugRedirect(slug);
     if (currentSlug) {

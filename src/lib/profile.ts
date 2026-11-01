@@ -115,3 +115,14 @@ export async function resolveSlugRedirect(oldSlug: string) {
   if (!redirect || redirect.therapist.status !== "active") return null;
   return redirect.therapist.slug;
 }
+
+/**
+ * Whether a practice is shown publicly at all. The page, its title and its
+ * share image all ask this one question, so a suspended or unfinished
+ * practice is not named in a preview while its page says "not found".
+ */
+export function isPublicPractice(
+  therapist: { status: string; onboardingCompleted: boolean; settings: unknown | null } | null
+): boolean {
+  return !!therapist && therapist.status === "active" && therapist.onboardingCompleted && !!therapist.settings;
+}
