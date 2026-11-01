@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   if (!gate.ok) return gate.response;
   const { therapist } = gate;
 
-  const parsed = ruleCreateSchema.safeParse(await request.json());
+  const parsed = ruleCreateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
   }

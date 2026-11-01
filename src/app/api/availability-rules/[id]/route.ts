@@ -22,7 +22,7 @@ export async function PATCH(
   const existing = await getOwnedRule(therapist.id, id);
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
-  const parsed = ruleUpdateSchema.safeParse(await request.json());
+  const parsed = ruleUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
   }

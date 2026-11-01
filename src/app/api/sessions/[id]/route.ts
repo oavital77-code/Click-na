@@ -14,7 +14,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
   if (!gate.ok) return gate.response;
   const { therapist } = gate;
 
-  const parsed = patchSchema.safeParse(await request.json());
+  const parsed = patchSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid" }, { status: 422 });
   }
@@ -34,13 +34,17 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
     return NextResponse.json({ error: "invalid_transition" }, { status: 409 });
   }
 
-  const updated = await prisma.session.update({
-    where: { id },
+  // Conditional on the status read above: a client booking the slot in
+  // between must not end up with a "blocked" slot holding a live booking.
+  const changed = await prisma.session.updateMany({
+    where: { id, therapistId: therapist.id, status: session.status },
     data: {
       status: parsed.data.status,
       blockedNote: parsed.data.status === "blocked" ? (parsed.data.note ?? null) : null,
     },
   });
+  if (changed.count === 0) return NextResponse.json({ error: "invalid_transition" }, { status: 409 });
+  const updated = await prisma.session.findUniqueOrThrow({ where: { id } });
 
   return NextResponse.json({ session: updated });
 }

@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
   });
   if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
 
-  const parsed = bookingSchema.safeParse(await request.json());
+  const parsed = bookingSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
   }

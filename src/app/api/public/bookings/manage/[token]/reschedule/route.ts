@@ -19,7 +19,7 @@ export async function POST(
   ctx: RouteContext<"/api/public/bookings/manage/[token]/reschedule">
 ) {
   const { token } = await ctx.params;
-  const parsed = bodySchema.safeParse(await request.json());
+  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
     return NextResponse.json({ error: "invalid" }, { status: 422 });
   }
