@@ -8,6 +8,8 @@ function getClient(): Resend {
 
 // spec 11.5: email failures retry with exponential backoff, 3 attempts total.
 const RETRY_DELAYS_MS = [1000, 2000];
+/** One attempt at most this long; a hung connection counts as a failed attempt. */
+const SEND_TIMEOUT_MS = 10_000;
 
 function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -44,13 +46,19 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 
   for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
     try {
-      const { error } = await getClient().emails.send({
-        from,
-        to: input.to,
-        subject: input.subject,
-        html: input.html,
-        attachments: input.attachments,
-      });
+      // A hung request must not hold the daily job's minute: give up and retry.
+      const { error } = await Promise.race([
+        getClient().emails.send({
+          from,
+          to: input.to,
+          subject: input.subject,
+          html: input.html,
+          attachments: input.attachments,
+        }),
+        sleep(SEND_TIMEOUT_MS).then(() => {
+          throw new Error(`timed out after ${SEND_TIMEOUT_MS} ms`);
+        }),
+      ]);
       if (!error) return { ok: true };
       lastError = error.message;
     } catch (err) {

@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { sendDueReminders } from "@/lib/notifications";
+import { REMINDER_BATCH, sendDueReminders } from "@/lib/notifications";
 import { pruneRateLimits } from "@/lib/rate-limit";
 import { pruneClosedDaysForEveryone } from "@/lib/holiday-slots";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
@@ -22,6 +22,8 @@ function isAuthorized(header: string | null, secret: string): boolean {
 
 // The longest a plan allows without erroring the build on Hobby; raise on Pro.
 export const maxDuration = 60;
+/** Reminder batches stop starting after this, leaving the rest of the minute to finish. */
+const REMINDER_TIME_BUDGET_MS = 35_000;
 
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET;
@@ -36,23 +38,53 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const summary = await sendDueReminders();
+  const started = Date.now();
+  // Each step on its own: one that throws (a database hiccup, a provider
+  // outage) is reported and the rest still run, including the alert itself.
+  const stepProblems: string[] = [];
+  async function step<T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      console.error(`[cron] ${name} failed`, error);
+      stepProblems.push(`${name} failed: ${error instanceof Error ? error.message : String(error)}`);
+      return fallback;
+    }
+  }
 
-  // Trials that ended, grace that ran out, countdown mail — see billing-lifecycle.ts.
-  const billing = await runBillingLifecycle();
+  // Money first: trials that ended, grace that ran out, renewals, countdown
+  // mail — see billing-lifecycle.ts.
+  const billing = await step("billing", () => runBillingLifecycle(), {
+    reminders: 0,
+    ended: 0,
+    locked: 0,
+    unconfirmed: 0,
+    renewalReminders: 0,
+    renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 },
+  });
+
+  // Reminders in batches while the run has time: a full batch means more may
+  // be waiting, and what is left over would otherwise wait a whole day.
+  const summary = { sent: 0, failed: 0 };
+  for (let round = 0; round < 10 && Date.now() - started < REMINDER_TIME_BUDGET_MS; round++) {
+    const batch = await step("reminders", () => sendDueReminders(), { sent: 0, failed: 0 });
+    summary.sent += batch.sent;
+    summary.failed += batch.failed;
+    if (batch.sent + batch.failed < REMINDER_BATCH) break;
+  }
 
   // Rate-limit windows are only useful until they close. Swept here rather than
   // on a schedule of their own: the rows are tiny and nothing depends on them
   // disappearing promptly.
-  const prunedRateLimits = await pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000));
+  const prunedRateLimits = await step("rate-limit prune", () => pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000)), 0);
 
   // Empty windows on Israeli holidays, for everyone who closes on them.
-  const prunedHolidaySlots = await pruneClosedDaysForEveryone();
+  const prunedHolidaySlots = await step("holiday prune", () => pruneClosedDaysForEveryone(), 0);
 
   // Anything a person has to act on reaches one, instead of sitting in a
   // response body nobody reads on a schedule.
-  const problems = cronProblems({ reminders: summary, billing });
-  await sendOpsAlert(problems);
+  const problems = [...stepProblems, ...cronProblems({ reminders: summary, billing })];
+  await step("ops alert", () => sendOpsAlert(problems), undefined);
 
   return NextResponse.json({ ...summary, billing, prunedRateLimits, prunedHolidaySlots, problems });
 }
