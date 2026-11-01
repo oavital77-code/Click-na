@@ -176,6 +176,7 @@ model Therapist {
   locations         Location[]
   notifications     Notification[]
   paymentApplication PaymentApplication?
+  rapydWallet        RapydWallet?
 
   @@map("therapists")
 }
@@ -210,6 +211,24 @@ model PaymentApplication {
   therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
 
   @@map("payment_applications")
+}
+
+// A therapist's wallet under Cleana+'s Rapyd account: clients' card payments
+// land here. `mode` is the Rapyd environment the wallet was made in — a
+// sandbox wallet is meaningless to the live API, so one is only used while
+// the app talks to the same environment.
+model RapydWallet {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  therapistId String   @unique @map("therapist_id") @db.Uuid
+  ewalletId   String   @map("ewallet_id") @db.VarChar(64)
+  mode        String   @db.VarChar(12)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("rapyd_wallets")
 }
 
 // spec 11.3: an old slug keeps resolving (via redirect) for 90 days after a therapist changes it.

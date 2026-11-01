@@ -13,6 +13,7 @@ import {
   type PayPlusConfig,
 } from "@/lib/payplus";
 import { formatInTimeZone } from "date-fns-tz";
+import { activeRapydWallet, createRapydCheckout } from "@/lib/rapyd-payments";
 
 /**
  * A client paying a therapist for a booking.
@@ -38,14 +39,18 @@ type BookingForPayment = Prisma.BookingGetPayload<{
 }>;
 
 export type ConnectedPaymentProvider =
+  | { provider: "rapyd"; ewalletId: string }
   | { provider: "payplus"; cfg: PayPlusConfig }
   | { provider: "paymentLink"; url: string };
 
 /**
- * Which way this therapist takes money, if any. PayPlus wins when both are
- * connected: it is the one that can confirm a payment on its own.
+ * Which way this therapist takes money, if any. A Rapyd wallet comes first —
+ * it is the one Cleana+ runs for them — then PayPlus, which can confirm a
+ * payment on its own, then a plain link.
  */
 export async function connectedPaymentProvider(therapistId: string): Promise<ConnectedPaymentProvider | null> {
+  const wallet = await activeRapydWallet(therapistId);
+  if (wallet) return { provider: "rapyd", ewalletId: wallet.ewalletId };
   for (const provider of PAYMENT_PROVIDERS) {
     const creds = await getCredentials(therapistId, provider);
     if (!creds) continue;
@@ -103,6 +108,37 @@ export async function requestPayment(
       },
     });
     return { ok: true, url: connected.url, amountIls };
+  }
+
+  if (connected.provider === "rapyd") {
+    const base = appUrl();
+    const manageUrl = `${base}/book/${booking.therapist.slug}/manage/${booking.manageToken}`;
+    const day = formatInTimeZone(booking.session.startsAt, booking.therapist.timezone, "dd.MM");
+    const checkout = await createRapydCheckout({
+      ewalletId: connected.ewalletId,
+      bookingId: booking.id,
+      therapistId,
+      amountIls,
+      description: label ? `${label} · ${day}` : `${booking.therapist.fullName} · ${day}`,
+      returnUrl: `${manageUrl}?paid=1`,
+      cancelUrl: manageUrl,
+    });
+    if (!checkout.ok) {
+      const detail = `Rapyd ${checkout.errorCode}`;
+      console.error("[client-payments] rapyd checkout failed", { bookingId, error: detail });
+      return { ok: false, error: "PROVIDER", detail };
+    }
+    await prisma.booking.update({
+      where: { id: booking.id },
+      data: {
+        paymentUrl: checkout.data.url,
+        paymentPageRequestUid: checkout.data.checkoutId,
+        paymentAmountIls: amountIls,
+        paymentLabel: label,
+        paymentRequestedAt: new Date(),
+      },
+    });
+    return { ok: true, url: checkout.data.url, amountIls };
   }
 
   try {
@@ -184,16 +220,18 @@ export type ApplyClientPaymentResult =
  */
 export async function applyClientPayment(
   bookingId: string,
-  provider: PaymentProvider,
+  provider: PaymentProvider | "rapyd",
   verified: CallbackTransaction,
-  raw: unknown
+  raw: unknown,
+  /** Whether the provider says it succeeded, for providers whose codes are not PayPlus's. */
+  opts: { succeeded?: boolean } = {}
 ): Promise<ApplyClientPaymentResult> {
   if (!verified.transactionUid || !verified.statusCode) return { applied: false, reason: "unverified" };
 
   const booking = await prisma.booking.findUnique({ where: { id: bookingId } });
   if (!booking) return { applied: false, reason: "unverified" };
 
-  const succeeded = verified.statusCode === PAYPLUS_SUCCESS_CODE;
+  const succeeded = opts.succeeded ?? verified.statusCode === PAYPLUS_SUCCESS_CODE;
   const expected = decimalToNumber(booking.paymentAmountIls);
   // A successful charge for a different amount is not this booking's payment.
   // It is recorded — the money moved — but the booking is not marked paid on it.

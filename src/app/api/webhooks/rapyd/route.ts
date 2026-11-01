@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { appUrl } from "@/lib/public-url";
 import { verifyRapydWebhook } from "@/lib/rapyd";
+import { handleRapydEvent } from "@/lib/rapyd-webhook";
 
 /**
- * Rapyd's webhooks. For now this proves the line works end to end — a signed
- * delivery is accepted and logged, anything else is refused — so the portal
- * can be pointed here before payments are wired in. Handling of the payment
- * events (marking a booking paid) builds on this route.
+ * Rapyd's webhooks. Only a delivery signed with our secret gets past the
+ * door, and even then the event only names a payment: handleRapydEvent
+ * fetches that payment from Rapyd and decides from Rapyd's own record.
+ * 200 once understood, whatever the outcome — a retry would not change it.
  */
 export async function POST(request: NextRequest) {
   const body = await request.text();
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
     return new Response("Invalid body", { status: 400 });
   }
   // Ids and type only: the payload carries the payer's details.
-  console.info("rapyd webhook", { id: event.id, type: event.type });
-  return new Response("ok", { status: 200 });
+  const result = await handleRapydEvent(event);
+  console.info("rapyd webhook", { id: event.id, type: event.type, result });
+  return Response.json(result);
 }
