@@ -39,6 +39,10 @@ export async function GET(request: NextRequest) {
   }
 
   const started = Date.now();
+  // ?scope=reminders: the hourly call (an external scheduler, see
+  // .github/workflows/hourly-reminders.yml) sends reminders only. Billing,
+  // pruning and the full ops alert stay with the once-a-day Vercel cron.
+  const remindersOnly = request.nextUrl.searchParams.get("scope") === "reminders";
   // Each step on its own: one that throws (a database hiccup, a provider
   // outage) is reported and the rest still run, including the alert itself.
   const stepProblems: string[] = [];
@@ -52,16 +56,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Money first: trials that ended, grace that ran out, renewals, countdown
-  // mail — see billing-lifecycle.ts.
-  const billing = await step("billing", () => runBillingLifecycle(), {
+  const noBilling = {
     reminders: 0,
     ended: 0,
     locked: 0,
     unconfirmed: 0,
     renewalReminders: 0,
     renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 },
-  });
+  };
+  // Money first: trials that ended, grace that ran out, renewals, countdown
+  // mail — see billing-lifecycle.ts.
+  const billing = remindersOnly ? noBilling : await step("billing", () => runBillingLifecycle(), noBilling);
 
   // Reminders in batches while the run has time: a full batch means more may
   // be waiting, and what is left over would otherwise wait a whole day.
@@ -76,6 +81,12 @@ export async function GET(request: NextRequest) {
   // Rate-limit windows are only useful until they close. Swept here rather than
   // on a schedule of their own: the rows are tiny and nothing depends on them
   // disappearing promptly.
+  if (remindersOnly) {
+    const problems = [...stepProblems, ...cronProblems({ reminders: summary, billing })];
+    await step("ops alert", () => sendOpsAlert(problems), undefined);
+    return NextResponse.json({ ...summary, scope: "reminders", problems });
+  }
+
   const prunedRateLimits = await step("rate-limit prune", () => pruneRateLimits(new Date(Date.now() - 24 * 60 * 60 * 1000)), 0);
 
   // Empty windows on Israeli holidays, for everyone who closes on them.
