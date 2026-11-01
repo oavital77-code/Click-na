@@ -59,8 +59,34 @@ const withClerk = clerkMiddleware({
  * The cost of the split is that auth() throws on these routes rather than
  * returning an empty session; getCurrentTherapist() absorbs that.
  */
+/**
+ * A signed-in therapist's API takes changes only from our own pages. The
+ * session cookie is SameSite=Lax, which already keeps it off cross-site
+ * POSTs; this is the second lock, so a cookie change or a same-site
+ * subdomain could never turn a foreign page's form into "reset my account".
+ * Browsers send Origin on every cross-origin write.
+ */
+export function crossSiteWrite(request: NextRequest): boolean {
+  if (["GET", "HEAD", "OPTIONS"].includes(request.method)) return false;
+  if (!request.nextUrl.pathname.startsWith("/api/")) return false;
+  // PayPlus calls this one from its own servers; it is verified by signature.
+  if (request.nextUrl.pathname === "/api/billing/payplus/callback") return false;
+  const origin = request.headers.get("origin");
+  if (origin) {
+    try {
+      return new URL(origin).host !== request.nextUrl.host;
+    } catch {
+      return true;
+    }
+  }
+  return request.headers.get("sec-fetch-site") === "cross-site";
+}
+
 export default function proxy(request: NextRequest, event: NextFetchEvent) {
   if (!isPublicPath(request.nextUrl.pathname)) {
+    if (crossSiteWrite(request)) {
+      return NextResponse.json({ error: "cross_site_request" }, { status: 403 });
+    }
     return withClerk(request, event);
   }
 
