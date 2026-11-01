@@ -207,11 +207,30 @@ describe("applyVerifiedTransaction", () => {
     const paidAt = new Date("2026-09-01T08:00:00Z");
     await applyVerifiedTransaction(tx({  }), {}, paidAt, own(id));
     const renewalDay = new Date("2026-10-01T08:00:00Z");
-    const renewal = await applyVerifiedTransaction(tx({ statusCode: "004" }), {}, renewalDay, own(id));
+    const renewal = await applyVerifiedTransaction(tx({ statusCode: "004" }), {}, renewalDay, { ...own(id), renewal: true });
     expect(renewal).toEqual({ applied: true, outcome: "failed" });
     const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
     expect(sub.status).toBe("past_due");
     expect(sub.graceEndsAt).toEqual(new Date("2026-10-08T08:00:00Z"));
+  });
+
+  it("a declined payment page changes nothing: not for a free account, not for an early payment", async () => {
+    payplusEnv();
+    // A free-forever account (active, no period) trying the payment page.
+    const free = await therapist("free-declined");
+    await prisma.subscription.update({ where: { therapistId: free }, data: { status: "active", trialEndsAt: null, currentPeriodEnd: null } });
+    await applyVerifiedTransaction(tx({ statusCode: "004" }), {}, new Date(), own(free));
+    const f = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: free } });
+    expect(f).toMatchObject({ status: "active", currentPeriodEnd: null, graceEndsAt: null });
+
+    // A paying customer paying next month early, with days still left.
+    const early = await therapist("early-declined");
+    const paidAt = new Date("2026-09-01T08:00:00Z");
+    await applyVerifiedTransaction(tx({}), {}, paidAt, own(early));
+    await applyVerifiedTransaction(tx({ statusCode: "004" }), {}, new Date("2026-09-27T08:00:00Z"), own(early));
+    const e = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: early } });
+    expect(e.status).toBe("active");
+    expect(e.graceEndsAt).toBeNull();
   });
 });
 

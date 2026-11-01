@@ -122,6 +122,13 @@ export type ApplyResult =
 export type ApplyDeps = {
   /** The account, when the caller already knows it — our own renewal charges do. */
   therapistId?: string;
+  /**
+   * This is our own renewal charge of the stored card at period end. Only a
+   * failure of that is a failed renewal; a declined card on a payment page the
+   * therapist opened (paying early, reactivating, a free account trying to
+   * pay) is just a payment that did not go through, and changes nothing.
+   */
+  renewal?: boolean;
   fetchImpl?: typeof fetch;
 };
 
@@ -196,11 +203,12 @@ export async function applyVerifiedTransaction(
     return { applied: true, outcome: "activated" };
   }
 
-  // A failed charge. During the trial nothing changes — they simply have not
-  // paid yet. On an active subscription it is a failed renewal: grace begins;
-  // during grace a retry that fails again leaves the deadline where it was.
+  // A failed charge. Only our own renewal of an ended period starts grace (a
+  // retry during grace leaves the deadline where it was); anything else — a
+  // trial, an early payment, a free account — has simply not paid yet.
   const state = accessState(subscription, now);
-  if (state.kind === "active" || state.kind === "canceling") {
+  const periodOver = subscription.currentPeriodEnd !== null && subscription.currentPeriodEnd <= now;
+  if (deps.renewal && periodOver && (state.kind === "active" || state.kind === "canceling")) {
     await prisma.subscription.update({
       where: { id: subscription.id },
       data: { graceEndsAt: graceEndFor(subscription.currentPeriodEnd ?? now) },
@@ -338,6 +346,7 @@ export async function chargeDueRenewals(
       );
       const result = await applyVerifiedTransaction(charge.transaction, charge.raw, now, {
         therapistId: sub.therapistId,
+        renewal: true,
         fetchImpl: deps.fetchImpl,
       });
       if (result.applied && result.outcome === "activated") summary.charged++;
