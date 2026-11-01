@@ -862,7 +862,10 @@ export const en = {
         checking: "Checking…",
         ok: (mode: string) => `Connected. Rapyd accepted the keys (${mode}).`,
         notConfigured: "The keys are not set. Add RAPYD_ACCESS_KEY and RAPYD_SECRET_KEY in Vercel and redeploy.",
-        failed: (code: string) => `Rapyd refused the call: ${code}. Check that both keys were copied from the same environment.`,
+        failed: (code: string) =>
+          code === "UNAUTHENTICATED_API_CALL"
+            ? `Rapyd refused the keys (${code}). Check that both were copied from the same environment.`
+            : `Rapyd refused the call: ${code}.`,
         webhookLabel: "Webhook address to register in the Rapyd portal",
         copy: "Copy",
         copied: "Copied",

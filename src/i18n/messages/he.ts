@@ -845,7 +845,10 @@ export const he: Messages = {
         checking: "בודקים…",
         ok: (mode: string) => `מחובר. Rapyd קיבלה את המפתחות (${mode}).`,
         notConfigured: "המפתחות לא מוגדרים. צריך להוסיף את RAPYD_ACCESS_KEY ואת RAPYD_SECRET_KEY ב-Vercel ולפרוס מחדש.",
-        failed: (code: string) => `Rapyd דחתה את הקריאה: ${code}. כדאי לוודא ששני המפתחות הועתקו מאותה סביבה.`,
+        failed: (code: string) =>
+          code === "UNAUTHENTICATED_API_CALL"
+            ? `Rapyd דחתה את המפתחות (${code}). כדאי לוודא ששניהם הועתקו מאותה סביבה.`
+            : `Rapyd דחתה את הקריאה: ${code}.`,
         webhookLabel: "כתובת ה-Webhook לרישום בפורטל של Rapyd",
         copy: "העתקה",
         copied: "הועתק",

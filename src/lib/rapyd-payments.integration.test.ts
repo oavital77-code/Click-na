@@ -30,6 +30,7 @@ describe("Rapyd payments (against a live database)", () => {
         fullName: "Rapyd Integration Test",
         slug: "rapyd-integration-test",
         timezone: "Asia/Jerusalem",
+        phone: "052-1234567",
         subscription: { create: {} },
         settings: { create: {} },
       },
@@ -84,9 +85,28 @@ describe("Rapyd payments (against a live database)", () => {
     expect(await ensureRapydWallet(therapistId)).toEqual({ ok: true, ewalletId: "ewallet_abc", created: true });
     expect(calls[0]).toMatchObject({ url: "https://sandboxapi.rapyd.net/v1/user", method: "POST" });
     expect(calls[0].body).toMatchObject({ first_name: "Rapyd", last_name: "Integration Test", ewallet_reference_id: `sandbox-${therapistId}` });
+    expect((calls[0].body as { contact: { phone_number?: string } }).contact.phone_number).toBe("+972521234567");
 
     expect(await ensureRapydWallet(therapistId)).toEqual({ ok: true, ewalletId: "ewallet_abc", created: false });
     expect(calls).toHaveLength(1);
+  });
+
+  it("opens the wallet without the phone when Rapyd still refuses it", async () => {
+    const calls: { contact: Record<string, string> }[] = [];
+    const replies = [
+      Response.json({ status: { status: "ERROR", error_code: "INVALID_PHONE_NUMBER" } }, { status: 400 }),
+      Response.json({ status: { status: "SUCCESS" }, data: { id: "ewallet_np" } }),
+    ];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init?: RequestInit) => {
+        calls.push(JSON.parse(String(init?.body)));
+        return replies.shift()!;
+      })
+    );
+    expect(await ensureRapydWallet(therapistId)).toEqual({ ok: true, ewalletId: "ewallet_np", created: true });
+    expect(calls[0].contact.phone_number).toBe("+972521234567");
+    expect(calls[1].contact.phone_number).toBeUndefined();
   });
 
   it("ignores a sandbox wallet once the app talks to the live API", async () => {

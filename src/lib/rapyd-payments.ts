@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { toE164 } from "@/lib/phone";
 import { rapydKeys, rapydMode, rapydRequest, type RapydResult } from "@/lib/rapyd";
 
 /**
@@ -59,23 +60,34 @@ export async function ensureRapydWallet(
     email: therapist.email,
     country: "IL",
   };
-  if (therapist.phone) contact.phone_number = therapist.phone;
+  // Rapyd takes only international form (+972…); a number it would refuse is
+  // left out rather than blocking the wallet — it is not needed to open one.
+  const phone = therapist.phone ? toE164(therapist.phone) : null;
+  if (phone) contact.phone_number = phone;
 
   // Rapyd allows one wallet per reference; a new environment needs its own.
   const reference = mode === "production" ? therapist.id : `${mode}-${therapist.id}`;
-  const result: RapydResult<RapydWalletData> = await request<RapydWalletData>(
-    "post",
-    "/v1/user",
-    {
-      first_name: firstName,
-      last_name: lastName,
-      ewallet_reference_id: reference,
-      type: "person",
-      contact,
-      metadata: { therapist_id: therapist.id },
-    },
-    { env }
-  );
+  const open = (withContact: Record<string, string>) =>
+    request<RapydWalletData>(
+      "post",
+      "/v1/user",
+      {
+        first_name: firstName,
+        last_name: lastName,
+        ewallet_reference_id: reference,
+        type: "person",
+        contact: withContact,
+        metadata: { therapist_id: therapist.id },
+      },
+      { env }
+    );
+  let result: RapydResult<RapydWalletData> = await open(contact);
+  // Still refused for the phone: open the wallet without it.
+  if (!result.ok && result.errorCode === "INVALID_PHONE_NUMBER" && contact.phone_number) {
+    const { phone_number: _dropped, ...withoutPhone } = contact;
+    void _dropped;
+    result = await open(withoutPhone);
+  }
   if (!result.ok) return { ok: false, errorCode: result.errorCode, message: result.message };
 
   await prisma.rapydWallet.upsert({
