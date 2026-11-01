@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { appUrl } from "@/lib/public-url";
 import { verifyRapydWebhook } from "@/lib/rapyd";
+import { rapydEnabled } from "@/lib/rapyd-payments";
 import { handleRapydEvent } from "@/lib/rapyd-webhook";
 
 /**
@@ -10,6 +11,9 @@ import { handleRapydEvent } from "@/lib/rapyd-webhook";
  * 200 once understood, whatever the outcome — a retry would not change it.
  */
 export async function POST(request: NextRequest) {
+  // Rapyd is shelved unless switched on: keys left behind must not make this
+  // route act on anything.
+  if (!rapydEnabled()) return new Response("Not found", { status: 404 });
   const body = await request.text();
   const headers = {
     salt: request.headers.get("salt"),
