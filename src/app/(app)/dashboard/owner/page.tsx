@@ -3,7 +3,9 @@ import { PageHeader } from "@/components/page-header";
 import { getCurrentTherapist } from "@/lib/auth";
 import { isOwner, listApplications } from "@/lib/payment-applications";
 import { getMessages, toLocale } from "@/i18n";
+import { appUrl } from "@/lib/public-url";
 import { OwnerApplicationsView } from "./owner-view";
+import { RapydCheckCard } from "./rapyd-check";
 
 /** The owner's queue of card-payment applications to forward to PayPlus. */
 export default async function OwnerPage() {
@@ -15,6 +17,7 @@ export default async function OwnerPage() {
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader kicker={m.paymentSetup.owner.kicker} title={m.paymentSetup.owner.title} meta={m.paymentSetup.owner.meta} />
+      <RapydCheckCard webhookUrl={`${appUrl()}/api/webhooks/rapyd`} />
       <OwnerApplicationsView initial={await listApplications()} />
     </main>
   );
