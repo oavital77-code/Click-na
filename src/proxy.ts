@@ -64,6 +64,12 @@ export default function proxy(request: NextRequest, event: NextFetchEvent) {
     return withClerk(request, event);
   }
 
+  // The public logo route sets its own, stricter policy (default-src 'none');
+  // a page CSP from here would replace it. It renders no HTML and needs no nonce.
+  if (request.nextUrl.pathname.startsWith("/api/public/logo/")) {
+    return NextResponse.next();
+  }
+
   const nonce = createNonce();
   const csp = publicCsp(nonce);
 

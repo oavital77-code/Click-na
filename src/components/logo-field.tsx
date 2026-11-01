@@ -30,8 +30,9 @@ async function shrink(file: File): Promise<Blob> {
 
 /**
  * The booking page's logo: upload a picture (the usual way) or paste a link.
- * An upload is saved at once and its address handed back through onChange,
- * so the surrounding form's own save keeps it.
+ * An upload (and a removal) takes effect at once, on the booking page too;
+ * its address is handed back through onChange so the surrounding form's own
+ * save keeps the same value.
  */
 export function LogoField({ id, value, onChange }: { id: string; value: string; onChange: (url: string) => void }) {
   const { m } = useI18n();
@@ -71,8 +72,11 @@ export function LogoField({ id, value, onChange }: { id: string; value: string; 
     setBusy(true);
     setError(null);
     try {
-      await fetch("/api/me/logo", { method: "DELETE" });
+      const res = await fetch("/api/me/logo", { method: "DELETE" });
+      if (!res.ok) throw new Error("failed");
       onChange("");
+    } catch {
+      setError(t.errors.failed);
     } finally {
       setBusy(false);
     }
