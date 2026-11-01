@@ -51,6 +51,8 @@ type Props = {
   timezone: string;
   today: string;
   defaultDurationMinutes: number;
+  /** Session plus the breaks around it: how far apart generated slots start. Rows follow it. */
+  gridStepMinutes?: number;
   locations: PlaceOption[];
   sessions: SessionRow[];
 };
@@ -81,6 +83,7 @@ export function DashboardSchedule({
   timezone,
   today,
   defaultDurationMinutes,
+  gridStepMinutes,
   locations,
   sessions: initialSessions,
 }: Props) {
@@ -167,8 +170,8 @@ export function DashboardSchedule({
       map.set(`${dayKey}T${timeKey}`, session);
       sessionTimes.add(timeKey);
     }
-    return { map, times: buildTimeAxis(defaultDurationMinutes, sessionTimes) };
-  }, [sessions, timezone, defaultDurationMinutes]);
+    return { map, times: buildTimeAxis(gridStepMinutes ?? defaultDurationMinutes, sessionTimes) };
+  }, [sessions, timezone, defaultDurationMinutes, gridStepMinutes]);
 
   const bookedOrOpen = useMemo(
     () => [...sessions].filter((s) => s.status === "booked" || s.status === "open").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),

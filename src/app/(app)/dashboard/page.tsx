@@ -6,7 +6,16 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { DashboardSchedule } from "./dashboard-schedule";
-import { HomeActions, NextSessionCard, TodayList, WeekBars, type NextSession, type TodayItem } from "./home-widgets";
+import {
+  FirstStepsCard,
+  HomeActions,
+  NextSessionCard,
+  TodayList,
+  WeekBars,
+  type FirstSteps,
+  type NextSession,
+  type TodayItem,
+} from "./home-widgets";
 import { getMessages, toLocale } from "@/i18n";
 import { fmt } from "@/i18n/dates";
 import { listLocations } from "@/lib/locations";
@@ -54,7 +63,7 @@ export default async function DashboardPage() {
   const weekEnd = zonedDateTimeToUtc(addDaysUtc(weekStartStr, 7), "00:00", tz);
 
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
-  const [weekSessions, nextSession, unpaid, locations] = await Promise.all([
+  const [weekSessions, nextSession, unpaid, locations, everBooked] = await Promise.all([
     prisma.session.findMany({
       where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd }, status: { not: "canceled" } },
       include: { booking: true, location: true },
@@ -83,7 +92,26 @@ export default async function DashboardPage() {
       _count: true,
     }),
     listLocations(therapist.id),
+    // Has anyone ever booked? Until then the lead card is the way to the first one.
+    prisma.booking.count({ where: { therapistId: therapist.id }, take: 1 }),
   ]);
+
+  let firstSteps: FirstSteps | null = null;
+  if (everBooked === 0) {
+    const [openAhead, logo, paymentLink] = await Promise.all([
+      prisma.session.count({ where: { therapistId: therapist.id, status: "open", startsAt: { gt: now } }, take: 1 }),
+      prisma.therapistLogo.count({ where: { therapistId: therapist.id } }),
+      prisma.integration.count({
+        where: { therapistId: therapist.id, provider: { in: ["paymentLink", "payplus"] }, status: "connected" },
+      }),
+    ]);
+    firstSteps = {
+      publicUrl: `${appUrl()}/book/${therapist.slug}`,
+      hasOpenHours: openAhead > 0,
+      hasLogo: logo > 0,
+      hasPaymentLink: paymentLink > 0,
+    };
+  }
 
   const firstName = therapist.fullName.trim().split(/\s+/)[0] ?? therapist.fullName;
   const hour = Number(formatInTimeZone(now, tz, "H"));
@@ -185,7 +213,7 @@ export default async function DashboardPage() {
         </div>
       </header>
 
-      <NextSessionCard next={next} />
+      {firstSteps ? <FirstStepsCard steps={firstSteps} /> : <NextSessionCard next={next} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-3">
         <section aria-labelledby="today-h" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2`}>
@@ -224,6 +252,11 @@ export default async function DashboardPage() {
           timezone={tz}
           today={todayStr}
           defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+          gridStepMinutes={
+            (therapist.settings?.defaultDurationMinutes ?? 50) +
+            (therapist.settings?.bufferBeforeMinutes ?? 0) +
+            (therapist.settings?.bufferAfterMinutes ?? 0)
+          }
           locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
           sessions={weekSessions.map((s) => ({
             id: s.id,

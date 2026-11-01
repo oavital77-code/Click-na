@@ -65,6 +65,26 @@ describe("completeOnboarding (against a live database)", () => {
     expect(sessions).toBeGreaterThan(0);
   });
 
+  // With no break, 50-minute sessions ran back to back: 09:00, 09:50, 10:40…
+  it("a break between sessions spaces the slots: 50 minutes + 10 starts on the hour", async () => {
+    const result = await completeOnboarding(therapistId, payload({ breakMinutes: 10 }));
+    expect(result.ok).toBe(true);
+    const settings = await prisma.therapistSettings.findUniqueOrThrow({ where: { therapistId } });
+    expect(settings.bufferAfterMinutes).toBe(10);
+    const sessions = await prisma.session.findMany({ where: { therapistId }, orderBy: { startsAt: "asc" }, take: 3 });
+    const sameDay = sessions.filter((s) => s.startsAt.toDateString() === sessions[0].startsAt.toDateString());
+    for (let i = 1; i < sameDay.length; i++) {
+      expect(sameDay[i].startsAt.getTime() - sameDay[i - 1].startsAt.getTime()).toBe(60 * 60 * 1000);
+    }
+    expect(sameDay.length).toBeGreaterThan(1);
+  });
+
+  it("leaves the break as it was when the wizard does not send one", async () => {
+    await prisma.therapistSettings.update({ where: { therapistId }, data: { bufferAfterMinutes: 15 } });
+    await completeOnboarding(therapistId, payload());
+    expect((await prisma.therapistSettings.findUniqueOrThrow({ where: { therapistId } })).bufferAfterMinutes).toBe(15);
+  });
+
   it("rejects a slug already owned by another therapist, without committing anything", async () => {
     const other = await prisma.therapist.create({
       data: {

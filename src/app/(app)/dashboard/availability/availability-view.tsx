@@ -34,6 +34,8 @@ type Props = {
   timezone: string;
   initialWeekStart: string;
   defaultDurationMinutes: number;
+  /** Session plus the breaks around it: how far apart generated slots start. Rows follow it. */
+  gridStepMinutes?: number;
   locations: PlaceOption[];
   initialSessions: SessionRow[];
 };
@@ -44,6 +46,7 @@ export function AvailabilityView({
   timezone,
   initialWeekStart,
   defaultDurationMinutes,
+  gridStepMinutes,
   locations,
   initialSessions,
 }: Props) {
@@ -134,8 +137,8 @@ export function AvailabilityView({
       map.set(`${dayKey}T${timeKey}`, session);
       times.add(timeKey);
     }
-    return { map, times: buildTimeAxis(defaultDurationMinutes, times) };
-  }, [sessions, timezone, defaultDurationMinutes]);
+    return { map, times: buildTimeAxis(gridStepMinutes ?? defaultDurationMinutes, times) };
+  }, [sessions, timezone, defaultDurationMinutes, gridStepMinutes]);
 
   async function handleAdd() {
     setFormError(null);

@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import {
+  BREAK_OPTIONS,
+  DEFAULT_BREAK_MINUTES,
   DURATION_OPTIONS,
   LOCATION_TYPES,
   PROFESSION_TYPES,
@@ -55,6 +57,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
   const [slugReason, setSlugReason] = useState<string | undefined>();
 
   const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<number>(50);
+  const [breakMinutes, setBreakMinutes] = useState<number>(DEFAULT_BREAK_MINUTES);
   const [locationType, setLocationType] = useState<(typeof LOCATION_TYPES)[number] | "">("");
   const [locationAddress, setLocationAddress] = useState("");
   const [onlineMeetingUrl, setOnlineMeetingUrl] = useState("");
@@ -118,6 +121,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
       professionType: professionType as (typeof PROFESSION_TYPES)[number],
       slug,
       defaultDurationMinutes,
+      breakMinutes,
       locationType: locationType as (typeof LOCATION_TYPES)[number],
       locationAddress: locationAddress || undefined,
       onlineMeetingUrl: onlineMeetingUrl || undefined,
@@ -208,6 +212,7 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                 onChange={(e) => handleSlugChange(e.target.value)}
               />
             </div>
+            <p className="text-muted-foreground text-xs">{m.onboarding.slugHint}</p>
             {slugStatus === "checking" && (
               <p className="text-muted-foreground text-sm">{m.onboarding.checking}</p>
             )}
@@ -245,6 +250,24 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="break">{m.onboarding.breakBetween}</Label>
+              <Select value={String(breakMinutes)} onValueChange={(v) => setBreakMinutes(Number(v))}>
+                <SelectTrigger id="break">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BREAK_OPTIONS.map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      {d === 0 ? m.onboarding.noBreak : m.common.minutes(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-muted-foreground text-xs">
+                {m.onboarding.slotsEvery(defaultDurationMinutes + breakMinutes)}
+              </p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="locationType">{m.onboarding.location}</Label>

@@ -34,8 +34,15 @@ export async function completeOnboarding(
 
       await tx.therapistSettings.upsert({
         where: { therapistId },
-        create: { therapistId, defaultDurationMinutes: data.defaultDurationMinutes },
-        update: { defaultDurationMinutes: data.defaultDurationMinutes },
+        create: {
+          therapistId,
+          defaultDurationMinutes: data.defaultDurationMinutes,
+          ...(data.breakMinutes !== undefined && { bufferAfterMinutes: data.breakMinutes }),
+        },
+        update: {
+          defaultDurationMinutes: data.defaultDurationMinutes,
+          ...(data.breakMinutes !== undefined && { bufferAfterMinutes: data.breakMinutes }),
+        },
       });
 
       // "Where do you work?" is the therapist's first place. Their hours below

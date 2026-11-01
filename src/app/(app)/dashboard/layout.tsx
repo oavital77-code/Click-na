@@ -35,11 +35,13 @@ export default async function DashboardLayout({
   return (
     <I18nProvider locale={locale}>
       <div dir={dirFor(locale)} className="flex flex-1 flex-col md:flex-row">
-        <DashboardNav />
+        {/* Not during setup: every page behind it sends an unfinished account
+            back to the wizard, so the menu would only be a way to lose your place. */}
+        {therapist?.onboardingCompleted && <DashboardNav />}
         {/* min-w-0: a flex item defaults to min-width:auto, so the week table
             (1084px) would widen this column and scroll the whole page sideways
             instead of scrolling inside its own container. */}
-        <div className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
+        <div className={`flex min-w-0 flex-1 flex-col ${therapist?.onboardingCompleted ? "pb-24 md:pb-0" : ""}`}>
           {therapist?.subscription && <AccessBanner state={accessState(therapist.subscription)} />}
           {children}
         </div>

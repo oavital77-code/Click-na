@@ -67,6 +67,11 @@ export default async function AvailabilityPage() {
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
         defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+        gridStepMinutes={
+          (therapist.settings?.defaultDurationMinutes ?? 50) +
+          (therapist.settings?.bufferBeforeMinutes ?? 0) +
+          (therapist.settings?.bufferAfterMinutes ?? 0)
+        }
         locations={places}
         initialSessions={sessions.map((s) => ({
           id: s.id,

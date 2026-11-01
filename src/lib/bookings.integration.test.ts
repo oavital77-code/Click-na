@@ -4,6 +4,7 @@ import { deleteSlot } from "@/lib/reset";
 import { ensureDefaultLocation } from "@/lib/locations";
 import {
   holdSession,
+  releaseHold,
   createBooking,
   confirmBookingByTherapist,
   cancelBookingByTherapist,
@@ -55,6 +56,26 @@ describe("bookings (against a live database)", () => {
     const session = await makeSession(48);
     const result = await holdSession(session.id);
     expect(result.ok).toBe(true);
+  });
+
+  // Going back to pick another time used to leave the slot held for ten
+  // minutes — closed to everyone, the person who left it included.
+  it("the holder can give a hold back, and the slot is open again at once", async () => {
+    const session = await makeSession(48);
+    const hold = await holdSession(session.id);
+    if (!hold.ok) throw new Error("hold failed");
+    expect(await releaseHold(session.id, hold.holdToken)).toBe(true);
+    const row = await prisma.session.findUniqueOrThrow({ where: { id: session.id } });
+    expect(row.status).toBe("open");
+    expect(row.holdToken).toBeNull();
+    expect((await holdSession(session.id)).ok).toBe(true);
+  });
+
+  it("nobody else can release a hold", async () => {
+    const session = await makeSession(48);
+    await holdSession(session.id);
+    expect(await releaseHold(session.id, "0".repeat(32))).toBe(false);
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: session.id } })).status).toBe("held");
   });
 
   it("rejects a second hold on a slot someone else is already holding", async () => {

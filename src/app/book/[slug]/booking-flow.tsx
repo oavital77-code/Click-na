@@ -132,6 +132,24 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
     }
   }
 
+  /** Back to the times, giving the hold back so the slot is not lost to everyone for ten minutes. */
+  function pickAnotherTime() {
+    if (selectedSlot && holdToken) {
+      void fetch(`/api/public/sessions/${selectedSlot.id}/hold`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ holdToken }),
+        keepalive: true,
+      }).catch(() => {});
+    }
+    setFormError(null);
+    setSelectedSlot(null);
+    setHoldExpiresAt(null);
+    setHoldToken(null);
+    setSecondsLeft(null);
+    setStep("time");
+  }
+
   async function submitBooking() {
     if (!selectedSlot) return;
     setFormError(null);
@@ -258,10 +276,17 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
     return (
       <Card>
         <CardContent className="flex flex-col gap-4">
-          <p className="text-sm">
-            {fmt(selectedSlot.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
-            {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
-          </p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold">
+              {fmt(selectedSlot.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
+              {fmt(selectedSlot.startsAt, timezone, locale, "time")}–{fmt(selectedSlot.endsAt, timezone, locale, "time")}
+            </p>
+            {!expired && (
+              <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={pickAnotherTime}>
+                {b.pickAnother}
+              </Button>
+            )}
+          </div>
           {secondsLeft !== null && !expired && (
             <p className="text-muted-foreground text-xs">
               {b.heldFor(`${Math.floor(secondsLeft / 60)}:${String(secondsLeft % 60).padStart(2, "0")}`)}
@@ -285,7 +310,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
           ) : (
             <>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="fullName">{b.fullName}</Label>
+                <Label htmlFor="fullName">{b.fullName} *</Label>
                 <Input id="fullName" value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
@@ -293,7 +318,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
                 <Input id="phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">{b.email}</Label>
+                <Label htmlFor="email">{b.email} *</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="flex flex-col gap-2">

@@ -62,6 +62,19 @@ export async function holdSession(sessionId: string): Promise<HoldSessionResult>
 }
 
 /**
+ * Gives a hold back before it runs out — the visitor went back to pick another
+ * time. Only with the token the hold was handed out with, so nobody can free a
+ * slot someone else is filling in the form for. Anything else is a no-op.
+ */
+export async function releaseHold(sessionId: string, holdToken: string): Promise<boolean> {
+  const released = await prisma.session.updateMany({
+    where: { id: sessionId, status: "held", holdToken },
+    data: { status: "open", holdExpiresAt: null, holdToken: null },
+  });
+  return released.count > 0;
+}
+
+/**
  * Who may claim a slot right now: anyone, when it is open or its hold has
  * lapsed; only the holder, while a hold is live. Shared by booking and
  * rescheduling so the two cannot disagree.

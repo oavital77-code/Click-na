@@ -28,6 +28,9 @@ export const LOCATION_TYPES = ["clinic", "online", "client_home", "hybrid"] as c
 
 // Spec 8.3 / 7.1 step 3.
 export const DURATION_OPTIONS = [30, 45, 50, 60, 90] as const;
+/** The rest between two sessions. 10 by default: a 50-minute session then starts on the hour. */
+export const BREAK_OPTIONS = [0, 5, 10, 15, 20, 30] as const;
+export const DEFAULT_BREAK_MINUTES = 10;
 
 const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "validation.timeInvalid");
 
@@ -46,6 +49,12 @@ export const onboardingSchema = z
       .number()
       .int()
       .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid"),
+    // Optional so a client built before the field existed still saves; absent keeps the setting as it is.
+    breakMinutes: z
+      .number()
+      .int()
+      .refine((v) => (BREAK_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid")
+      .optional(),
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
     onlineMeetingUrl: httpUrl.optional().or(z.literal("")),

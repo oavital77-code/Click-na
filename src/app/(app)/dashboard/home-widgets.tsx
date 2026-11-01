@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Copy, MessageCircle, Plus } from "lucide-react";
+import { Check, Copy, ExternalLink, MessageCircle, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
 
@@ -43,6 +43,136 @@ export function HomeActions({ publicUrl }: { publicUrl: string }) {
     </div>
   );
 }
+
+export type FirstSteps = {
+  publicUrl: string;
+  hasOpenHours: boolean;
+  hasLogo: boolean;
+  hasPaymentLink: boolean;
+};
+
+/**
+ * Until the first booking arrives, the home screen's lead card is the way to
+ * it: hours open, a look at the page clients see, the link sent to someone.
+ * The two after that are what makes the page theirs and gets them paid.
+ */
+export function FirstStepsCard({ steps }: { steps: FirstSteps }) {
+  const { m } = useI18n();
+  const t = m.dashboard.home.firstSteps;
+  const [copied, setCopied] = useState(false);
+  const share = `https://wa.me/?text=${encodeURIComponent(t.shareText(steps.publicUrl))}`;
+
+  const items: { done: boolean; title: string; hint: string; action: React.ReactNode; optional?: boolean }[] = [
+    {
+      done: steps.hasOpenHours,
+      title: t.hours,
+      hint: steps.hasOpenHours ? t.hoursDone : t.hoursHint,
+      action: steps.hasOpenHours ? null : (
+        <Link href="/dashboard/availability" className={stepButton}>
+          {t.hoursCta}
+        </Link>
+      ),
+    },
+    {
+      done: false,
+      title: t.preview,
+      hint: t.previewHint,
+      action: (
+        <a href={steps.publicUrl} target="_blank" rel="noreferrer noopener" className={stepButton}>
+          <ExternalLink className="size-3.5" />
+          {t.previewCta}
+        </a>
+      ),
+    },
+    {
+      done: false,
+      title: t.share,
+      hint: t.shareHint,
+      action: (
+        <span className="flex flex-wrap gap-2">
+          <a href={share} target="_blank" rel="noreferrer noopener" className={stepButton}>
+            <MessageCircle className="size-3.5" />
+            {t.shareWhatsapp}
+          </a>
+          <button
+            type="button"
+            className={stepButton}
+            onClick={() => {
+              void navigator.clipboard.writeText(steps.publicUrl).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              });
+            }}
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+            {copied ? t.copied : t.copy}
+          </button>
+        </span>
+      ),
+    },
+    {
+      done: steps.hasLogo,
+      title: t.brand,
+      hint: t.brandHint,
+      optional: true,
+      action: steps.hasLogo ? null : (
+        <Link href="/dashboard/link" className={stepButton}>
+          {t.brandCta}
+        </Link>
+      ),
+    },
+    {
+      done: steps.hasPaymentLink,
+      title: t.payment,
+      hint: t.paymentHint,
+      optional: true,
+      action: steps.hasPaymentLink ? null : (
+        <Link href="/dashboard/addons" className={stepButton}>
+          {t.paymentCta}
+        </Link>
+      ),
+    },
+  ];
+
+  return (
+    <section aria-labelledby="first-steps-h" className="home-rise home-d1 border-border bg-card flex flex-col gap-4 rounded-[28px] border p-5 md:p-7">
+      <div className="flex flex-col gap-1">
+        <h2 id="first-steps-h" className="text-xl font-bold">
+          {t.title}
+        </h2>
+        <p className="text-muted-foreground text-sm">{t.lead}</p>
+      </div>
+      <ol className="flex flex-col gap-2">
+        {items.map((item, i) => (
+          <li key={i} className="bg-background border-border/70 flex flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center">
+            <span className="flex min-w-0 flex-1 items-start gap-3">
+              <span
+                aria-hidden
+                className={cn(
+                  "mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-bold",
+                  item.done ? "bg-st-open-bg text-st-open" : "bg-secondary text-muted-foreground"
+                )}
+              >
+                {item.done ? <Check className="size-3.5" /> : i + 1}
+              </span>
+              <span className="flex min-w-0 flex-col">
+                <span className={cn("text-base font-semibold", item.done && "text-muted-foreground line-through")}>
+                  {item.title}
+                  {item.optional && !item.done && <span className="text-muted-foreground ms-2 text-xs font-normal">{t.optional}</span>}
+                </span>
+                <span className="text-muted-foreground text-sm">{item.hint}</span>
+              </span>
+            </span>
+            {item.action && <span className="shrink-0 ps-9 sm:ps-0">{item.action}</span>}
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+const stepButton =
+  "border-primary text-primary-strong hover:bg-primary/10 inline-flex min-h-10 items-center justify-center gap-1.5 rounded-full border px-4 text-sm font-bold whitespace-nowrap transition-colors";
 
 export type NextSession = {
   bookingId: string;
