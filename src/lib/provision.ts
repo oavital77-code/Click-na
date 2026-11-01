@@ -1,5 +1,5 @@
 import { clerkClient } from "@clerk/nextjs/server";
-import { handleUserCreated, type ClerkUserCreatedData } from "@/lib/webhooks";
+import { handleUserCreated, type ClerkUserCreatedData, type HandleUserCreatedDeps } from "@/lib/webhooks";
 
 /**
  * Reads a Clerk user by id and reshapes it to the webhook payload the creation
@@ -52,9 +52,10 @@ export const fetchClerkUser: ClerkUserFetcher = async (userId) => {
  */
 export async function provisionTherapist(
   userId: string,
-  fetchUser: ClerkUserFetcher = fetchClerkUser
+  fetchUser: ClerkUserFetcher = fetchClerkUser,
+  deps: HandleUserCreatedDeps = {}
 ): Promise<string | null> {
   const data = await fetchUser(userId);
   if (!data) return null;
-  return handleUserCreated(data);
+  return handleUserCreated(data, deps);
 }

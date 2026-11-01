@@ -205,13 +205,17 @@ describe("handleUserCreated — the same person under a new Clerk identity", () 
     const before = await prisma.therapist.findUniqueOrThrow({ where: { clerkUserId: oldId } });
 
     const newId = clerkUserId("adopt-new");
-    const returned = await handleUserCreated({
-      id: newId,
-      email_addresses: [{ id: "ea_9", email_address: "adopt@example.com", verification: verified }],
-      primary_email_address_id: "ea_9",
-      first_name: "Noa",
-      last_name: "Levi",
-    });
+    const returned = await handleUserCreated(
+      {
+        id: newId,
+        email_addresses: [{ id: "ea_9", email_address: "adopt@example.com", verification: verified }],
+        primary_email_address_id: "ea_9",
+        first_name: "Noa",
+        last_name: "Levi",
+      },
+      // The old Clerk identity is gone (a replaced instance): adoption is right.
+      { identityGone: async () => true }
+    );
 
     expect(returned).toBe(before.id); // the caller still gets an id: this is a real sign-up
     const after = await prisma.therapist.findUniqueOrThrow({ where: { id: before.id } });
@@ -219,6 +223,34 @@ describe("handleUserCreated — the same person under a new Clerk identity", () 
     expect(after.slug).toBe(before.slug); // their booking link survives
     expect(await prisma.therapist.count({ where: { email: "adopt@example.com" } })).toBe(1);
     expect(await prisma.therapist.findUnique({ where: { clerkUserId: oldId } })).toBeNull();
+  });
+
+  it("refuses to hand a live practice to a new identity whose old one still exists", async () => {
+    const oldId = clerkUserId("live-old");
+    await handleUserCreated({
+      id: oldId,
+      email_addresses: [{ id: "ea_1", email_address: "live@example.com", verification: verified }],
+      primary_email_address_id: "ea_1",
+      first_name: "Owner",
+      last_name: null,
+    });
+    const before = await prisma.therapist.findUniqueOrThrow({ where: { clerkUserId: oldId } });
+
+    const identityGone = vi.fn(async () => false);
+    const returned = await handleUserCreated(
+      {
+        id: clerkUserId("live-new"),
+        email_addresses: [{ id: "ea_2", email_address: "live@example.com", verification: verified }],
+        primary_email_address_id: "ea_2",
+        first_name: "Someone",
+        last_name: null,
+      },
+      { identityGone }
+    );
+
+    expect(returned).toBeNull();
+    expect(identityGone).toHaveBeenCalledWith(oldId);
+    expect((await prisma.therapist.findUniqueOrThrow({ where: { id: before.id } })).clerkUserId).toBe(oldId);
   });
 
   it("brings a soft-deleted practice back to life on adoption", async () => {

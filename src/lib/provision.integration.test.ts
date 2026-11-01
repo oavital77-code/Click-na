@@ -63,7 +63,10 @@ describe("provisionTherapist (against a live database)", () => {
     const before = await prisma.therapist.findUniqueOrThrow({ where: { clerkUserId: oldId } });
 
     const newId = clerkUserId("adopt-new");
-    const result = await provisionTherapist(newId, clerkReturning("provision-adopt@example.com"));
+    // The old identity belonged to the replaced Clerk instance: Clerk no longer knows it.
+    const result = await provisionTherapist(newId, clerkReturning("provision-adopt@example.com"), {
+      identityGone: async () => true,
+    });
 
     expect(result).toBe(before.id);
     const after = await prisma.therapist.findUniqueOrThrow({ where: { id: before.id } });

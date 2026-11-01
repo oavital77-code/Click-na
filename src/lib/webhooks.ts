@@ -25,7 +25,27 @@ export type ClerkUserCreatedData = {
  * a duplicate. The caller uses that to decide whether to send a welcome — Clerk
  * retries webhooks, and a second delivery must not mail the same person twice.
  */
-export async function handleUserCreated(data: ClerkUserCreatedData): Promise<string | null> {
+/**
+ * Whether a Clerk identity no longer exists. Only Clerk's own 404 counts as
+ * gone: any other failure is treated as "still there", so an outage can never
+ * hand a live practice to someone else.
+ */
+export async function clerkIdentityGone(clerkUserId: string): Promise<boolean> {
+  const { clerkClient } = await import("@clerk/nextjs/server");
+  try {
+    await (await clerkClient()).users.getUser(clerkUserId);
+    return false;
+  } catch (error) {
+    return (error as { status?: number })?.status === 404;
+  }
+}
+
+export type HandleUserCreatedDeps = { identityGone?: (clerkUserId: string) => Promise<boolean> };
+
+export async function handleUserCreated(
+  data: ClerkUserCreatedData,
+  deps: HandleUserCreatedDeps = {}
+): Promise<string | null> {
   const primary =
     data.email_addresses.find((e) => e.id === data.primary_email_address_id) ??
     data.email_addresses[0];
@@ -56,6 +76,20 @@ export async function handleUserCreated(data: ClerkUserCreatedData): Promise<str
       throw new Error(
         `Clerk user ${data.id} signed up with ${primaryEmail}, which belongs to an existing therapist, but the address is not verified`
       );
+    }
+    // A verified address is not enough on its own: the practice's stored email
+    // can be stale (changed in Clerk since), and whoever holds the old address
+    // must not inherit a live practice. Adoption is for a practice that was
+    // deleted, or whose Clerk identity no longer exists (a replaced instance).
+    if (existing.status !== "deleted" && existing.clerkUserId) {
+      const gone = await (deps.identityGone ?? clerkIdentityGone)(existing.clerkUserId);
+      if (!gone) {
+        console.error("[webhooks] refused to adopt a live practice by email", {
+          newClerkUserId: data.id,
+          therapistId: existing.id,
+        });
+        return null;
+      }
     }
     await prisma.therapist.update({
       where: { id: existing.id },
