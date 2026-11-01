@@ -2,9 +2,9 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/page-header";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { accessState } from "@/lib/access";
+import { accessState, daysLeft } from "@/lib/access";
 import { billingAvailability } from "@/lib/billing";
-import { formatPriceIls, planPriceIls } from "@/lib/plan";
+import { EARLY_RENEWAL_DAYS, formatPriceIls, planPriceIls } from "@/lib/plan";
 import { getMessages, toLocale } from "@/i18n";
 import { BillingView } from "./billing-view";
 
@@ -34,13 +34,23 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
     take: 24,
   });
 
+  const state = accessState(therapist.subscription);
+  const manualRenewal = !therapist.subscription.payplusTokenUid;
+  const renewWindowOpen =
+    manualRenewal &&
+    state.kind === "active" &&
+    state.periodEnd !== null &&
+    daysLeft(state.periodEnd, new Date()) <= EARLY_RENEWAL_DAYS;
+
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader kicker={m.billing.kicker} title={m.billing.title} meta={m.billing.meta} />
       <BillingView
-        state={accessState(therapist.subscription)}
+        state={state}
         price={price === null ? null : formatPriceIls(price, locale)}
         canPay={availability.ok}
+        manualRenewal={manualRenewal}
+        renewWindowOpen={renewWindowOpen}
         timezone={therapist.timezone}
         returned={typeof returned === "string" ? returned : null}
         payments={payments.map((p) => ({

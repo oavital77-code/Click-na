@@ -143,6 +143,39 @@ describe("runBillingLifecycle (against a live database)", () => {
     expect((await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } })).status).toBe("active");
   });
 
+  it("reminds a paid month with no stored card to pay for the next one, 3 days and 1 day before", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    const id = await trialStarted(0, now);
+    const end = new Date(now.getTime() + 5 * DAY);
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "plus", trialEndsAt: null, currentPeriodStart: new Date(now.getTime() - 25 * DAY), currentPeriodEnd: end },
+    });
+    const sent = () => prisma.notification.count({ where: { therapistId: id, type: "subscription" } });
+
+    await runBillingLifecycle(now); // 5 days left: nothing yet
+    expect(await sent()).toBe(0);
+
+    const threeLeft = new Date(end.getTime() - 3 * DAY + 60_000);
+    expect((await runBillingLifecycle(threeLeft)).renewalReminders).toBe(1);
+    await runBillingLifecycle(threeLeft); // same day again: once
+    expect(await sent()).toBe(1);
+
+    await runBillingLifecycle(new Date(end.getTime() - 12 * 60 * 60 * 1000)); // last day
+    expect(await sent()).toBe(2);
+    expect((await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } })).lastRenewalReminderDay).toBe(1);
+  });
+
+  it("does not remind a month that renews by itself (a stored card)", async () => {
+    vi.stubEnv("RESEND_API_KEY", "");
+    const id = await trialStarted(0, now);
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "plus", trialEndsAt: null, payplusTokenUid: "tok", currentPeriodEnd: new Date(now.getTime() + 2 * DAY) },
+    });
+    expect((await runBillingLifecycle(now)).renewalReminders).toBe(0);
+  });
+
   it("leaves paying customers alone", async () => {
     vi.stubEnv("RESEND_API_KEY", "");
     const id = await trialStarted(40, now);
@@ -151,7 +184,7 @@ describe("runBillingLifecycle (against a live database)", () => {
       data: { status: "active", tier: "plus", currentPeriodEnd: new Date(now.getTime() + 20 * DAY) },
     });
     const s = await runBillingLifecycle(now);
-    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0, unconfirmed: 0, renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 } });
+    expect(s).toEqual({ reminders: 0, ended: 0, locked: 0, unconfirmed: 0, renewalReminders: 0, renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 } });
     expect(await mailCount(id)).toBe(0);
   });
 });

@@ -327,6 +327,14 @@ export const en = {
         `Your paid period has ended and no renewal payment has reached us. Your dashboard stays open for ${graceDays} more days.`,
       unconfirmedNote: "If you were charged, nothing is needed — the confirmation usually arrives within a day and clears this by itself. If not, activating the subscription again does.",
       cta: "Activate subscription",
+      renewalDueSubject: (days: number) => (days <= 1 ? "Your Cleana+ plan ends tomorrow" : `Your Cleana+ plan ends in ${days} days`),
+      renewalDueLead: (days: number) =>
+        days <= 1
+          ? "The month you paid for on Cleana+ ends tomorrow, and the next one does not renew automatically."
+          : `The month you paid for on Cleana+ ends in ${days} days, and the next one does not renew automatically.`,
+      renewalDueNote: (price: string) =>
+        `To keep everything running without a break, you can pay for next month now (${price}). It starts when the current month ends, so you do not lose a day.`,
+      renewalDueCta: "Pay for next month",
     },
     signupAlert: {
       subject: (name: string) => `New user signed up: ${name}`,
@@ -753,12 +761,16 @@ export const en = {
       lockedHint: "Everything is saved. Activate the subscription to pick up where you left off.",
       active: (until: string) => `Active — next charge on ${until}`,
       activeNoDate: "Active",
+      activeManual: (until: string) => `Active until ${until}`,
+      activeManualHint: (days: number) =>
+        `Next month does not renew automatically. From ${days} days before the month ends you can pay for it here, and it starts when the current month ends.`,
       canceling: (until: string) => `Cancelled — works until ${until}`,
       cancelingHint: "You will not be charged again. Reactivating starts a new subscription.",
     },
     activate: "Activate subscription",
     activating: "Opening secure payment…",
     reactivate: "Reactivate subscription",
+    payNextMonth: "Pay for next month",
     cancel: "Cancel subscription",
     cancelConfirm: "Cancel the subscription? It keeps working until the end of the paid period, and you will not be charged again.",
     canceling: "Cancelling…",

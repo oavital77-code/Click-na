@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { AccessState } from "@/lib/access";
-import { formatPriceIls } from "@/lib/plan";
+import { EARLY_RENEWAL_DAYS, formatPriceIls } from "@/lib/plan";
 import { statusBadgeClass, type StatusTone } from "@/lib/status-badge";
 
 type PaymentRow = {
@@ -30,6 +30,8 @@ export function BillingView({
   state,
   price,
   canPay,
+  manualRenewal,
+  renewWindowOpen,
   timezone,
   returned,
   payments,
@@ -37,6 +39,10 @@ export function BillingView({
   state: AccessState;
   price: string | null;
   canPay: boolean;
+  /** No stored card: the next month is paid for here, not charged by us. */
+  manualRenewal: boolean;
+  /** Within the last EARLY_RENEWAL_DAYS of a manually renewed month: the next one can be paid for now. */
+  renewWindowOpen: boolean;
   timezone: string;
   returned: string | null;
   payments: PaymentRow[];
@@ -102,6 +108,13 @@ export function BillingView({
           tone: "danger" as StatusTone,
         };
       case "active":
+        if (state.periodEnd && manualRenewal) {
+          return {
+            title: b.state.activeManual(day(state.periodEnd.toISOString())),
+            hint: b.state.activeManualHint(EARLY_RENEWAL_DAYS),
+            tone: "open" as StatusTone,
+          };
+        }
         return {
           title: state.periodEnd ? b.state.active(day(state.periodEnd.toISOString())) : b.state.activeNoDate,
           hint: null,
@@ -114,7 +127,9 @@ export function BillingView({
 
   // An account from before billing existed is "active" with no paid period —
   // it can subscribe like anyone else; only a paid, running subscription cannot.
-  const showActivate = state.kind !== "active" || state.periodEnd === null;
+  // A paid month with no stored card can also be paid for ahead, in its last
+  // days: the next month then starts where this one ends (billing.renewalStart).
+  const showActivate = state.kind !== "active" || state.periodEnd === null || renewWindowOpen;
   // A paid subscription has a period end; an account from before billing does not, and has nothing to cancel.
   const showCancel = state.kind === "active" && state.periodEnd !== null;
 
@@ -172,7 +187,13 @@ export function BillingView({
           <div className="flex flex-col items-center gap-3 md:flex-row md:items-center">
             {showActivate && (
               <Button onClick={activate} disabled={!canPay || busy !== null} size="lg" variant="accent" className="w-full font-medium md:w-auto">
-                {busy === "activate" ? b.activating : state.kind === "canceling" ? b.reactivate : b.activate}
+                {busy === "activate"
+                  ? b.activating
+                  : renewWindowOpen
+                    ? b.payNextMonth
+                    : state.kind === "canceling"
+                      ? b.reactivate
+                      : b.activate}
               </Button>
             )}
             {showCancel && !confirmCancel && (

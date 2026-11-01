@@ -92,6 +92,20 @@ export async function startCheckout(
 }
 
 /**
+ * Where a newly paid month starts. Paying before the current paid month ends
+ * (an early renewal, or reactivating a cancellation) adds the month after it,
+ * so no paid day is lost; otherwise it starts now.
+ */
+export function renewalStart(
+  subscription: { status: string; currentPeriodEnd: Date | null },
+  now: Date
+): Date {
+  const end = subscription.currentPeriodEnd;
+  const running = subscription.status === "active" || subscription.status === "canceled";
+  return running && end && end > now ? end : now;
+}
+
+/**
  * The month a successful charge pays for. Calendar months, anchored on the
  * charge: 31 Jan pays through 28 Feb.
  */
@@ -141,7 +155,7 @@ export async function applyVerifiedTransaction(
   // recognise; record it (it is real money) but do not unlock anything.
   const amountOk = expected === null || verified.amount === null || Math.abs(verified.amount - expected) < 0.01;
 
-  const period = succeeded && amountOk ? periodAfter(now) : null;
+  const period = succeeded && amountOk ? periodAfter(renewalStart(subscription, now)) : null;
 
   try {
     await prisma.payment.create({
@@ -222,6 +236,7 @@ async function activate(
     data: {
       currentPeriodStart: period.start,
       graceEndsAt: null,
+      lastRenewalReminderDay: null,
       pendingPageRequestUids: [],
       payplusTokenUid: tokenUid,
       payplusCustomerUid: customerUid,

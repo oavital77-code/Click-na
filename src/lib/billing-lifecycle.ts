@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { graceEndFor } from "@/lib/access";
-import { GRACE_DAYS, RENEWAL_CONFIRMATION_DAYS, TRIAL_DAYS, TRIAL_REMINDER_DAYS } from "@/lib/plan";
+import { GRACE_DAYS, RENEWAL_CONFIRMATION_DAYS, RENEWAL_REMINDER_DAYS, TRIAL_DAYS, TRIAL_REMINDER_DAYS } from "@/lib/plan";
 import { sendTrialEmail } from "@/lib/account-emails";
 import { chargeDueRenewals, type RenewalSummary } from "@/lib/billing";
 import { mapWithConcurrency } from "@/lib/concurrency";
@@ -19,12 +19,15 @@ import { mapWithConcurrency } from "@/lib/concurrency";
  *  - A paid period that ended with no successful renewal in two days becomes
  *    grace too — the net under a card we could not charge at all (no token,
  *    PayPlus unreachable), so it can never mean free service forever.
+ *  - A paid month with no stored card to charge: a "pay for next month" mail
+ *    3 days and 1 day before it ends — each once per month.
  */
 export type LifecycleSummary = {
   reminders: number;
   ended: number;
   locked: number;
   unconfirmed: number;
+  renewalReminders: number;
   renewals: RenewalSummary;
 };
 
@@ -41,6 +44,7 @@ export async function runBillingLifecycle(
     ended: 0,
     locked: 0,
     unconfirmed: 0,
+    renewalReminders: 0,
     renewals: { charged: 0, declined: 0, errors: 0, noToken: 0 },
   };
 
@@ -103,6 +107,30 @@ export async function runBillingLifecycle(
     });
     await sendTrialEmail(sub.therapistId, { kind: "renewal_unconfirmed", graceDays: GRACE_DAYS });
     summary.unconfirmed++;
+  });
+
+  // 6. Paid months about to end that nothing will renew on its own (no card
+  //    stored, so no renewal charge): remind them to pay for the next one.
+  const horizon = new Date(now.getTime() + Math.max(...RENEWAL_REMINDER_DAYS) * DAY);
+  const manual = await prisma.subscription.findMany({
+    where: {
+      status: "active",
+      cancelAtPeriodEnd: false,
+      payplusTokenUid: null,
+      currentPeriodEnd: { gt: now, lte: horizon },
+    },
+    select: { id: true, therapistId: true, currentPeriodEnd: true, lastRenewalReminderDay: true },
+  });
+  await mapWithConcurrency(manual, LIFECYCLE_CONCURRENCY, async (sub) => {
+    const left = Math.ceil((sub.currentPeriodEnd!.getTime() - now.getTime()) / DAY);
+    // The closest reminder day reached and not yet sent (3, then 1).
+    const due = [...RENEWAL_REMINDER_DAYS]
+      .filter((d) => left <= d && (sub.lastRenewalReminderDay === null || d < sub.lastRenewalReminderDay))
+      .pop();
+    if (due === undefined) return;
+    await prisma.subscription.update({ where: { id: sub.id }, data: { lastRenewalReminderDay: due } });
+    await sendTrialEmail(sub.therapistId, { kind: "renewal_due", daysLeft: left });
+    summary.renewalReminders++;
   });
 
   return summary;

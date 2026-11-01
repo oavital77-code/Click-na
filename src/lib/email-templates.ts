@@ -334,7 +334,8 @@ export type TrialEmailInput = Localized & {
     | { kind: "reminder"; daysLeft: number }
     | { kind: "ended"; graceDays: number }
     | { kind: "locked" }
-    | { kind: "renewal_unconfirmed"; graceDays: number };
+    | { kind: "renewal_unconfirmed"; graceDays: number }
+    | { kind: "renewal_due"; daysLeft: number };
   /** The monthly price, already formatted for the locale. Null when none is configured. */
   price: string | null;
   billingUrl: string;
@@ -348,7 +349,7 @@ export type TrialEmailInput = Localized & {
 export function trialEmail(input: TrialEmailInput) {
   const m = getMessages(input.locale).messages;
   const t = m.trial;
-  const { subject, lead, note } = (() => {
+  const { subject, lead, note, cta = t.cta } = ((): { subject: string; lead: string; note: string; cta?: string } => {
     switch (input.stage.kind) {
       case "reminder":
         return input.stage.daysLeft <= 0
@@ -364,6 +365,13 @@ export function trialEmail(input: TrialEmailInput) {
         return { subject: t.lockedSubject, lead: t.lockedLead, note: t.lockedNote };
       case "renewal_unconfirmed":
         return { subject: t.unconfirmedSubject, lead: t.unconfirmedLead(input.stage.graceDays), note: t.unconfirmedNote };
+      case "renewal_due":
+        return {
+          subject: t.renewalDueSubject(input.stage.daysLeft),
+          lead: t.renewalDueLead(input.stage.daysLeft),
+          note: input.price ? t.renewalDueNote(input.price) : "",
+          cta: t.renewalDueCta,
+        };
     }
   })();
 
@@ -375,7 +383,7 @@ export function trialEmail(input: TrialEmailInput) {
       ${note ? `<p style="font-size:14px;line-height:1.6;color:#6d6154;">${esc(note)}</p>` : ""}
       <p style="margin:24px 0;">
         <a href="${esc(input.billingUrl)}" style="background:#c67139;color:#f9f4ed;padding:12px 22px;border-radius:999px;text-decoration:none;font-size:15px;display:inline-block;">
-          ${esc(t.cta)}
+          ${esc(cta)}
         </a>
       </p>
     `),

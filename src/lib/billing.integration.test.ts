@@ -127,6 +127,23 @@ describe("applyVerifiedTransaction", () => {
     expect(same.currentPeriodEnd).toEqual(sub.currentPeriodEnd);
   });
 
+  it("an early payment adds the next month after the current one, not from today", async () => {
+    payplusEnv();
+    const id = await therapist("early");
+    const end = new Date("2026-10-10T08:00:00Z");
+    await prisma.subscription.update({
+      where: { therapistId: id },
+      data: { status: "active", tier: "plus", currentPeriodStart: new Date("2026-09-10T08:00:00Z"), currentPeriodEnd: end, lastRenewalReminderDay: 3 },
+    });
+
+    const r = await applyVerifiedTransaction(tx({ tokenUid: null }), {}, new Date("2026-10-07T12:00:00Z"), own(id));
+    expect(r).toEqual({ applied: true, outcome: "activated" });
+    const sub = await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } });
+    expect(sub.currentPeriodStart).toEqual(end);
+    expect(sub.currentPeriodEnd).toEqual(new Date("2026-11-10T08:00:00Z"));
+    expect(sub.lastRenewalReminderDay).toBeNull();
+  });
+
   it("finds the account by the pending page request when more_info is missing", async () => {
     payplusEnv();
     const id = await therapist("bypage");

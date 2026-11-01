@@ -274,6 +274,9 @@ model Subscription {
   graceEndsAt           DateTime?          @map("grace_ends_at") @db.Timestamptz
   // Which trial countdown mail went out last (23, 28 or 30), so each is sent once.
   lastTrialReminderDay  Int?               @map("last_trial_reminder_day")
+  // Which "pay for next month" mail went out last (3 or 1 days before the
+  // period ends) for a card we cannot charge ourselves. Cleared by each payment.
+  lastRenewalReminderDay Int?              @map("last_renewal_reminder_day")
   billingCycle          BillingCycle       @default(monthly) @map("billing_cycle")
   currentPeriodStart    DateTime?          @map("current_period_start") @db.Timestamptz
   currentPeriodEnd      DateTime?          @map("current_period_end") @db.Timestamptz

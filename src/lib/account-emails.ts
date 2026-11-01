@@ -163,7 +163,7 @@ export async function sendTrialEmail(therapistId: string, stage: TrialEmailInput
 
   await record({
     therapistId,
-    type: stage.kind === "renewal_unconfirmed" ? "subscription" : "trial_reminder",
+    type: stage.kind === "renewal_unconfirmed" || stage.kind === "renewal_due" ? "subscription" : "trial_reminder",
     recipient: therapist.email,
     subject,
     html,

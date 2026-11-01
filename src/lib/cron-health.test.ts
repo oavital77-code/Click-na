@@ -3,7 +3,7 @@ import { cronProblems } from "@/lib/cron-health";
 
 const quiet = {
   reminders: { sent: 12, failed: 0 },
-  billing: { reminders: 2, ended: 0, locked: 0, unconfirmed: 0, renewals: { charged: 3, declined: 0, errors: 0, noToken: 0 } },
+  billing: { reminders: 2, ended: 0, locked: 0, unconfirmed: 0, renewalReminders: 0, renewals: { charged: 3, declined: 0, errors: 0, noToken: 0 } },
 };
 
 describe("cronProblems", () => {

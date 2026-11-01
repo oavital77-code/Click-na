@@ -19,6 +19,13 @@ export const GRACE_DAYS = 7;
 export const RENEWAL_CONFIRMATION_DAYS = 2;
 /** Trial days on which a countdown email goes out. */
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
+/**
+ * Days before a paid month ends on which a therapist whose card we cannot
+ * charge ourselves (no stored token) is reminded to pay for the next one.
+ */
+export const RENEWAL_REMINDER_DAYS = [3, 1] as const;
+/** How early the next month can be paid for: it then starts when the current one ends. */
+export const EARLY_RENEWAL_DAYS = 7;
 
 /**
  * Where a therapist opens their own PayPlus account: Cleana+'s referral link,
