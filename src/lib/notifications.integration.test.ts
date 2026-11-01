@@ -210,6 +210,35 @@ describe("notifications (against a live database)", () => {
       expect(reminder?.status).toBe("sent");
     });
 
+    it("sends each reminder once when two runs overlap", async () => {
+      therapistId = await makeTherapist();
+      const bookings = [await makeBookingFor(therapistId, 48), await makeBookingFor(therapistId, 50)];
+      for (const booking of bookings) {
+        await prisma.notification.create({
+          data: {
+            therapistId,
+            bookingId: booking.id,
+            type: "reminder",
+            channel: "email",
+            recipient: booking.clientEmailSnapshot!,
+            scheduledFor: new Date(Date.now() - 60 * 1000),
+            status: "pending",
+          },
+        });
+      }
+      // Slow sends, so both runs are in flight over the same rows.
+      sendEmailMock.mockImplementation(async () => {
+        await new Promise((r) => setTimeout(r, 50));
+        return { ok: true };
+      });
+
+      await Promise.all([sendDueReminders(), sendDueReminders()]);
+
+      const recipients = bookings.map((b) => b.clientEmailSnapshot);
+      const calls = sendEmailMock.mock.calls.filter(([arg]) => recipients.includes((arg as { to: string }).to));
+      expect(calls).toHaveLength(2);
+    });
+
     it("leaves reminders that fall due after the next run untouched", async () => {
       therapistId = await makeTherapist();
       const booking = await makeBookingFor(therapistId, 72);

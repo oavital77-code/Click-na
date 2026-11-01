@@ -431,6 +431,8 @@ const REMINDER_ATTEMPT_LIMIT = 3;
  * rate-limits per second.
  */
 export const REMINDER_BATCH = 150;
+/** A claim older than this belongs to a run that died mid-send; the row is free again. */
+const CLAIM_TTL_MS = 10 * 60 * 1000;
 const REMINDER_CONCURRENCY = 3;
 
 /**
@@ -474,6 +476,7 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
         // the row stays failed and simply stops being picked up.
         { status: "failed", attempts: { lt: REMINDER_ATTEMPT_LIMIT } },
       ],
+      AND: [{ OR: [{ claimedAt: null }, { claimedAt: { lt: new Date(now.getTime() - CLAIM_TTL_MS) } }] }],
     },
     include: { booking: { include: { session: { include: { location: true } }, therapist: true } } },
   });
@@ -481,6 +484,20 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
   const summary: SendDueRemindersSummary = { sent: 0, failed: 0 };
 
   await mapWithConcurrency(due, REMINDER_CONCURRENCY, async (notification) => {
+    // Claim the row first: two overlapping runs (a retried cron, a manual
+    // call) both read it as due, and only the one that wins this conditional
+    // update sends it.
+    const claimed = await prisma.notification.updateMany({
+      where: {
+        id: notification.id,
+        status: notification.status,
+        attempts: notification.attempts,
+        OR: [{ claimedAt: null }, { claimedAt: { lt: new Date(Date.now() - CLAIM_TTL_MS) } }],
+      },
+      data: { claimedAt: new Date() },
+    });
+    if (claimed.count === 0) return;
+
     const { booking } = notification;
     if (!booking || booking.status === "canceled_by_client" || booking.status === "canceled_by_therapist") {
       await prisma.notification.update({ where: { id: notification.id }, data: { status: "canceled" } });
@@ -526,8 +543,8 @@ export async function sendDueReminders(now = new Date()): Promise<SendDueReminde
     await prisma.notification.update({
       where: { id: notification.id },
       data: result.ok
-        ? { status: "sent", sentAt: new Date(), attempts: { increment: 1 } }
-        : { status: "failed", errorMessage: result.error, attempts: { increment: 1 } },
+        ? { status: "sent", sentAt: new Date(), attempts: { increment: 1 }, claimedAt: null }
+        : { status: "failed", errorMessage: result.error, attempts: { increment: 1 }, claimedAt: null },
     });
     if (result.ok) summary.sent++;
     else summary.failed++;
