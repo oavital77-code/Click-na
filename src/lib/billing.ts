@@ -190,6 +190,12 @@ export async function applyVerifiedTransaction(
       recorded?.status === "succeeded" &&
       recorded.periodEnd !== null &&
       recorded.therapistId === subscription.therapistId &&
+      // Never applied: the subscription's current period did not start from
+      // it. An old payment that was applied and has since run out must not
+      // reopen a lapsed account when its callback is replayed.
+      recorded.periodStart !== null &&
+      (subscription.currentPeriodStart === null || subscription.currentPeriodStart < recorded.periodStart) &&
+      recorded.periodEnd > now &&
       !(subscription.status === "active" && subscription.currentPeriodEnd && subscription.currentPeriodEnd >= recorded.periodEnd);
     if (!activationPending || !recorded?.periodStart || !recorded.periodEnd) return { applied: false, reason: "duplicate" };
     await activate(subscription, verified, { start: recorded.periodStart, end: recorded.periodEnd }, deps);

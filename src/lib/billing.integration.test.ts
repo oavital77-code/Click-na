@@ -144,6 +144,19 @@ describe("applyVerifiedTransaction", () => {
     expect(sub.lastRenewalReminderDay).toBeNull();
   });
 
+  it("a replayed old payment does not reopen an account that has since lapsed", async () => {
+    payplusEnv();
+    const id = await therapist("replay");
+    const old = tx({});
+    await applyVerifiedTransaction(old, {}, new Date("2026-08-01T08:00:00Z"), own(id));
+    // A month later it ran out, and the account locked.
+    await prisma.subscription.update({ where: { therapistId: id }, data: { status: "unpaid", graceEndsAt: new Date("2026-09-08T08:00:00Z") } });
+
+    const replay = await applyVerifiedTransaction(old, {}, new Date("2026-09-20T08:00:00Z"), own(id));
+    expect(replay).toEqual({ applied: false, reason: "duplicate" });
+    expect((await prisma.subscription.findUniqueOrThrow({ where: { therapistId: id } })).status).toBe("unpaid");
+  });
+
   it("finds the account by the pending page request when more_info is missing", async () => {
     payplusEnv();
     const id = await therapist("bypage");
