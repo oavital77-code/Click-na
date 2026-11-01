@@ -533,3 +533,46 @@ export function dailyDigestEmail(input: DailyDigestEmailInput) {
     `),
   };
 }
+
+export type LoginAlertEmailInput = Localized & {
+  timezone: string;
+  at: Date;
+  name: string | null;
+  email: string | null;
+  /** False when no practice belongs to this Clerk user. */
+  known: boolean;
+  device: string | null;
+  browser: string | null;
+  place: string | null;
+  ip: string | null;
+  /** Signed in by someone acting as the user (Clerk impersonation). */
+  impersonated: boolean;
+};
+
+/** Internal — someone signed in to the dashboard. */
+export function loginAlertEmail(input: LoginAlertEmailInput) {
+  const m = getMessages(input.locale).messages.loginAlert;
+  const who = input.name ?? input.email ?? m.unknown;
+  const row = (label: string, value: string | null, ltr = false) =>
+    value
+      ? `<tr><td style="padding:4px 0;color:#6d6154;white-space:nowrap;vertical-align:top;">${label}</td><td style="padding:4px 12px;"${ltr ? ' dir="ltr"' : ""}>${esc(value)}</td></tr>`
+      : "";
+  return {
+    subject: m.subject(who),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${m.title}</h1>
+      ${input.impersonated ? `<p style="background:#fdecea;border-radius:8px;padding:10px 14px;color:#a1281a;margin:0 0 12px;">${m.impersonated}</p>` : ""}
+      ${input.known ? "" : `<p style="background:#fdecea;border-radius:8px;padding:10px 14px;color:#a1281a;margin:0 0 12px;">${m.noPractice}</p>`}
+      <table style="font-size:15px;border-collapse:collapse;">
+        ${row(m.who, input.name)}
+        ${row(m.email, input.email, true)}
+        ${row(m.when, dateTime(input.at, input.timezone, input.locale))}
+        ${row(m.device, input.device, true)}
+        ${row(m.browser, input.browser, true)}
+        ${row(m.place, input.place)}
+        ${row(m.ip, input.ip, true)}
+      </table>
+      <p style="font-size:13px;color:#6d6154;margin:16px 0 0;">${m.note}</p>
+    `),
+  };
+}

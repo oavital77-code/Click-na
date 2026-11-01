@@ -2,6 +2,7 @@ import { after, type NextRequest } from "next/server";
 import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { handleUserCreated, handleUserDeleted } from "@/lib/webhooks";
 import { sendSignupAlert, sendWelcomeEmail } from "@/lib/account-emails";
+import { sendLoginAlert } from "@/lib/login-alerts";
 
 export async function POST(request: NextRequest) {
   let event;
@@ -23,6 +24,19 @@ export async function POST(request: NextRequest) {
           await sendSignupAlert(therapistId);
         });
       }
+      break;
+    }
+    case "session.created": {
+      // After the response, like the welcome above: a slow mail provider must
+      // not make Clerk retry the delivery.
+      const session = event.data;
+      after(async () => {
+        try {
+          await sendLoginAlert(session);
+        } catch (error) {
+          console.error("[webhooks] login alert failed", error);
+        }
+      });
       break;
     }
     case "user.deleted":
