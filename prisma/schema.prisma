@@ -423,6 +423,7 @@ model Session {
   @@index([therapistId, startsAt])
   @@index([therapistId, status, startsAt])
   @@index([locationId])
+  @@index([generatedFromRuleId])
   @@map("sessions")
 }
 
@@ -489,6 +490,7 @@ model Booking {
   clientPayments ClientPayment[]
 
   @@index([therapistId, status])
+  @@index([clientId])
   @@map("bookings")
 }
 
