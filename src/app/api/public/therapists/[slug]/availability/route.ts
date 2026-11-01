@@ -70,6 +70,7 @@ export async function GET(
     where: {
       therapistId: therapist.id,
       ...(locationId ? { locationId } : {}),
+      location: { archivedAt: null },
       startsAt: { gte: fromUtc, lte: toUtc, gt: earliest },
       OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
     },

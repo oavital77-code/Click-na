@@ -271,6 +271,18 @@ describe("bookings (against a live database)", () => {
       expect(await deleteSlot(therapistId, third.id)).not.toBeNull();
     });
 
+    it("does not reopen the hour at a place that was archived meanwhile", async () => {
+      const { session, booking } = await makeBooking(48);
+      await prisma.location.update({ where: { id: session.locationId }, data: { archivedAt: new Date() } });
+      try {
+        await cancelBookingByTherapist(therapistId, booking.id);
+        expect(await prisma.session.count({ where: { therapistId, startsAt: session.startsAt, status: "open" } })).toBe(0);
+        expect((await prisma.session.findUniqueOrThrow({ where: { id: session.id } })).status).toBe("canceled");
+      } finally {
+        await prisma.location.update({ where: { id: session.locationId }, data: { archivedAt: null } });
+      }
+    });
+
     it("rejects canceling twice", async () => {
       const { booking } = await makeBooking(48);
       await cancelBookingByTherapist(therapistId, booking.id);

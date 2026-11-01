@@ -46,6 +46,8 @@ export async function holdSession(sessionId: string): Promise<HoldSessionResult>
  */
 function claimableBy(holdToken: string | null | undefined, now: Date): Prisma.SessionWhereInput {
   return {
+    // A slot at an archived place is no longer offered, whatever its status.
+    location: { archivedAt: null },
     OR: [
       { status: "open" },
       { status: "held", holdExpiresAt: { lt: now } },
@@ -168,7 +170,15 @@ export type CancelResult =
  * booking per session) nor deleted (the booking points at it).
  */
 async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
-  const old = await tx.session.update({ where: { id: sessionId }, data: { status: "canceled", holdToken: null, holdExpiresAt: null } });
+  const old = await tx.session.update({
+    where: { id: sessionId },
+    data: { status: "canceled", holdToken: null, holdExpiresAt: null },
+    include: { location: { select: { archivedAt: true } }, generatedFromRule: { select: { isActive: true } } },
+  });
+  // The hour comes back only where the therapist still offers it: not at a
+  // place since archived, not from a weekly rule since switched off.
+  if (old.location.archivedAt !== null) return;
+  if (old.generatedFromRule && !old.generatedFromRule.isActive) return;
   await tx.session.create({
     data: {
       therapistId: old.therapistId,
