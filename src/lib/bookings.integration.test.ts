@@ -141,6 +141,17 @@ describe("bookings (against a live database)", () => {
     }
   });
 
+  it("a stranger booking with a client's email cannot rename them or change their phone", async () => {
+    const first = await createBooking((await makeSession(48)).id, { fullName: "דנה לוי", email: "victim@example.com", phone: "0501234567" });
+    expect(first.ok).toBe(true);
+    const second = await createBooking((await makeSession(72)).id, { fullName: "מישהו אחר", email: "victim@example.com", phone: "0529999999" });
+    expect(second.ok).toBe(true);
+    const client = await prisma.client.findUniqueOrThrow({ where: { therapistId_email: { therapistId, email: "victim@example.com" } } });
+    expect(client).toMatchObject({ fullName: "דנה לוי", phone: "0501234567" });
+    // The booking itself keeps what was typed.
+    if (second.ok) expect(second.booking.clientNameSnapshot).toBe("מישהו אחר");
+  });
+
   describe("confirmBookingByTherapist", () => {
     async function pendingBooking() {
       await prisma.therapistSettings.update({ where: { therapistId }, data: { autoConfirm: false } });

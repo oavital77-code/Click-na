@@ -147,13 +147,16 @@ export async function createBooking(
           email: input.email,
           phone,
         },
-        // A returning client who left the phone blank keeps the one we have.
-        update: { fullName: input.fullName, ...(phone ? { phone } : {}) },
+        // Nothing on the record changes from here: this form needs no login,
+        // so whoever knows a client's email could otherwise rename them or
+        // swap their phone. The booking keeps what was typed (its snapshot).
+        update: {},
       });
 
       await tx.client.update({
         where: { id: client.id },
-        data: { totalBookings: { increment: 1 } },
+        // Only a missing phone is filled in, never an existing one replaced.
+        data: { totalBookings: { increment: 1 }, ...(phone && !client.phone ? { phone } : {}) },
       });
 
       return tx.booking.create({
