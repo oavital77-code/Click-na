@@ -71,11 +71,15 @@ function headersFor(cfg: PayPlusConfig): Record<string, string> {
   };
 }
 
+const PAYPLUS_TIMEOUT_MS = 15_000;
+
 async function post(cfg: PayPlusConfig, path: string, body: unknown, fetchImpl: FetchLike) {
   const res = await fetchImpl(`${cfg.baseUrl}/${path}`, {
     method: "POST",
     headers: headersFor(cfg),
     body: JSON.stringify(body),
+    // Never hang the daily job (a minute in all) on one slow call.
+    signal: AbortSignal.timeout(PAYPLUS_TIMEOUT_MS),
   });
   const text = await res.text();
   let json: unknown = null;
