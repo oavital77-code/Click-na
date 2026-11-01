@@ -34,7 +34,7 @@ export default async function AvailabilityPage() {
   const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const sessions = await prisma.session.findMany({
-    where: { therapistId: therapist.id, startsAt: { gte: from, lt: to } },
+    where: { therapistId: therapist.id, startsAt: { gte: from, lt: to }, status: { not: "canceled" } },
     include: { booking: true, location: { select: { id: true, name: true, color: true } } },
     orderBy: { startsAt: "asc" },
   });

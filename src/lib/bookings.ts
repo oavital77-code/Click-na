@@ -160,6 +160,27 @@ export type CancelResult =
   | { ok: true; bookingId: string }
   | { ok: false; error: "not_found" | "already_canceled" | "CANCELLATION_WINDOW_PASSED" };
 
+/**
+ * A cancelled booking's hour, free again. The booking keeps its own session
+ * row, marked canceled, as the record of what was booked; the hour comes back
+ * as a fresh open session. Reopening the same row instead left the canceled
+ * booking attached to it, so the hour could be neither booked again (one
+ * booking per session) nor deleted (the booking points at it).
+ */
+async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
+  const old = await tx.session.update({ where: { id: sessionId }, data: { status: "canceled", holdToken: null, holdExpiresAt: null } });
+  await tx.session.create({
+    data: {
+      therapistId: old.therapistId,
+      startsAt: old.startsAt,
+      endsAt: old.endsAt,
+      locationId: old.locationId,
+      generatedFromRuleId: old.generatedFromRuleId,
+      status: "open",
+    },
+  });
+}
+
 function isAlreadyCanceled(status: string) {
   return status === "canceled_by_client" || status === "canceled_by_therapist";
 }
@@ -205,13 +226,13 @@ export async function cancelBookingByTherapist(
     return { ok: false, error: "already_canceled" };
   }
 
-  await prisma.$transaction([
-    prisma.booking.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.booking.update({
       where: { id: bookingId },
       data: { status: "canceled_by_therapist", canceledAt: new Date(), cancellationReason: reason || null },
-    }),
-    prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
-  ]);
+    });
+    await releaseSlot(tx, booking.sessionId);
+  });
 
   return { ok: true, bookingId: booking.id };
 }
@@ -235,13 +256,13 @@ export async function cancelBookingByClient(manageToken: string): Promise<Cancel
     return { ok: false, error: "CANCELLATION_WINDOW_PASSED" };
   }
 
-  await prisma.$transaction([
-    prisma.booking.update({
+  await prisma.$transaction(async (tx) => {
+    await tx.booking.update({
       where: { id: booking.id },
       data: { status: "canceled_by_client", canceledAt: new Date() },
-    }),
-    prisma.session.update({ where: { id: booking.sessionId }, data: { status: "open" } }),
-  ]);
+    });
+    await releaseSlot(tx, booking.sessionId);
+  });
 
   return { ok: true, bookingId: booking.id };
 }

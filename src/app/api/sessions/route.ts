@@ -25,6 +25,8 @@ export async function GET(request: NextRequest) {
     where: {
       therapistId: therapist.id,
       startsAt: { gte: new Date(parsed.data.from), lt: new Date(parsed.data.to) },
+      // A canceled session is a cancelled booking's record, not a slot.
+      status: { not: "canceled" },
     },
     include: { booking: true, location: { select: { id: true, name: true, color: true } } },
     orderBy: { startsAt: "asc" },

@@ -1,5 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/prisma";
+import { deleteSlot } from "@/lib/reset";
 import { ensureDefaultLocation } from "@/lib/locations";
 import {
   holdSession,
@@ -244,8 +245,30 @@ describe("bookings (against a live database)", () => {
       expect(updatedBooking.cancellationReason).toBe("לא מתאים");
       expect(updatedBooking.canceledAt).not.toBeNull();
 
+      // The booking keeps its session as the record; the hour comes back as a fresh open slot.
       const updatedSession = await prisma.session.findUniqueOrThrow({ where: { id: session.id } });
-      expect(updatedSession.status).toBe("open");
+      expect(updatedSession.status).toBe("canceled");
+      const reopened = await prisma.session.findFirstOrThrow({
+        where: { therapistId, startsAt: session.startsAt, status: "open" },
+        include: { booking: true },
+      });
+      expect(reopened.id).not.toBe(session.id);
+      expect(reopened.booking).toBeNull();
+      expect(reopened.locationId).toBe(session.locationId);
+    });
+
+    it("the released hour can be booked again, and deleted", async () => {
+      const { session, booking } = await makeBooking(48);
+      await cancelBookingByTherapist(therapistId, booking.id);
+      const reopened = await prisma.session.findFirstOrThrow({ where: { therapistId, startsAt: session.startsAt, status: "open" } });
+
+      const again = await createBooking(reopened.id, { fullName: "שני", email: `again-${reopened.id}@example.com`, phone: "0500000011" });
+      expect(again.ok).toBe(true);
+      if (!again.ok) return;
+      await cancelBookingByTherapist(therapistId, again.booking.id);
+
+      const third = await prisma.session.findFirstOrThrow({ where: { therapistId, startsAt: session.startsAt, status: "open" } });
+      expect(await deleteSlot(therapistId, third.id)).not.toBeNull();
     });
 
     it("rejects canceling twice", async () => {
@@ -277,7 +300,8 @@ describe("bookings (against a live database)", () => {
       expect(updatedBooking.status).toBe("canceled_by_client");
 
       const updatedSession = await prisma.session.findUniqueOrThrow({ where: { id: session.id } });
-      expect(updatedSession.status).toBe("open");
+      expect(updatedSession.status).toBe("canceled");
+      expect(await prisma.session.count({ where: { therapistId, startsAt: session.startsAt, status: "open" } })).toBe(1);
     });
 
     it("rejects canceling inside the cancellation policy window", async () => {

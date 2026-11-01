@@ -41,7 +41,7 @@ export default async function DashboardPage() {
   const [weekSessions, todayBookedCount, weekBookingsCount, openSlotsCount, newClientsCount, locations] =
     await Promise.all([
       prisma.session.findMany({
-        where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd } },
+        where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd }, status: { not: "canceled" } },
         include: { booking: true, location: { select: { id: true, name: true, color: true } } },
         orderBy: { startsAt: "asc" },
       }),
