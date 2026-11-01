@@ -5,6 +5,11 @@ import { ManageBooking } from "./manage-booking";
 import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 
+/**
+ * The URL carries the booking's private token: never indexed, never followed.
+ */
+export const metadata = { robots: { index: false, follow: false } };
+
 function isWithinCancellationWindow(startsAt: Date, cancellationPolicyHours: number) {
   const hoursUntilSession = (startsAt.getTime() - Date.now()) / (60 * 60 * 1000);
   return hoursUntilSession < cancellationPolicyHours;

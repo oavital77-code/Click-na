@@ -31,7 +31,8 @@ export default async function AvailabilityPage() {
   const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
   const weekStart = addDaysUtc(todayStr, -dayOfWeek);
   const from = zonedDateTimeToUtc(weekStart, "00:00", therapist.timezone);
-  const to = new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
+  // Seven calendar days, not 168 hours: a clock-change week differs by one.
+  const to = zonedDateTimeToUtc(addDaysUtc(weekStart, 7), "00:00", therapist.timezone);
 
   const sessions = await prisma.session.findMany({
     where: { therapistId: therapist.id, startsAt: { gte: from, lt: to }, status: { not: "canceled" } },

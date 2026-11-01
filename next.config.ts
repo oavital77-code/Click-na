@@ -42,6 +42,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // No "X-Powered-By: Next.js": it tells a scanner what to try, and nobody else.
+  poweredByHeader: false,
+
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

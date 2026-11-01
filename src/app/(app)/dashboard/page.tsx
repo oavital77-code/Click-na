@@ -44,13 +44,14 @@ export default async function DashboardPage() {
   const now = new Date();
   const todayStr = formatInTimeZone(now, tz, "yyyy-MM-dd");
   const todayStart = zonedDateTimeToUtc(todayStr, "00:00", tz);
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  // Calendar days, not 24-hour spans: on a clock-change day they differ.
+  const todayEnd = zonedDateTimeToUtc(addDaysUtc(todayStr, 1), "00:00", tz);
 
   // Calendar week (Sunday–Saturday) containing today, for the schedule widget's initial load.
   const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
   const weekStartStr = addDaysUtc(todayStr, -dayOfWeek);
   const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", tz);
-  const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const weekEnd = zonedDateTimeToUtc(addDaysUtc(weekStartStr, 7), "00:00", tz);
 
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
   const [weekSessions, nextSession, unpaid, locations] = await Promise.all([
