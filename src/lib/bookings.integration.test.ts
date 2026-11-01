@@ -283,6 +283,17 @@ describe("bookings (against a live database)", () => {
       }
     });
 
+    it("a double-clicked cancel cancels once and answers the second click calmly", async () => {
+      const { session, booking } = await makeBooking(48);
+      const results = await Promise.all([
+        cancelBookingByTherapist(therapistId, booking.id),
+        cancelBookingByTherapist(therapistId, booking.id),
+      ]);
+      expect(results.filter((r) => r.ok)).toHaveLength(1);
+      expect(results.filter((r) => !r.ok && r.error === "already_canceled")).toHaveLength(1);
+      expect(await prisma.session.count({ where: { therapistId, startsAt: session.startsAt, status: "open" } })).toBe(1);
+    });
+
     it("rejects canceling twice", async () => {
       const { booking } = await makeBooking(48);
       await cancelBookingByTherapist(therapistId, booking.id);

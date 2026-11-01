@@ -7,6 +7,8 @@ import { accessState, acceptsNewBookings } from "@/lib/access";
 const HOLD_MINUTES = 10;
 
 class SlotUnavailableError extends Error {}
+/** The booking was cancelled or moved by another request while this one ran. */
+class BookingChangedError extends Error {}
 
 export type HoldSessionResult =
   | { ok: true; holdExpiresAt: Date; holdToken: string }
@@ -191,6 +193,20 @@ async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
   });
 }
 
+/**
+ * Locks a live booking for the rest of the transaction and returns its
+ * current session, or null when it is already cancelled. Everything that
+ * moves or cancels a booking goes through this, so a cancel and a reschedule
+ * (or two cancels from a double click) take turns instead of interleaving.
+ */
+async function lockLiveBooking(tx: Prisma.TransactionClient, bookingId: string): Promise<string | null> {
+  const rows = await tx.$queryRaw<{ session_id: string }[]>`
+    SELECT session_id FROM bookings
+    WHERE id = ${bookingId}::uuid AND status NOT IN ('canceled_by_client', 'canceled_by_therapist')
+    FOR UPDATE`;
+  return rows[0]?.session_id ?? null;
+}
+
 function isAlreadyCanceled(status: string) {
   return status === "canceled_by_client" || status === "canceled_by_therapist";
 }
@@ -236,13 +252,17 @@ export async function cancelBookingByTherapist(
     return { ok: false, error: "already_canceled" };
   }
 
-  await prisma.$transaction(async (tx) => {
+  const done = await prisma.$transaction(async (tx) => {
+    const sessionId = await lockLiveBooking(tx, bookingId);
+    if (!sessionId) return false;
     await tx.booking.update({
       where: { id: bookingId },
       data: { status: "canceled_by_therapist", canceledAt: new Date(), cancellationReason: reason || null },
     });
-    await releaseSlot(tx, booking.sessionId);
+    await releaseSlot(tx, sessionId);
+    return true;
   });
+  if (!done) return { ok: false, error: "already_canceled" };
 
   return { ok: true, bookingId: booking.id };
 }
@@ -266,13 +286,17 @@ export async function cancelBookingByClient(manageToken: string): Promise<Cancel
     return { ok: false, error: "CANCELLATION_WINDOW_PASSED" };
   }
 
-  await prisma.$transaction(async (tx) => {
+  const done = await prisma.$transaction(async (tx) => {
+    const sessionId = await lockLiveBooking(tx, booking.id);
+    if (!sessionId) return false;
     await tx.booking.update({
       where: { id: booking.id },
       data: { status: "canceled_by_client", canceledAt: new Date() },
     });
-    await releaseSlot(tx, booking.sessionId);
+    await releaseSlot(tx, sessionId);
+    return true;
   });
+  if (!done) return { ok: false, error: "already_canceled" };
 
   return { ok: true, bookingId: booking.id };
 }
@@ -328,6 +352,9 @@ export async function rescheduleBookingByClient(
 
   try {
     await prisma.$transaction(async (tx) => {
+      // Cancelled meanwhile, or already moved by another request: stop here.
+      const currentSessionId = await lockLiveBooking(tx, booking.id);
+      if (currentSessionId !== booking.sessionId) throw new BookingChangedError();
       const claimed = await tx.session.updateMany({
         where: { id: newSessionId, ...claimableBy(null, new Date()) },
         data: { status: "booked", holdToken: null },
@@ -340,6 +367,7 @@ export async function rescheduleBookingByClient(
       await tx.booking.update({ where: { id: booking.id }, data: { sessionId: newSessionId } });
     });
   } catch (error) {
+    if (error instanceof BookingChangedError) return { ok: false, error: "already_canceled" };
     if (error instanceof SlotUnavailableError || isExclusionViolation(error)) {
       return { ok: false, error: "SLOT_ALREADY_BOOKED" };
     }
