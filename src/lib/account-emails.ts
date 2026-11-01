@@ -55,8 +55,6 @@ async function record(input: {
   return result;
 }
 
-/** The same logged send, for account mail written elsewhere (payment-applications.ts). */
-export const recordAccountEmail = record;
 
 /** Sent once, when the account first exists but before it can take bookings. */
 export async function sendWelcomeEmail(therapistId: string) {

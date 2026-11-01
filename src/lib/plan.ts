@@ -21,9 +21,9 @@ export const RENEWAL_CONFIRMATION_DAYS = 2;
 export const TRIAL_REMINDER_DAYS = [23, 28, 30] as const;
 
 /**
- * Where a therapist opens their PayPlus account: Cleana+'s referral link, so
- * every account opened for card payments is credited to us by PayPlus. The
- * therapist pays nothing extra for it.
+ * Where a therapist opens their own PayPlus account: Cleana+'s referral link,
+ * so PayPlus credits us for accounts opened through it (disclosed in the
+ * terms, #payments). The therapist pays nothing extra for it.
  */
 export const PAYPLUS_SIGNUP_URL = "https://aff.pays.plus/cf3975e1-6a1a-4043-8745-665c8c35be81?ref=";
 

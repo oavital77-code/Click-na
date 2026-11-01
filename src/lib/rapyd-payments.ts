@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/prisma";
 import { toE164 } from "@/lib/phone";
-import { isOwner } from "@/lib/payment-applications";
 import { PAYMENT_TERMS_VERSION } from "@/lib/plan";
 import { rapydKeys, rapydMode, rapydRequest, type RapydResult } from "@/lib/rapyd";
 
@@ -11,13 +10,21 @@ import { rapydKeys, rapydMode, rapydRequest, type RapydResult } from "@/lib/rapy
  *
  * Everything here asks Rapyd and believes only Rapyd: a webhook names a
  * payment, and the payment's own record — fetched with our keys — decides.
+ *
+ * Shelved: none of it is used unless RAPYD_ENABLED is "true". Card payments
+ * currently go through therapists' own PayPlus accounts.
  */
 
 type Env = Record<string, string | undefined>;
 
+/** The one switch for everything Rapyd. Off unless set, whatever keys exist. */
+export function rapydEnabled(env: Env = process.env): boolean {
+  return env.RAPYD_ENABLED?.trim().toLowerCase() === "true" && rapydKeys(env) !== null;
+}
+
 /** The wallet a client's payment goes to, when this therapist has a usable one. */
 export async function activeRapydWallet(therapistId: string, env: Env = process.env) {
-  if (!rapydKeys(env)) return null;
+  if (!rapydEnabled(env)) return null;
   const wallet = await prisma.rapydWallet.findUnique({ where: { therapistId } });
   if (!wallet || !wallet.enabled || wallet.mode !== rapydMode(env)) return null;
   return wallet;
@@ -174,14 +181,12 @@ export async function fetchRapydPayment(
 }
 
 /**
- * Whether this therapist is offered card payments through Rapyd. Only the
- * owner while it is being tried; everyone once RAPYD_SIGNUP_OPEN is "true" —
- * a separate switch from the environment, so live keys alone never open it
- * before identity checks and payouts are in place.
+ * Whether therapists are offered card payments through Rapyd: Rapyd switched
+ * on, and signup opened with RAPYD_SIGNUP_OPEN — a separate switch, so keys
+ * alone never open it before identity checks and payouts are in place.
  */
-export function rapydSignupOpen(email: string | null | undefined, env: Env = process.env): boolean {
-  if (!rapydKeys(env)) return false;
-  return env.RAPYD_SIGNUP_OPEN?.trim().toLowerCase() === "true" || isOwner(email, env);
+export function rapydSignupOpen(_email: string | null | undefined, env: Env = process.env): boolean {
+  return rapydEnabled(env) && env.RAPYD_SIGNUP_OPEN?.trim().toLowerCase() === "true";
 }
 
 export type RapydPaymentsState = {

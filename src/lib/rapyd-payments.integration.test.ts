@@ -42,6 +42,7 @@ describe("Rapyd payments (against a live database)", () => {
   beforeEach(async () => {
     vi.stubEnv("RAPYD_ACCESS_KEY", "ak");
     vi.stubEnv("RAPYD_SECRET_KEY", "sk");
+    vi.stubEnv("RAPYD_ENABLED", "true");
     const startsAt = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const session = await prisma.session.create({
       data: { therapistId, locationId: (await ensureDefaultLocation(therapistId)).id, startsAt, endsAt: new Date(startsAt.getTime() + 50 * 60 * 1000), status: "booked" },
@@ -110,12 +111,15 @@ describe("Rapyd payments (against a live database)", () => {
     expect(calls[1].contact.phone_number).toBeUndefined();
   });
 
-  it("offers payments only to the owner until signup is opened", () => {
-    const env = { RAPYD_ACCESS_KEY: "ak", RAPYD_SECRET_KEY: "sk", OWNER_NOTIFICATION_EMAIL: "owner@example.com" };
-    expect(rapydSignupOpen("owner@example.com", env)).toBe(true);
-    expect(rapydSignupOpen("someone@example.com", env)).toBe(false);
-    expect(rapydSignupOpen("someone@example.com", { ...env, RAPYD_SIGNUP_OPEN: "true" })).toBe(true);
-    expect(rapydSignupOpen("owner@example.com", { OWNER_NOTIFICATION_EMAIL: "owner@example.com" })).toBe(false);
+  it("stays off without RAPYD_ENABLED, and closed to therapists until signup is opened", async () => {
+    const keys = { RAPYD_ACCESS_KEY: "ak", RAPYD_SECRET_KEY: "sk" };
+    expect(rapydSignupOpen("a@example.com", { ...keys, RAPYD_SIGNUP_OPEN: "true" })).toBe(false);
+    expect(rapydSignupOpen("a@example.com", { ...keys, RAPYD_ENABLED: "true" })).toBe(false);
+    expect(rapydSignupOpen("a@example.com", { ...keys, RAPYD_ENABLED: "true", RAPYD_SIGNUP_OPEN: "true" })).toBe(true);
+
+    await prisma.rapydWallet.create({ data: { therapistId, ewalletId: "ewallet_off", mode: "sandbox" } });
+    expect(await activeRapydWallet(therapistId, keys)).toBeNull();
+    expect(await activeRapydWallet(therapistId, { ...keys, RAPYD_ENABLED: "true" })).not.toBeNull();
   });
 
   it("switches on only with the terms accepted, records them, and does not ask again", async () => {
