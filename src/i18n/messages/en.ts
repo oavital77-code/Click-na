@@ -20,6 +20,7 @@ export const en = {
     genericError: "Something went wrong. Try again.",
     networkError: "Network error. Try again.",
     finishingSignup: "Finishing your sign-up… If this takes a while, refresh the page.",
+    accountSuspended: "This account is suspended. To ask about it, write to baclinica5@gmail.com",
     minutes: (n: number) => (n === 1 ? "1 minute" : `${n} minutes`),
     minutesShort: (n: number) => `${n} min`,
     hours: (n: number) => (n === 1 ? "1 hour" : `${n} hours`),

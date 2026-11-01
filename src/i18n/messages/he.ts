@@ -15,6 +15,7 @@ export const he: Messages = {
     genericError: "משהו השתבש. אפשר לנסות שוב.",
     networkError: "יש בעיה בחיבור לאינטרנט. אפשר לנסות שוב.",
     finishingSignup: "מסיימים את ההרשמה שלך... אם זה לוקח יותר מדי זמן, כדאי לרענן את הדף.",
+    accountSuspended: "החשבון הזה מושעה. לבירור אפשר לכתוב לנו: baclinica5@gmail.com",
     minutes: (n) => `${n} דקות`,
     minutesShort: (n) => `${n} דק׳`,
     hours: (n) => (n === 1 ? "שעה" : n === 2 ? "שעתיים" : `${n} שעות`),

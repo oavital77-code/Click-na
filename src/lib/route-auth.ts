@@ -24,6 +24,10 @@ export async function requireTherapist(options: { write?: boolean } = {}): Promi
   if (!therapist) {
     return { ok: false, response: NextResponse.json({ error: "unauthorized" }, { status: 401 }) };
   }
+  // A suspended (or deleted) practice keeps its data but not its access.
+  if (therapist.status !== "active") {
+    return { ok: false, response: NextResponse.json({ error: "account_suspended" }, { status: 403 }) };
+  }
   if (options.write) {
     const blocked = await writeBlocked(therapist.id);
     if (blocked) return { ok: false, response: blocked };
