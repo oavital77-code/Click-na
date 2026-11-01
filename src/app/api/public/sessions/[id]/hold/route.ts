@@ -4,13 +4,14 @@ import { checkRateLimit, clientIp } from "@/lib/rate-limit";
 import { tooManyRequests } from "@/lib/http";
 
 export async function POST(request: NextRequest, ctx: RouteContext<"/api/public/sessions/[id]/hold">) {
-  // A hold takes a slot off the calendar for everyone else, so an unthrottled
-  // caller can empty a therapist's week without ever completing a booking. The
-  // ceiling is loose enough that a client changing their mind never meets it.
+  // A hold takes a slot off the calendar for everyone else for ten minutes,
+  // so the ceiling is what one person could plausibly need in that time
+  // (changing their mind a few times), not more: at 30 one address could keep
+  // a small therapist's whole week held indefinitely.
   const limit = await checkRateLimit({
     scope: "hold",
     identifier: clientIp(request.headers),
-    limit: 30,
+    limit: 6,
     windowMs: 10 * 60 * 1000,
   });
   if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);

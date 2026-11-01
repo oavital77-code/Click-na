@@ -25,9 +25,29 @@ export async function holdSession(sessionId: string): Promise<HoldSessionResult>
   const holdExpiresAt = new Date(now.getTime() + HOLD_MINUTES * 60 * 1000);
   const holdToken = randomBytes(16).toString("hex");
 
+  // The same gates as booking: a hold on a slot that could never be booked
+  // only takes it off the calendar for everyone else.
+  const session = await prisma.session.findUnique({
+    where: { id: sessionId },
+    select: {
+      startsAt: true,
+      therapist: { select: { status: true, settings: { select: { minNoticeHours: true } }, subscription: true } },
+    },
+  });
+  if (!session || session.therapist.status !== "active" || !session.therapist.settings) {
+    return { ok: false, error: "SLOT_ALREADY_BOOKED" };
+  }
+  if (session.therapist.subscription && !acceptsNewBookings(accessState(session.therapist.subscription))) {
+    return { ok: false, error: "SLOT_ALREADY_BOOKED" };
+  }
+  if (session.startsAt.getTime() - now.getTime() < session.therapist.settings.minNoticeHours * 60 * 60 * 1000) {
+    return { ok: false, error: "SLOT_ALREADY_BOOKED" };
+  }
+
   const claimed = await prisma.session.updateMany({
     where: {
       id: sessionId,
+      location: { archivedAt: null },
       OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
     },
     data: { status: "held", holdExpiresAt, holdToken },

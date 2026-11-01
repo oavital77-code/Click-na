@@ -234,6 +234,20 @@ describe("bookings (against a live database)", () => {
     return { session, booking: result.booking };
   }
 
+  it("will not hold a slot that could not be booked: too soon, or at an archived place", async () => {
+    const soon = await makeSession(0.5); // minNoticeHours is 1
+    expect(await holdSession(soon.id)).toMatchObject({ ok: false });
+
+    const later = await makeSession(48);
+    await prisma.location.update({ where: { id: later.locationId }, data: { archivedAt: new Date() } });
+    try {
+      expect(await holdSession(later.id)).toMatchObject({ ok: false });
+    } finally {
+      await prisma.location.update({ where: { id: later.locationId }, data: { archivedAt: null } });
+    }
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: later.id } })).status).toBe("open");
+  });
+
   describe("cancelBookingByTherapist", () => {
     it("cancels and reopens the session", async () => {
       const { session, booking } = await makeBooking(48);
