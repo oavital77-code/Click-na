@@ -435,3 +435,101 @@ export function opsAlertEmail(input: OpsAlertEmailInput) {
     `),
   };
 }
+
+export type ErrorAlertEmailInput = Localized & {
+  at: Date;
+  timezone: string;
+  method: string;
+  /** The route pattern, never the real path. */
+  routePath: string;
+  routeType: string;
+  errorName: string;
+  message: string;
+  digest: string | null;
+  stack: string | null;
+};
+
+/** Internal — a server error, as it happened. */
+export function errorAlertEmail(input: ErrorAlertEmailInput) {
+  const m = getMessages(input.locale).messages.errorAlert;
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:4px 0;color:#6d6154;white-space:nowrap;vertical-align:top;">${label}</td><td style="padding:4px 12px;" dir="ltr">${esc(value)}</td></tr>`;
+  return {
+    subject: m.subject(input.routePath),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 8px;">${m.title}</h1>
+      <p style="font-size:14px;color:#6d6154;margin:0 0 16px;">${dateTime(input.at, input.timezone, input.locale)}</p>
+      <table style="font-size:14px;border-collapse:collapse;margin:0 0 16px;">
+        ${row(m.where, `${input.method} ${input.routePath} (${input.routeType})`)}
+        ${row(m.error, `${input.errorName}: ${input.message}`)}
+        ${input.digest ? row(m.digest, input.digest) : ""}
+      </table>
+      ${input.stack ? `<pre dir="ltr" style="font-size:12px;background:#f6f5f3;border-radius:8px;padding:12px;white-space:pre-wrap;word-break:break-all;margin:0 0 16px;">${esc(input.stack)}</pre>` : ""}
+      <p style="font-size:13px;color:#6d6154;margin:0;">${m.note}</p>
+    `),
+  };
+}
+
+export type DailyDigestEmailInput = Localized & {
+  timezone: string;
+  digest: import("@/lib/daily-digest").DailyDigest;
+};
+
+/** Internal — the operator's morning numbers, and what needs a person. */
+export function dailyDigestEmail(input: DailyDigestEmailInput) {
+  const m = getMessages(input.locale).messages.dailyDigest;
+  const d = input.digest;
+  const stat = (label: string, value: string | number) =>
+    `<tr><td style="padding:6px 0;">${label}</td><td style="padding:6px 0;text-align:end;font-weight:bold;">${esc(String(value))}</td></tr>`;
+  const person = (p: { name: string; email: string }, extra = "") =>
+    `<li><strong>${esc(p.name)}</strong> · <span style="color:#6d6154;">${esc(p.email)}</span>${extra}</li>`;
+  const section = (title: string, body: string) =>
+    `<h2 style="font-size:16px;margin:24px 0 8px;">${title}</h2>${body}`;
+  const list = (items: string[]) =>
+    `<ul style="font-size:14px;line-height:1.8;padding-inline-start:20px;margin:0;">${items.join("")}</ul>`;
+  const price = `₪${d.payments.sumIls.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
+
+  return {
+    subject: d.problems.length > 0 ? m.subjectProblems(d.problems.length) : m.subject(d.signups.length, d.bookings.created),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 8px;">${m.title}</h1>
+      <p style="font-size:14px;color:#6d6154;margin:0 0 16px;">${m.window(dateTime(d.since, input.timezone, input.locale), dateTime(d.until, input.timezone, input.locale))}</p>
+      ${
+        d.problems.length > 0
+          ? `<div style="background:#fdecea;border-radius:8px;padding:12px 16px;margin:0 0 16px;">
+               <strong style="color:#a1281a;">${m.problemsTitle}</strong>
+               ${list(d.problems.map((p) => `<li dir="ltr" style="text-align:start;">${esc(p)}</li>`))}
+             </div>`
+          : `<p style="background:#eaf3e2;border-radius:8px;padding:12px 16px;margin:0 0 16px;color:#3d5a24;">${m.allGood}</p>`
+      }
+      <table style="width:100%;font-size:15px;border-collapse:collapse;">
+        ${stat(m.signups, d.signups.length)}
+        ${stat(m.bookingsCreated, d.bookings.created)}
+        ${stat(m.bookingsCanceled, d.bookings.canceled)}
+        ${stat(m.remindersSent, d.reminders.sent)}
+        ${stat(m.failedMessages, d.failedMessages)}
+        ${stat(m.payments, `${d.payments.count} · ${price}`)}
+      </table>
+      ${section(
+        m.accountsTitle,
+        `<table style="width:100%;font-size:15px;border-collapse:collapse;">
+          ${stat(m.total, d.accounts.total)}
+          ${stat(m.trialing, d.accounts.trialing)}
+          ${stat(m.paying, d.accounts.paying)}
+          ${stat(m.grace, d.accounts.grace)}
+          ${stat(m.locked, d.accounts.locked)}
+        </table>`
+      )}
+      ${d.signups.length > 0 ? section(m.newSignupsTitle, list(d.signups.map((p) => person(p)))) : ""}
+      ${
+        d.trialsEndingSoon.length > 0
+          ? section(
+              m.trialsEndingTitle,
+              list(d.trialsEndingSoon.map((p) => person(p, ` · ${esc(day(p.endsAt, input.timezone, input.locale))}`)))
+            )
+          : ""
+      }
+      <p style="font-size:13px;color:#6d6154;margin:24px 0 0;">${m.heartbeat}</p>
+    `),
+  };
+}

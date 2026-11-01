@@ -594,6 +594,9 @@ model Notification {
   // Set by the run that is sending this reminder right now, so an overlapping
   // run skips it. A claim older than CLAIM_TTL is considered abandoned.
   claimedAt    DateTime?           @map("claimed_at") @db.Timestamptz
+  // When the row last changed — for "what failed in the last day". Null on
+  // rows older than the column.
+  updatedAt    DateTime?           @updatedAt @map("updated_at") @db.Timestamptz
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
   booking   Booking?  @relation(fields: [bookingId], references: [id])
@@ -601,6 +604,7 @@ model Notification {
   @@index([bookingId])
   @@index([therapistId, status])
   @@index([status, scheduledFor])
+  @@index([status, updatedAt])
   @@map("notifications")
 }
 

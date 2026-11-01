@@ -6,6 +6,7 @@ import { pruneClosedDaysForEveryone } from "@/lib/holiday-slots";
 import { runBillingLifecycle } from "@/lib/billing-lifecycle";
 import { cronProblems } from "@/lib/cron-health";
 import { sendOpsAlert } from "@/lib/account-emails";
+import { sendDailyDigest } from "@/lib/daily-digest";
 
 /**
  * Constant-time check of the bearer header. Both sides go through SHA-256 first
@@ -94,8 +95,12 @@ export async function GET(request: NextRequest) {
 
   // Anything a person has to act on reaches one, instead of sitting in a
   // response body nobody reads on a schedule.
+  // The morning digest carries them, and goes out on quiet days too: a
+  // morning without it means this job did not run. If the digest itself
+  // fails, the short alert is the fallback so the problems still arrive.
   const problems = [...stepProblems, ...cronProblems({ reminders: summary, billing })];
-  await step("ops alert", () => sendOpsAlert(problems), undefined);
+  const digestSent = await step("daily digest", () => sendDailyDigest(problems).then(() => true), false);
+  if (!digestSent) await step("ops alert", () => sendOpsAlert([...problems, ...stepProblems.slice(-1)]), undefined);
 
   return NextResponse.json({ ...summary, billing, prunedRateLimits, prunedHolidaySlots, problems });
 }
