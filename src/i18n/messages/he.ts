@@ -33,6 +33,7 @@ export const he: Messages = {
     messages: "הודעות",
     billing: "מנוי",
     settings: "הגדרות",
+    more: "עוד",
     signOut: "התנתקות",
     openMenu: "פתיחת התפריט",
     closeMenu: "סגירת התפריט",
@@ -128,7 +129,21 @@ export const he: Messages = {
     bookingHeadline: "כותרת בדף ההזמנה",
     bookingDescription: "תיאור קצר",
     brandColor: "צבע מותג",
-    brandLogoUrl: "קישור ללוגו",
+    brandLogoUrl: "לוגו או תמונה",
+    logoUpload: {
+      upload: "העלאת לוגו או תמונה",
+      replace: "החלפת התמונה",
+      remove: "הסרה",
+      uploading: "מעלים…",
+      orLink: "או הדבקת קישור לתמונה",
+      hint: "PNG, JPG, WebP או GIF. התמונה מוקטנת אוטומטית.",
+      preview: "הלוגו שיופיע בדף ההזמנה",
+      errors: {
+        too_large: "התמונה גדולה מדי. אפשר לנסות תמונה קטנה יותר.",
+        not_an_image: "אפשר להעלות רק תמונה: PNG, JPG, WebP או GIF.",
+        failed: "ההעלאה לא הצליחה. אפשר לנסות שוב.",
+      },
+    },
     holidaysCard: "חגי ישראל",
     holidaysDescription: "התאריכים מחושבים אוטומטית לפי הלוח העברי.",
     blockHolidays: "סגור בחגים (ראש השנה, יום כיפור, סוכות, פסח, שבועות, יום העצמאות)",
@@ -492,14 +507,47 @@ export const he: Messages = {
     noneToday: (openSlots) => `אין תורים היום · ${openSlots} שעות פנויות השבוע`,
     todayLine: (today, week) => `${today} תורים היום · ${week} השבוע`,
     stats: { today: "תורים היום", week: "תורים השבוע", openSlots: "שעות פנויות", newClients: "לקוחות חדשים" },
-    insights: {
-      hoursByDay: "שעות תפוסות לפי יום",
-      occupancy: "תפוסה השבוע",
-      noHours: "עוד אין שעות פתוחות בשבוע הזה.",
-      ofHours: (booked, offered) => `${booked} מתוך ${offered} שעות`,
-      legend: "העמודה המלאה היא השעות שפתחת, והחלק הכהה הוא מה שכבר נקבע.",
-      ringLabel: (percent) => `תפוסה ${percent} אחוז`,
-      ringCaption: (booked, offered) => `${booked} מתוך ${offered} שעות שפתחת`,
+    home: {
+      greeting: (part: "morning" | "noon" | "evening" | "night", name: string) =>
+        `${{ morning: "בוקר טוב", noon: "צהריים טובים", evening: "ערב טוב", night: "לילה טוב" }[part]}, ${name}`,
+      todayCount: (n: number) => (n === 0 ? "אין טיפולים היום" : n === 1 ? "טיפול אחד היום" : `${n} טיפולים היום`),
+      nextIn: (minutes: number) =>
+        minutes < 1
+          ? "הבא מתחיל עכשיו"
+          : minutes < 60
+            ? `הבא בעוד ${minutes} דקות`
+            : minutes < 120
+              ? "הבא בעוד שעה"
+              : `הבא בעוד ${Math.round(minutes / 60)} שעות`,
+      openThisWeek: (n: number) => (n === 0 ? "אין שעות פנויות השבוע" : n === 1 ? "שעה פנויה אחת השבוע" : `${n} שעות פנויות השבוע`),
+      copyLink: "העתקת הקישור",
+      copied: "הקישור הועתק ✓",
+      openHour: "פתיחת שעה",
+      nextTitle: "הטיפול הבא",
+      nextOn: (day: string) => `הטיפול הבא · ${day}`,
+      remind: "תזכורת בוואטסאפ",
+      reminded: "נשלחה תזכורת ✓",
+      allBookings: "לכל ההזמנות",
+      noNext: "אין תורים קרובים",
+      noNextHint: "כשתשתפו את הקישור, התורים שנקבעים יופיעו כאן.",
+      today: "היום",
+      now: "עכשיו",
+      emptyToday: "אין שעות פתוחות היום. אפשר לפתוח שעה ביומן שלמטה.",
+      openSlot: "שעה פנויה",
+      openSub: "אפשר להזמין אותה בקישור שלך",
+      blocked: "חסום",
+      badge: { booked: "נקבע", open: "פנוי", blocked: "חסום", held: "שמור", paid: "שולם", done: "הסתיים" },
+      markPaid: "סימון כשולם",
+      paid: "שולם",
+      markFailed: "לא הצלחנו לסמן. אפשר לנסות שוב.",
+      unpaidTitle: "מחכים לתשלום",
+      unpaidCount: (n: number) => (n === 1 ? "בקשת תשלום אחת פתוחה" : `${n} בקשות תשלום פתוחות`),
+      allPaid: "אין בקשות תשלום פתוחות",
+      toBookings: "לדף ההזמנות",
+      weekTitle: "השבוע",
+      weekLine: (booked: number, open: number) =>
+        `${booked === 1 ? "תור אחד" : `${booked} תורים`} · ${open === 1 ? "שעה פנויה אחת" : `${open} שעות פנויות`}`,
+      calendarTitle: "היומן",
     },
     schedule: {
       title: "הלו״ז שלי",

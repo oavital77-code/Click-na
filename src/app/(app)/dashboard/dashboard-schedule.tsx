@@ -612,7 +612,7 @@ function SlotCell({
           <button
             type="button"
             aria-label={s.openSlotAt(time)}
-            className="border-muted-foreground/30 hover:border-primary hover:text-primary text-muted-foreground/50 flex min-h-11 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors md:min-h-9"
+            className="border-muted-foreground/30 hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary text-muted-foreground/50 md:border-transparent md:text-transparent flex min-h-11 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors md:min-h-9"
           >
             +
           </button>
@@ -794,13 +794,15 @@ function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => v
   const s = m.dashboard.schedule;
   const [confirming, setConfirming] = useState(false);
 
+  // Set apart from the edit above it: removing an hour is a different act
+  // from labelling it, and should not sit in the same row of buttons.
   if (!confirming) {
     return (
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="text-destructive hover:text-destructive mt-1 w-full"
+        className="text-destructive hover:text-destructive border-border mt-3 w-full rounded-none border-t pt-3"
         disabled={busy}
         onClick={() => setConfirming(true)}
       >
@@ -811,8 +813,8 @@ function DeleteSlotButton({ busy, onDelete }: { busy: boolean; onDelete: () => v
   }
 
   return (
-    <div className="mt-1 flex flex-col gap-1">
-      <p className="text-muted-foreground text-xs">{s.deleteQuestion}</p>
+    <div className="border-border mt-3 flex flex-col gap-1 border-t pt-3">
+      <p className="text-sm font-medium">{s.deleteQuestion}</p>
       <div className="flex gap-1">
         <Button
           type="button"

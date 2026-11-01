@@ -4,23 +4,40 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
-import { LogOut, Menu, X } from "lucide-react";
+import {
+  CalendarClock,
+  ClipboardList,
+  CreditCard,
+  Home,
+  Link2,
+  LogOut,
+  MessageSquare,
+  MoreHorizontal,
+  Puzzle,
+  Settings,
+  Users,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandMark } from "@/components/brand-mark";
 import { useI18n } from "@/i18n/client";
 import type { Messages } from "@/i18n";
 
-const LINKS: { href: string; key: keyof Messages["nav"] }[] = [
-  { href: "/dashboard", key: "dashboard" },
-  { href: "/dashboard/availability", key: "availability" },
-  { href: "/dashboard/bookings", key: "bookings" },
-  { href: "/dashboard/clients", key: "clients" },
-  { href: "/dashboard/link", key: "link" },
-  { href: "/dashboard/addons", key: "addons" },
-  { href: "/dashboard/messages", key: "messages" },
-  { href: "/dashboard/billing", key: "billing" },
-  { href: "/dashboard/settings", key: "settings" },
+const LINKS: { href: string; key: keyof Messages["nav"]; icon: LucideIcon }[] = [
+  { href: "/dashboard", key: "dashboard", icon: Home },
+  { href: "/dashboard/availability", key: "availability", icon: CalendarClock },
+  { href: "/dashboard/bookings", key: "bookings", icon: ClipboardList },
+  { href: "/dashboard/clients", key: "clients", icon: Users },
+  { href: "/dashboard/link", key: "link", icon: Link2 },
+  { href: "/dashboard/addons", key: "addons", icon: Puzzle },
+  { href: "/dashboard/messages", key: "messages", icon: MessageSquare },
+  { href: "/dashboard/billing", key: "billing", icon: CreditCard },
+  { href: "/dashboard/settings", key: "settings", icon: Settings },
 ];
+
+/** The phone's bottom bar: the four places visited daily; the rest are under "more". */
+const TABS = LINKS.slice(0, 4);
 
 function isActive(pathname: string | null, href: string) {
   return href === "/dashboard" ? pathname === href : (pathname?.startsWith(href) ?? false);
@@ -36,13 +53,15 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
           key={link.href}
           href={link.href}
           onClick={onNavigate}
+          aria-current={isActive(pathname, link.href) ? "page" : undefined}
           className={cn(
-            "flex min-h-11 items-center rounded-md px-3 text-sm font-medium transition-colors",
+            "flex min-h-11 items-center gap-3 rounded-xl px-3 text-sm transition-colors",
             isActive(pathname, link.href)
-              ? "bg-primary/10 text-primary"
-              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              ? "bg-primary text-primary-foreground font-semibold shadow-sm"
+              : "text-foreground/80 hover:bg-muted hover:text-foreground font-medium"
           )}
         >
+          <link.icon className="size-[18px] shrink-0" strokeWidth={1.9} aria-hidden />
           {m.nav[link.key]}
         </Link>
       ))}
@@ -72,22 +91,41 @@ export function DashboardNav() {
 
   return (
     <>
-      {/* Mobile top bar — the nav itself lives in a drawer, kept off-screen to maximize content space.
-          Physical sides in every language: the logo on the left, the menu
-          button on the right, where the thumb is. dir="ltr" pins that order. */}
-      <div dir="ltr" className="border-border bg-card sticky top-0 z-40 flex items-center justify-between border-b px-4 py-3 md:hidden">
+      {/* Mobile top bar: the logo only. Navigation is the bottom bar, where the
+          thumb is; everything not on it opens from its "more" tab. */}
+      <div className="border-border bg-card sticky top-0 z-40 flex items-center justify-center border-b px-4 py-3 md:hidden">
         <Link href="/dashboard">
           <BrandMark className="text-primary text-lg" />
         </Link>
+      </div>
+
+      <nav className="bg-foreground fixed inset-x-3 bottom-3 z-40 grid h-16 grid-cols-5 items-center rounded-3xl shadow-[0_12px_30px_-12px_rgba(0,0,0,.45)] md:hidden"
+        style={{ marginBottom: "env(safe-area-inset-bottom)" }}
+      >
+        {TABS.map((tab) => (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            aria-current={isActive(pathname, tab.href) ? "page" : undefined}
+            className={cn(
+              "flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-semibold",
+              isActive(pathname, tab.href) ? "text-primary" : "text-background/60"
+            )}
+          >
+            <tab.icon className="size-[22px]" strokeWidth={1.9} aria-hidden />
+            {m.nav[tab.key]}
+          </Link>
+        ))}
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label={m.nav.openMenu}
-          className="hover:bg-muted flex size-11 items-center justify-center rounded-md"
+          className="text-background/60 flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-semibold"
         >
-          <Menu className="size-5" />
+          <MoreHorizontal className="size-[22px]" strokeWidth={1.9} aria-hidden />
+          {m.nav.more}
         </button>
-      </div>
+      </nav>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-50 md:hidden">

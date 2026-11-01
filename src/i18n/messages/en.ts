@@ -38,6 +38,7 @@ export const en = {
     messages: "Messages",
     billing: "Subscription",
     settings: "Settings",
+    more: "More",
     signOut: "Sign out",
     openMenu: "Open navigation menu",
     closeMenu: "Close menu",
@@ -134,7 +135,21 @@ export const en = {
     bookingHeadline: "Booking page headline",
     bookingDescription: "Short description",
     brandColor: "Brand colour",
-    brandLogoUrl: "Logo link",
+    brandLogoUrl: "Logo or picture",
+    logoUpload: {
+      upload: "Upload a logo or picture",
+      replace: "Replace the picture",
+      remove: "Remove",
+      uploading: "Uploading…",
+      orLink: "Or paste a link to an image",
+      hint: "PNG, JPG, WebP or GIF. The picture is resized automatically.",
+      preview: "The logo shown on your booking page",
+      errors: {
+        too_large: "The picture is too large. Please try a smaller one.",
+        not_an_image: "Only pictures can be uploaded: PNG, JPG, WebP or GIF.",
+        failed: "The upload did not go through. Please try again.",
+      },
+    },
     holidaysCard: "Israeli holidays",
     holidaysDescription: "Computed from the Hebrew calendar every year. Nothing to import.",
     blockHolidays: "Close on holidays (Rosh Hashana, Yom Kippur, Sukkot, Pesach, Shavuot, Independence Day)",
@@ -503,14 +518,47 @@ export const en = {
     noneToday: (openSlots: number) => `No appointments today · ${openSlots} open slots this week`,
     todayLine: (today: number, week: number) => `${today} appointments today · ${week} this week`,
     stats: { today: "Appointments today", week: "Appointments this week", openSlots: "Open slots", newClients: "New clients" },
-    insights: {
-      hoursByDay: "Booked hours by day",
-      occupancy: "This week's occupancy",
-      noHours: "No hours in this week yet.",
-      ofHours: (booked: number, offered: number) => `${booked} of ${offered} hours`,
-      legend: "The full height is the hours you opened; the darker part is what has been taken.",
-      ringLabel: (percent: number) => `${percent} percent occupancy`,
-      ringCaption: (booked: number, offered: number) => `${booked} of ${offered} hours you opened`,
+    home: {
+      greeting: (part: "morning" | "noon" | "evening" | "night", name: string) =>
+        `${{ morning: "Good morning", noon: "Good afternoon", evening: "Good evening", night: "Good night" }[part]}, ${name}`,
+      todayCount: (n: number) => (n === 0 ? "No sessions today" : n === 1 ? "One session today" : `${n} sessions today`),
+      nextIn: (minutes: number) =>
+        minutes < 1
+          ? "Next one starts now"
+          : minutes < 60
+            ? `Next in ${minutes} minutes`
+            : minutes < 120
+              ? "Next in an hour"
+              : `Next in ${Math.round(minutes / 60)} hours`,
+      openThisWeek: (n: number) => (n === 0 ? "No open hours this week" : n === 1 ? "One open hour this week" : `${n} open hours this week`),
+      copyLink: "Copy my link",
+      copied: "Link copied ✓",
+      openHour: "Open an hour",
+      nextTitle: "Next session",
+      nextOn: (day: string) => `Next session · ${day}`,
+      remind: "WhatsApp reminder",
+      reminded: "Reminder sent ✓",
+      allBookings: "All bookings",
+      noNext: "No upcoming sessions",
+      noNextHint: "Share your link, and the sessions people book will show here.",
+      today: "Today",
+      now: "Now",
+      emptyToday: "No open hours today. You can open one in the calendar below.",
+      openSlot: "Open hour",
+      openSub: "Bookable through your link",
+      blocked: "Blocked",
+      badge: { booked: "Booked", open: "Open", blocked: "Blocked", held: "Held", paid: "Paid", done: "Done" },
+      markPaid: "Mark as paid",
+      paid: "Paid",
+      markFailed: "Could not mark it. Please try again.",
+      unpaidTitle: "Awaiting payment",
+      unpaidCount: (n: number) => (n === 1 ? "One open payment request" : `${n} open payment requests`),
+      allPaid: "No open payment requests",
+      toBookings: "Go to bookings",
+      weekTitle: "This week",
+      weekLine: (booked: number, open: number) =>
+        `${booked === 1 ? "One booking" : `${booked} bookings`} · ${open === 1 ? "one open hour" : `${open} open hours`}`,
+      calendarTitle: "Calendar",
     },
     schedule: {
       title: "My schedule",

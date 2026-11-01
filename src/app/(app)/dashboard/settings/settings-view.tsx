@@ -1,5 +1,6 @@
 "use client";
 
+import { LogoField } from "@/components/logo-field";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -490,15 +491,11 @@ export function SettingsView({
               onChange={(e) => updateSettings("brandColor", e.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="brandLogoUrl">{m.settings.brandLogoUrl}</Label>
-            <Input
-              id="brandLogoUrl"
-              dir="ltr"
-              value={settings.brandLogoUrl}
-              onChange={(e) => updateSettings("brandLogoUrl", e.target.value)}
-            />
-          </div>
+          <LogoField
+            id="brandLogoUrl"
+            value={settings.brandLogoUrl}
+            onChange={(url) => updateSettings("brandLogoUrl", url)}
+          />
         </CardContent>
       </Card>
 

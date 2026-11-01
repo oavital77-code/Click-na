@@ -173,3 +173,38 @@
   mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 40%, transparent 100%);
   -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 40%, transparent 100%);
 }
+
+/* Dashboard home motion: content settles in once, the next session breathes,
+   a payment's check draws itself. All of it off for reduced motion. */
+@keyframes home-rise {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes home-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0.45); }
+  60% { box-shadow: 0 0 0 10px hsl(var(--primary) / 0); }
+}
+@keyframes home-breathe {
+  0%, 100% { opacity: 1; transform: scaleX(1); }
+  50% { opacity: 0.6; transform: scaleX(0.985); }
+}
+@keyframes home-draw {
+  from { stroke-dashoffset: 24; }
+  to { stroke-dashoffset: 0; }
+}
+@keyframes home-grow {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+.home-rise { animation: home-rise 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.home-d1 { animation-delay: 0.06s; }
+.home-d2 { animation-delay: 0.12s; }
+.home-d3 { animation-delay: 0.18s; }
+.home-d4 { animation-delay: 0.24s; }
+.home-pulse { animation: home-pulse 2.2s ease-out infinite; }
+.home-breathe { animation: home-breathe 3.2s ease-in-out infinite; transform-origin: right center; }
+.home-check path { stroke-dasharray: 24; animation: home-draw 0.45s ease-out both; }
+.home-grow { animation: home-grow 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: bottom; }
+@media (prefers-reduced-motion: reduce) {
+  .home-rise, .home-pulse, .home-breathe, .home-check path, .home-grow { animation: none; }
+}

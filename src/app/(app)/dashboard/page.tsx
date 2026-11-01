@@ -1,19 +1,31 @@
 import { redirect } from "next/navigation";
-import { PageHeader } from "@/components/page-header";
+import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
-import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSchedule } from "./dashboard-schedule";
-import { WeekInsights } from "./week-insights";
+import { HomeActions, NextSessionCard, TodayList, WeekBars, type NextSession, type TodayItem } from "./home-widgets";
 import { getMessages, toLocale } from "@/i18n";
+import { fmt } from "@/i18n/dates";
 import { listLocations } from "@/lib/locations";
+import { locationLabel } from "@/lib/location-schema";
+import { appUrl } from "@/lib/public-url";
+import { whatsappLink } from "@/lib/whatsapp-link";
+import { reminderWhatsApp } from "@/lib/whatsapp-templates";
+import { formatPriceIls } from "@/lib/plan";
 
+/**
+ * The home screen, today first: who is next, today in order (with a line for
+ * "now"), what is still owed and how the week looks — then the full calendar
+ * for everything else. Every figure comes from the queries below, so the
+ * cards and the calendar can never disagree.
+ */
 export default async function DashboardPage() {
   const therapist = await getCurrentTherapist();
-  const m = getMessages(toLocale(therapist?.locale));
+  const locale = toLocale(therapist?.locale);
+  const m = getMessages(locale);
 
   if (!therapist) {
     return (
@@ -27,106 +39,204 @@ export default async function DashboardPage() {
     redirect("/dashboard/onboarding");
   }
 
-  const todayStr = formatInTimeZone(new Date(), therapist.timezone, "yyyy-MM-dd");
-  const todayStart = zonedDateTimeToUtc(todayStr, "00:00", therapist.timezone);
+  const t = m.dashboard.home;
+  const tz = therapist.timezone;
+  const now = new Date();
+  const todayStr = formatInTimeZone(now, tz, "yyyy-MM-dd");
+  const todayStart = zonedDateTimeToUtc(todayStr, "00:00", tz);
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
 
   // Calendar week (Sunday–Saturday) containing today, for the schedule widget's initial load.
   const dayOfWeek = new Date(`${todayStr}T00:00:00Z`).getUTCDay();
   const weekStartStr = addDaysUtc(todayStr, -dayOfWeek);
-  const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", therapist.timezone);
+  const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", tz);
   const weekEnd = new Date(weekStart.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
-  const [weekSessions, todayBookedCount, weekBookingsCount, openSlotsCount, newClientsCount, locations] =
-    await Promise.all([
-      prisma.session.findMany({
-        where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd }, status: { not: "canceled" } },
-        include: { booking: true, location: { select: { id: true, name: true, color: true } } },
-        orderBy: { startsAt: "asc" },
-      }),
-      prisma.session.count({
-        where: { therapistId: therapist.id, status: "booked", startsAt: { gte: todayStart, lt: todayEnd } },
-      }),
-      prisma.booking.count({
-        where: {
-          therapistId: therapist.id,
-          status: { in: ["pending", "confirmed"] },
-          session: { startsAt: { gte: todayStart, lt: weekEnd } },
-        },
-      }),
-      prisma.session.count({
-        where: { therapistId: therapist.id, status: "open", startsAt: { gte: todayStart, lt: weekEnd } },
-      }),
-      prisma.client.count({
-        where: {
-          therapistId: therapist.id,
-          createdAt: { gte: new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000) },
-        },
-      }),
-      listLocations(therapist.id),
-    ]);
+  const [weekSessions, nextSession, unpaid, locations] = await Promise.all([
+    prisma.session.findMany({
+      where: { therapistId: therapist.id, startsAt: { gte: weekStart, lt: weekEnd }, status: { not: "canceled" } },
+      include: { booking: true, location: true },
+      orderBy: { startsAt: "asc" },
+    }),
+    // The next one may be beyond this week; it is still the next one.
+    prisma.session.findFirst({
+      where: {
+        therapistId: therapist.id,
+        status: "booked",
+        endsAt: { gt: now },
+        booking: { status: { in: ["pending", "confirmed"] } },
+      },
+      include: { booking: true, location: true },
+      orderBy: { startsAt: "asc" },
+    }),
+    // Asked for and not yet paid: what the therapist is waiting on.
+    prisma.booking.aggregate({
+      where: {
+        therapistId: therapist.id,
+        paymentStatus: "unpaid",
+        paymentRequestedAt: { not: null },
+        status: { in: ["pending", "confirmed"] },
+      },
+      _sum: { paymentAmountIls: true },
+      _count: true,
+    }),
+    listLocations(therapist.id),
+  ]);
 
-  const stats = [
-    { value: todayBookedCount, text: m.dashboard.stats.today },
-    { value: weekBookingsCount, text: m.dashboard.stats.week },
-    { value: openSlotsCount, text: m.dashboard.stats.openSlots },
-    { value: newClientsCount, text: m.dashboard.stats.newClients },
-  ];
+  const firstName = therapist.fullName.trim().split(/\s+/)[0] ?? therapist.fullName;
+  const hour = Number(formatInTimeZone(now, tz, "H"));
+  const part = hour < 5 ? "night" : hour < 12 ? "morning" : hour < 17 ? "noon" : hour < 22 ? "evening" : "night";
 
-  // The header's meta line, built from the figures the page already loaded —
-  // the same numbers as the stat row, said as a sentence.
-  const todayLine =
-    todayBookedCount === 0
-      ? m.dashboard.noneToday(openSlotsCount)
-      : m.dashboard.todayLine(todayBookedCount, weekBookingsCount);
+  const todaySessions = weekSessions.filter((s) => s.startsAt >= todayStart && s.startsAt < todayEnd);
+  const todayBooked = todaySessions.filter((s) => s.status === "booked").length;
+  const openThisWeek = weekSessions.filter((s) => s.status === "open" && s.startsAt >= now).length;
+  const time = (d: Date) => formatInTimeZone(d, tz, "HH:mm");
+
+  const minutesToNext = nextSession ? Math.max(0, Math.round((nextSession.startsAt.getTime() - now.getTime()) / 60000)) : null;
+  const metaParts = [t.todayCount(todayBooked)];
+  if (minutesToNext !== null && nextSession && nextSession.startsAt < todayEnd) metaParts.push(t.nextIn(minutesToNext));
+  else metaParts.push(t.openThisWeek(openThisWeek));
+
+  let next: NextSession | null = null;
+  if (nextSession?.booking) {
+    const b = nextSession.booking;
+    const reminded = await prisma.notification.count({
+      where: { bookingId: b.id, type: "reminder", channel: "whatsapp", status: "sent" },
+    });
+    const where = nextSession.location.name || locationLabel(nextSession.location);
+    const isToday = nextSession.startsAt < todayEnd;
+    const reminderText = b.clientPhoneSnapshot
+      ? reminderWhatsApp({
+          locale,
+          clientFullName: b.clientNameSnapshot,
+          therapistFullName: therapist.fullName,
+          startsAt: nextSession.startsAt,
+          endsAt: nextSession.endsAt,
+          timezone: tz,
+          location: b.meetingUrl ?? locationLabel(nextSession.location),
+          manageUrl: `${appUrl()}/book/${therapist.slug}/manage/${b.manageToken}`,
+        })
+      : null;
+    next = {
+      bookingId: b.id,
+      heading: isToday ? t.nextTitle : t.nextOn(fmt(nextSession.startsAt, tz, locale, "weekdayDate")),
+      timeRange: `${time(nextSession.startsAt)}–${time(nextSession.endsAt)}`,
+      clientName: b.clientNameSnapshot,
+      where,
+      reminderLink: b.clientPhoneSnapshot && reminderText ? whatsappLink(b.clientPhoneSnapshot, reminderText) : null,
+      reminderSent: reminded > 0,
+      soon: minutesToNext !== null && minutesToNext <= 60,
+    };
+  }
+
+  const today: TodayItem[] = todaySessions.map((s) => {
+    const kind = s.status === "booked" || s.status === "held" || s.status === "blocked" ? s.status : "open";
+    const b = s.booking;
+    const done = kind === "booked" && s.endsAt <= now;
+    const price = b?.paymentAmountIls != null ? formatPriceIls(Number(b.paymentAmountIls), locale) : null;
+    return {
+      id: s.id,
+      time: time(s.startsAt),
+      kind,
+      title: kind === "booked" || kind === "held" ? (b?.clientNameSnapshot ?? t.badge.booked) : kind === "blocked" ? (s.blockedNote ?? t.blocked) : t.openSlot,
+      sub: kind === "open" ? t.openSub : [s.location.name, price].filter(Boolean).join(" · ") || null,
+      bookingId: kind === "booked" && b ? b.id : null,
+      paid: b?.paymentStatus === "paid",
+      done,
+    };
+  });
+  const firstUpcoming = today.findIndex((_, i) => todaySessions[i].endsAt > now);
+  const nowIndex = today.length === 0 ? null : firstUpcoming === -1 ? today.length : firstUpcoming === 0 && todaySessions[0].startsAt > now ? 0 : firstUpcoming;
+
+  const weekDays = Array.from({ length: 7 }, (_, i) => {
+    const key = addDaysUtc(weekStartStr, i);
+    return {
+      label: m.labels.daysShort[i],
+      count: weekSessions.filter((s) => s.status === "booked" && formatInTimeZone(s.startsAt, tz, "yyyy-MM-dd") === key).length,
+      today: key === todayStr,
+    };
+  });
+  const weekBooked = weekDays.reduce((n, d) => n + d.count, 0);
+  const weekOpen = weekSessions.filter((s) => s.status === "open").length;
+  const unpaidSum = Number(unpaid._sum.paymentAmountIls ?? 0);
+
+  const card = "border-border bg-card rounded-[28px] border";
 
   return (
-    <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:gap-8 md:p-8 md:text-start">
-      <PageHeader
-        kicker={m.dashboard.kicker}
-        title={m.dashboard.hello(therapist.fullName)}
-        meta={todayLine}
-        actions={<UserButton />}
-      />
+    <main className="flex w-full flex-1 flex-col gap-5 p-4 md:gap-6 md:p-8 lg:p-10">
+      <header className="home-rise flex flex-col gap-4 md:flex-row md:flex-wrap md:items-end md:justify-between">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1.5">
+            <span className="text-primary-strong text-sm font-semibold">{fmt(now, tz, locale, "weekdayDate")}</span>
+            <h1 className="text-3xl leading-tight font-extrabold md:text-4xl">{t.greeting(part, firstName)}</h1>
+            <p className="text-muted-foreground text-base">{metaParts.join(" · ")}</p>
+          </div>
+          <div className="md:hidden">
+            <UserButton />
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <HomeActions publicUrl={`${appUrl()}/book/${therapist.slug}`} />
+          <div className="hidden md:block">
+            <UserButton />
+          </div>
+        </div>
+      </header>
 
-      <DashboardSchedule
-        timezone={therapist.timezone}
-        today={todayStr}
-        defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
-        locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
-        sessions={weekSessions.map((s) => ({
-          id: s.id,
-          startsAt: s.startsAt.toISOString(),
-          endsAt: s.endsAt.toISOString(),
-          status: s.status,
-          clientName: s.booking?.clientNameSnapshot ?? null,
-          clientPhone: s.booking?.clientPhoneSnapshot ?? null,
-          blockedNote: s.blockedNote,
-          locationId: s.location.id,
-          locationColor: s.location.color,
-        }))}
-      />
+      <NextSessionCard next={next} />
 
-      <WeekInsights
-        timezone={therapist.timezone}
-        sessions={weekSessions.map((s) => ({
-          startsAt: s.startsAt.toISOString(),
-          endsAt: s.endsAt.toISOString(),
-          status: s.status,
-        }))}
-      />
+      <div className="grid items-start gap-5 lg:grid-cols-3">
+        <section aria-labelledby="today-h" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2`}>
+          <h2 id="today-h" className="text-xl font-bold">
+            {t.today}
+          </h2>
+          <TodayList items={today} nowIndex={nowIndex} />
+        </section>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-        {stats.map((stat) => (
-          <Card key={stat.text}>
-            <CardContent className="flex flex-col items-center gap-1 py-5 md:py-6">
-              <span className="num text-3xl font-bold">{stat.value}</span>
-              <span className="text-muted-foreground text-center text-xs font-medium">{stat.text}</span>
-            </CardContent>
-          </Card>
-        ))}
+        <div className="flex min-w-0 flex-col gap-5">
+          <section aria-labelledby="unpaid-h" className={`${card} home-rise home-d3 flex flex-col gap-2 p-5 md:p-6`}>
+            <h2 id="unpaid-h" className="text-base font-bold">
+              {t.unpaidTitle}
+            </h2>
+            <p className="num text-primary-strong text-4xl font-extrabold">{formatPriceIls(unpaidSum, locale)}</p>
+            <p className="text-muted-foreground text-sm">{unpaid._count === 0 ? t.allPaid : t.unpaidCount(unpaid._count)}</p>
+            <Link
+              href="/dashboard/bookings"
+              className="border-primary text-primary-strong hover:bg-primary/10 mt-2 flex min-h-11 items-center justify-center rounded-full border text-sm font-bold transition-colors"
+            >
+              {t.toBookings}
+            </Link>
+          </section>
+          <section aria-labelledby="week-h" className={`${card} home-rise home-d4 flex flex-col gap-3 p-5 md:p-6`}>
+            <h2 id="week-h" className="text-base font-bold">
+              {t.weekTitle}
+            </h2>
+            <WeekBars days={weekDays} />
+            <p className="text-muted-foreground text-sm">{t.weekLine(weekBooked, weekOpen)}</p>
+          </section>
+        </div>
       </div>
+
+      <section id="calendar" aria-label={t.calendarTitle} className="scroll-mt-20">
+        <DashboardSchedule
+          timezone={tz}
+          today={todayStr}
+          defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+          locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
+          sessions={weekSessions.map((s) => ({
+            id: s.id,
+            startsAt: s.startsAt.toISOString(),
+            endsAt: s.endsAt.toISOString(),
+            status: s.status,
+            clientName: s.booking?.clientNameSnapshot ?? null,
+            clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+            blockedNote: s.blockedNote,
+            locationId: s.location.id,
+            locationColor: s.location.color,
+          }))}
+        />
+      </section>
     </main>
   );
 }

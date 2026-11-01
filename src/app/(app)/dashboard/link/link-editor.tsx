@@ -1,5 +1,6 @@
 "use client";
 
+import { LogoField } from "@/components/logo-field";
 import { useState, useSyncExternalStore } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -280,17 +281,11 @@ export function LinkEditor({
                 <span className="text-muted-foreground num text-sm">{settings.brandColor || m.link.defaultColor}</span>
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="brandLogoUrl">{m.settings.brandLogoUrl}</Label>
-              <Input
-                id="brandLogoUrl"
-                dir="ltr"
-                className="text-start"
-                placeholder="https://..."
-                value={settings.brandLogoUrl}
-                onChange={(e) => setSettings((s) => ({ ...s, brandLogoUrl: e.target.value }))}
-              />
-            </div>
+            <LogoField
+              id="brandLogoUrl"
+              value={settings.brandLogoUrl}
+              onChange={(url) => setSettings((s) => ({ ...s, brandLogoUrl: url }))}
+            />
           </CardContent>
         </Card>
 

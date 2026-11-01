@@ -163,6 +163,7 @@ model Therapist {
 
   subscription      Subscription?
   settings          TherapistSettings?
+  logo              TherapistLogo?
   availabilityRules AvailabilityRule[]
   sessions          Session[]
   clients           Client[]
@@ -211,6 +212,20 @@ model PaymentApplication {
   therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
 
   @@map("payment_applications")
+}
+
+// A logo or picture the therapist uploaded for their booking page, kept in the
+// database rather than a file store: one small image per therapist, served by
+// /api/public/logo/[id]. brandLogoUrl points there when this is the logo.
+model TherapistLogo {
+  therapistId String   @id @map("therapist_id") @db.Uuid
+  contentType String   @map("content_type") @db.VarChar(40)
+  data        Bytes
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  therapist Therapist @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+
+  @@map("therapist_logos")
 }
 
 // A therapist's wallet under Cleana+'s Rapyd account: clients' card payments

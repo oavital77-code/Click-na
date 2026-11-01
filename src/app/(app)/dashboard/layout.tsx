@@ -27,7 +27,7 @@ export default async function DashboardLayout({
         {/* min-w-0: a flex item defaults to min-width:auto, so the week table
             (1084px) would widen this column and scroll the whole page sideways
             instead of scrolling inside its own container. */}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-w-0 flex-1 flex-col pb-24 md:pb-0">
           {therapist?.subscription && <AccessBanner state={accessState(therapist.subscription)} />}
           {children}
         </div>
