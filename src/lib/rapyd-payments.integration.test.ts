@@ -2,7 +2,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { prisma } from "@/lib/prisma";
 import { ensureDefaultLocation } from "@/lib/locations";
 import { requestPayment } from "@/lib/client-payments";
-import { activeRapydWallet, ensureRapydWallet, type RapydPayment } from "@/lib/rapyd-payments";
+import { activeRapydWallet, enableRapydPayments, ensureRapydWallet, rapydPaymentsState, rapydSignupOpen, type RapydPayment } from "@/lib/rapyd-payments";
+import { PAYMENT_TERMS_VERSION } from "@/lib/plan";
 import { handleRapydEvent } from "@/lib/rapyd-webhook";
 
 /** Rapyd's HTTP, faked: each call is recorded and answered with the next reply. */
@@ -107,6 +108,30 @@ describe("Rapyd payments (against a live database)", () => {
     expect(await ensureRapydWallet(therapistId)).toEqual({ ok: true, ewalletId: "ewallet_np", created: true });
     expect(calls[0].contact.phone_number).toBe("+972521234567");
     expect(calls[1].contact.phone_number).toBeUndefined();
+  });
+
+  it("offers payments only to the owner until signup is opened", () => {
+    const env = { RAPYD_ACCESS_KEY: "ak", RAPYD_SECRET_KEY: "sk", OWNER_NOTIFICATION_EMAIL: "owner@example.com" };
+    expect(rapydSignupOpen("owner@example.com", env)).toBe(true);
+    expect(rapydSignupOpen("someone@example.com", env)).toBe(false);
+    expect(rapydSignupOpen("someone@example.com", { ...env, RAPYD_SIGNUP_OPEN: "true" })).toBe(true);
+    expect(rapydSignupOpen("owner@example.com", { OWNER_NOTIFICATION_EMAIL: "owner@example.com" })).toBe(false);
+  });
+
+  it("switches on only with the terms accepted, records them, and does not ask again", async () => {
+    vi.stubEnv("RAPYD_SIGNUP_OPEN", "true");
+    const calls = fakeRapyd({ id: "ewallet_t" });
+    expect(await enableRapydPayments(therapistId, { accepted: false, ip: null })).toMatchObject({ ok: false, errorCode: "TERMS_REQUIRED" });
+    expect(calls).toHaveLength(0);
+
+    expect(await enableRapydPayments(therapistId, { accepted: true, ip: "1.2.3.4" })).toMatchObject({ ok: true, ewalletId: "ewallet_t" });
+    const row = await prisma.rapydWallet.findUniqueOrThrow({ where: { therapistId } });
+    expect(row).toMatchObject({ enabled: true, termsVersion: PAYMENT_TERMS_VERSION, termsAcceptedIp: "1.2.3.4" });
+
+    await prisma.rapydWallet.update({ where: { therapistId }, data: { enabled: false } });
+    expect(await enableRapydPayments(therapistId, { accepted: false, ip: null })).toMatchObject({ ok: true, created: false });
+    const state = await rapydPaymentsState({ id: therapistId, email: "rapyd-integration@example.com" });
+    expect(state).toEqual({ available: true, enabled: true, termsAccepted: true, mode: "sandbox" });
   });
 
   it("ignores a sandbox wallet once the app talks to the live API", async () => {

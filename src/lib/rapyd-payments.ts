@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { toE164 } from "@/lib/phone";
+import { isOwner } from "@/lib/payment-applications";
+import { PAYMENT_TERMS_VERSION } from "@/lib/plan";
 import { rapydKeys, rapydMode, rapydRequest, type RapydResult } from "@/lib/rapyd";
 
 /**
@@ -169,4 +171,61 @@ export async function fetchRapydPayment(
     env: deps.env,
   });
   return result.ok ? result.data : null;
+}
+
+/**
+ * Whether this therapist is offered card payments through Rapyd. Only the
+ * owner while it is being tried; everyone once RAPYD_SIGNUP_OPEN is "true" —
+ * a separate switch from the environment, so live keys alone never open it
+ * before identity checks and payouts are in place.
+ */
+export function rapydSignupOpen(email: string | null | undefined, env: Env = process.env): boolean {
+  if (!rapydKeys(env)) return false;
+  return env.RAPYD_SIGNUP_OPEN?.trim().toLowerCase() === "true" || isOwner(email, env);
+}
+
+export type RapydPaymentsState = {
+  available: boolean;
+  enabled: boolean;
+  /** Accepted the current payment terms — switching back on does not ask again. */
+  termsAccepted: boolean;
+  mode: "sandbox" | "production";
+};
+
+export async function rapydPaymentsState(
+  therapist: { id: string; email: string },
+  env: Env = process.env
+): Promise<RapydPaymentsState> {
+  const mode = rapydMode(env);
+  const available = rapydSignupOpen(therapist.email, env);
+  const wallet = available ? await prisma.rapydWallet.findUnique({ where: { therapistId: therapist.id } }) : null;
+  const current = wallet && wallet.mode === mode ? wallet : null;
+  return {
+    available,
+    enabled: !!current?.enabled,
+    termsAccepted: current?.termsVersion === PAYMENT_TERMS_VERSION,
+    mode,
+  };
+}
+
+/** Switching payments on: the wallet (opened if need be) and the terms accepted with it. */
+export async function enableRapydPayments(
+  therapistId: string,
+  terms: { accepted: boolean; ip: string | null },
+  deps: { request?: typeof rapydRequest; env?: Env } = {}
+): Promise<EnsureWalletResult | { ok: false; errorCode: "TERMS_REQUIRED"; message: string }> {
+  const env = deps.env ?? process.env;
+  const existing = await prisma.rapydWallet.findUnique({ where: { therapistId } });
+  const alreadyAccepted = existing?.mode === rapydMode(env) && existing.termsVersion === PAYMENT_TERMS_VERSION;
+  if (!terms.accepted && !alreadyAccepted) return { ok: false, errorCode: "TERMS_REQUIRED", message: "terms not accepted" };
+
+  const result = await ensureRapydWallet(therapistId, deps);
+  if (!result.ok) return result;
+  if (!alreadyAccepted) {
+    await prisma.rapydWallet.update({
+      where: { therapistId },
+      data: { termsVersion: PAYMENT_TERMS_VERSION, termsAcceptedAt: new Date(), termsAcceptedIp: terms.ip?.slice(0, 64) ?? null },
+    });
+  }
+  return result;
 }

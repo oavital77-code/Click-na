@@ -11,6 +11,7 @@ import type { ApplicationSummary } from "@/lib/payment-applications";
 import { BUSINESS_TYPES, type BusinessType } from "@/lib/payment-application-schema";
 import { useI18n } from "@/i18n/client";
 import { PAYPLUS_SIGNUP_URL } from "@/lib/plan";
+import type { RapydPaymentsState } from "@/lib/rapyd-payments";
 
 type Values = {
   businessType: BusinessType;
@@ -326,5 +327,117 @@ function ApplicationForm({
         </Button>
       </div>
     </form>
+  );
+}
+
+/**
+ * Card payments through Cleana+'s Rapyd account: no application and no keys.
+ * Switching on opens the therapist's wallet and records the terms; after
+ * that it is an on/off switch like any add-on.
+ */
+export function RapydPaymentsCard({ initial, hint }: { initial: RapydPaymentsState; hint: string | null }) {
+  const { m } = useI18n();
+  const t = m.paymentSetup;
+  const [state, setState] = useState(initial);
+  const [accept, setAccept] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function send(action: "enable" | "disable") {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/me/rapyd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(action === "enable" ? { action, acceptTerms: accept } : { action }),
+      });
+      const data = (await res.json()) as { state?: RapydPaymentsState; error?: string };
+      if (data.state) setState(data.state);
+      if (!res.ok) setError(data.error === "TERMS_REQUIRED" ? t.rapyd.termsRequired : t.rapyd.failed);
+    } catch {
+      setError(t.rapyd.failed);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // An account switched on before terms were recorded keeps its switch.
+  const needsTerms = !state.termsAccepted && !state.enabled;
+
+  return (
+    <Card className="min-w-0 gap-4 text-center md:text-start">
+      <CardHeader className="flex flex-col items-stretch gap-2">
+        <div className="flex flex-col items-center gap-2 md:flex-row md:justify-between">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <CreditCard className="text-primary size-5" strokeWidth={1.75} />
+            {t.label}
+          </CardTitle>
+          {!needsTerms && (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={state.enabled}
+              aria-label={m.addons.toggle(state.enabled, t.label)}
+              disabled={busy}
+              onClick={() => void send(state.enabled ? "disable" : "enable")}
+              className={
+                "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 " +
+                "after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] " +
+                (state.enabled ? "bg-primary" : "bg-muted-foreground/30")
+              }
+            >
+              <span
+                className={
+                  "absolute start-0.5 size-5 rounded-full bg-white shadow-sm transition-transform " +
+                  (state.enabled ? "translate-x-5 rtl:-translate-x-5" : "translate-x-0")
+                }
+              />
+            </button>
+          )}
+        </div>
+        <CardDescription>{t.rapyd.summary}</CardDescription>
+      </CardHeader>
+
+      <CardContent className="flex min-w-0 flex-col gap-3">
+        {state.mode === "sandbox" && (
+          <p className="border-st-held/50 bg-st-held/10 rounded-md border p-2 text-xs">{t.rapyd.sandboxNote}</p>
+        )}
+
+        {state.enabled && (
+          <div className="flex flex-col items-center gap-1 md:items-start">
+            <span className={statusBadgeClass("open")}>{m.addons.connected}</span>
+            <span className="text-muted-foreground text-xs">{t.rapyd.activeNote}</span>
+          </div>
+        )}
+        {state.enabled && hint && <p className="border-st-held/50 bg-st-held/10 rounded-md border p-2 text-xs">{hint}</p>}
+        {!state.enabled && !needsTerms && <p className="text-muted-foreground text-sm">{t.rapyd.offNote}</p>}
+
+        {needsTerms && (
+          <div className="flex flex-col gap-3">
+            <label className="flex items-start gap-2 text-start text-sm">
+              <input
+                type="checkbox"
+                className="accent-primary mt-1 size-4"
+                checked={accept}
+                onChange={(e) => setAccept(e.target.checked)}
+              />
+              <span>
+                {t.acceptTerms}{" "}
+                <a href="/terms#payments" target="_blank" rel="noreferrer" className="text-primary underline underline-offset-4">
+                  {t.termsLink}
+                </a>
+                .
+              </span>
+            </label>
+            <Button type="button" className="self-center md:self-start" disabled={busy || !accept} onClick={() => void send("enable")}>
+              {busy ? t.rapyd.enabling : t.rapyd.enable}
+            </Button>
+          </div>
+        )}
+
+        {error && <p className="text-destructive text-sm">{error}</p>}
+      </CardContent>
+    </Card>
   );
 }

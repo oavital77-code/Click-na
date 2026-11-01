@@ -223,6 +223,10 @@ model RapydWallet {
   ewalletId   String   @map("ewallet_id") @db.VarChar(64)
   mode        String   @db.VarChar(12)
   enabled     Boolean  @default(true)
+  // The payment terms the therapist accepted when switching payments on.
+  termsVersion    String?   @map("terms_version") @db.VarChar(20)
+  termsAcceptedAt DateTime? @map("terms_accepted_at") @db.Timestamptz
+  termsAcceptedIp String?   @map("terms_accepted_ip") @db.VarChar(64)
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

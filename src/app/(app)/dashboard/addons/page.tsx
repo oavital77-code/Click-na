@@ -4,6 +4,7 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { credentialStorageReady, listIntegrations } from "@/lib/integrations";
 import { prisma } from "@/lib/prisma";
 import { getApplicationSummary } from "@/lib/payment-applications";
+import { rapydPaymentsState } from "@/lib/rapyd-payments";
 import { AddonsView } from "./addons-view";
 import { getMessages, toLocale } from "@/i18n";
 
@@ -24,9 +25,10 @@ export default async function AddonsPage() {
   }
 
   const integrations = await listIntegrations(therapist.id, locale);
-  const [treatmentCount, application] = await Promise.all([
+  const [treatmentCount, application, rapyd] = await Promise.all([
     prisma.treatmentTemplate.count({ where: { therapistId: therapist.id } }),
     getApplicationSummary(therapist.id),
+    rapydPaymentsState(therapist),
   ]);
 
   return (
@@ -40,6 +42,7 @@ export default async function AddonsPage() {
         initial={{ integrations, credentialStorageReady: credentialStorageReady() }}
         hasTreatments={treatmentCount > 0}
         application={application}
+        rapyd={rapyd}
         defaults={{ fullName: therapist.fullName, phone: therapist.phone ?? "", email: therapist.email }}
       />
     </main>

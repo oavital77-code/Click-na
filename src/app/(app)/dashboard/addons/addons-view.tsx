@@ -25,7 +25,8 @@ import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 import { PAYMENT_PROVIDERS } from "@/lib/integration-providers";
 import { useI18n } from "@/i18n/client";
 import type { ApplicationSummary } from "@/lib/payment-applications";
-import { PaymentSetupCard } from "./payment-setup";
+import type { RapydPaymentsState } from "@/lib/rapyd-payments";
+import { PaymentSetupCard, RapydPaymentsCard } from "./payment-setup";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
@@ -44,8 +45,11 @@ export function AddonsView({
   hasTreatments,
   application,
   defaults,
+  rapyd,
 }: {
   initial: Payload;
+  /** Card payments through Cleana+'s Rapyd account, when offered to this therapist. */
+  rapyd: RapydPaymentsState;
   /** Whether Settings has any treatment. Requests are picked from that menu. */
   hasTreatments: boolean;
   /** Where the therapist's card-payments application stands, if they sent one. */
@@ -87,7 +91,13 @@ export function AddonsView({
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           {payments.map((integration) =>
-            integration.provider === "payplus" ? (
+            integration.provider === "payplus" && rapyd.available ? (
+              <RapydPaymentsCard
+                key="rapyd"
+                initial={rapyd}
+                hint={!hasTreatments ? m.addons.templatesMissing : null}
+              />
+            ) : integration.provider === "payplus" ? (
               <ManagedPaymentsCard
                 key="payplus"
                 integration={integration}

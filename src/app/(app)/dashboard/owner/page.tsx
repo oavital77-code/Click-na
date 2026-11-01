@@ -4,7 +4,6 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { isOwner, listApplications } from "@/lib/payment-applications";
 import { getMessages, toLocale } from "@/i18n";
 import { appUrl } from "@/lib/public-url";
-import { activeRapydWallet } from "@/lib/rapyd-payments";
 import { OwnerApplicationsView } from "./owner-view";
 import { RapydCheckCard } from "./rapyd-check";
 
@@ -18,10 +17,7 @@ export default async function OwnerPage() {
   return (
     <main className="flex w-full flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
       <PageHeader kicker={m.paymentSetup.owner.kicker} title={m.paymentSetup.owner.title} meta={m.paymentSetup.owner.meta} />
-      <RapydCheckCard
-        webhookUrl={`${appUrl()}/api/webhooks/rapyd`}
-        walletEnabled={(await activeRapydWallet(therapist.id)) !== null}
-      />
+      <RapydCheckCard webhookUrl={`${appUrl()}/api/webhooks/rapyd`} />
       <OwnerApplicationsView initial={await listApplications()} />
     </main>
   );
