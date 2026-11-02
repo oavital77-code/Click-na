@@ -64,6 +64,8 @@ export function AvailabilityView({
   const [placeId, setPlaceId] = useState(locations[0]?.id ?? "");
   const [loadingWeek, setLoadingWeek] = useState(false);
   const isFirstRender = useRef(true);
+  const hoursRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -78,6 +80,20 @@ export function AvailabilityView({
     () => Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i)),
     [anchorDate]
   );
+
+  // A phone shows three days at a time: open the week on today, not on Sunday.
+  useEffect(() => {
+    const grid = gridRef.current;
+    const todayHeader = grid?.querySelector<HTMLElement>("th[data-today]");
+    if (!grid || !todayHeader) return;
+    // Distance from the grid's start edge to today's column, in either direction.
+    const gridBox = grid.getBoundingClientRect();
+    const cellBox = todayHeader.getBoundingClientRect();
+    const rtl = getComputedStyle(grid).direction === "rtl";
+    const delta = rtl ? gridBox.right - cellBox.right : cellBox.left - gridBox.left;
+    grid.scrollLeft += rtl ? -delta : delta;
+  }, [weekDates, granularity]);
+
   const holidays = useMemo(() => holidaysByDate(yearsBetween(weekDates[0], weekDates[6])), [weekDates]);
 
   const range = useMemo(() => {
@@ -287,74 +303,109 @@ export function AvailabilityView({
               }}
             />
           ) : (
-            // One box that scrolls both ways, bounded in height: that is what lets
-            // the day header pin to its top and the hour column to its edge on
-            // every browser, phones included — sticky only ever works against
-            // the nearest scrolling ancestor, and a page-scrolled table has none
-            // for the vertical axis. The corner cell sits above both.
-            <div className="snap-x snap-mandatory scroll-ps-14 max-h-[70vh] overflow-auto">
-              <table className="w-full min-w-[640px] border-separate border-spacing-0 text-sm">
-                <thead>
-                  <tr>
-                    <th className="bg-card sticky start-0 top-0 z-30 w-14" />
-                    {weekDates.map((dateKey) => {
-                      const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
-                      const isToday = dateKey === today;
-                      return (
-                        <th key={dateKey} className="bg-card sticky top-0 z-20 snap-start pb-2 text-center font-medium">
-                          <div className={isToday ? "text-primary" : undefined}>
-                            {m.labels.daysShort[dow]}
-                          </div>
-                          <div className="num text-muted-foreground text-xs">
-                            {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
-                          </div>
-                          {holidays.has(dateKey) && (
-                            <div className="text-primary text-[10px] leading-tight font-normal">
-                              {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
-                            </div>
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {byDayAndTime.times.map((time) => (
-                    <tr key={time}>
-                      <td className="num text-muted-foreground border-border bg-card sticky start-0 z-10 border-t py-2 pe-2 text-xs">
+            // The hours live OUTSIDE the box that scrolls sideways, so swiping
+            // through the days can never take them off screen. (They used to be
+            // a sticky first column; on iPhone that column scrolled away with
+            // the days and the slots lost their times.) The grid scrolls both
+            // ways inside a bounded box — so the day header can pin to its top —
+            // and the hours follow its vertical scroll. Rows have a fixed
+            // height on both sides so they stay in line.
+            <div>
+              <div className="flex">
+                <div aria-hidden className="w-14 shrink-0">
+                  {/* Level with the day header, which stays pinned above the rows. */}
+                  <div className="h-16" />
+                  <div ref={hoursRef} className="max-h-[calc(70vh-4rem)] overflow-hidden">
+                    {byDayAndTime.times.map((time) => (
+                      <div
+                        key={time}
+                        className="num text-muted-foreground border-border flex h-14 items-center border-t pe-2 text-xs"
+                      >
                         {time}
-                      </td>
-                      {weekDates.map((dateKey) => {
-                        const session = byDayAndTime.map.get(`${dateKey}T${time}`);
-                        return (
-                          <td
-                            key={dateKey}
-                            className="border-border snap-start border-t p-1 text-center align-middle"
-                          >
-                            {session ? (
-                              <button
-                                type="button"
-                                disabled={
-                                  pendingIds.has(session.id) ||
-                                  (session.status !== "open" && session.status !== "blocked")
-                                }
-                                onClick={() => toggleStatus(session)}
-                                title={session.clientName ?? undefined}
-                                className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center disabled:opacity-100"}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div
+                  ref={gridRef}
+                  onScroll={(e) => {
+                    if (hoursRef.current) hoursRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }}
+                  className="max-h-[70vh] min-w-0 flex-1 snap-x snap-mandatory overflow-auto"
+                >
+                  <table className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-sm">
+                    <thead>
+                      <tr>
+                        {weekDates.map((dateKey) => {
+                          const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+                          const isToday = dateKey === today;
+                          return (
+                            <th
+                              key={dateKey}
+                              data-today={isToday || undefined}
+                              className="bg-card sticky top-0 z-20 h-16 snap-start pb-2 text-center align-bottom font-medium"
+                            >
+                              <div className={isToday ? "text-primary" : undefined}>
+                                {m.labels.daysShort[dow]}
+                              </div>
+                              <div className="num text-muted-foreground text-xs">
+                                {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
+                              </div>
+                              {holidays.has(dateKey) && (
+                                <div className="text-primary truncate text-[10px] leading-tight font-normal">
+                                  {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
+                                </div>
+                              )}
+                            </th>
+                          );
+                        })}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {byDayAndTime.times.map((time) => (
+                        <tr key={time}>
+                          {weekDates.map((dateKey) => {
+                            const session = byDayAndTime.map.get(`${dateKey}T${time}`);
+                            return (
+                              <td
+                                key={dateKey}
+                                className="border-border h-14 snap-start border-t p-1 text-center align-middle"
                               >
-                                {manyPlaces && <LocationDot color={session.locationColor} />}
-                                {session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}
-                              </button>
-                            ) : (
-                              <span className="text-muted-foreground/40">—</span>
-                            )}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                                {session ? (
+                                  <button
+                                    type="button"
+                                    disabled={
+                                      pendingIds.has(session.id) ||
+                                      (session.status !== "open" && session.status !== "blocked")
+                                    }
+                                    onClick={() => toggleStatus(session)}
+                                    title={session.clientName ?? undefined}
+                                    aria-label={`${time} · ${session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}`}
+                                    className={cn(
+                                      statusBadgeClass(sessionStatusTone(session.status)),
+                                      "h-[46px] w-full flex-col justify-center gap-0 rounded-xl leading-tight disabled:opacity-100"
+                                    )}
+                                  >
+                                    {/* The time again, inside the slot: on a phone the
+                                        hours column can be a few columns away. */}
+                                    <span className="num text-[11px] font-bold md:hidden">{time}</span>
+                                    <span className="flex max-w-full items-center gap-1 truncate">
+                                      {manyPlaces && <LocationDot color={session.locationColor} />}
+                                      {session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <span className="text-muted-foreground/40">—</span>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
               <p className="text-muted-foreground mt-3 text-xs md:hidden">{a.scrollHint}</p>
             </div>
           )}
