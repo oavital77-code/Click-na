@@ -12,7 +12,7 @@ import {
 } from "@/lib/email-templates";
 import type { NotificationType } from "@/generated/prisma/client";
 import { DEFAULT_LOCALE, toLocale } from "@/i18n";
-import { formatPriceIls, planPriceIls } from "@/lib/plan";
+import { formatPriceIls, priceForSubscription } from "@/lib/plan";
 
 /**
  * Mail about the therapist's own account, as distinct from the booking mail in
@@ -148,10 +148,10 @@ export async function sendSignupAlert(therapistId: string) {
 
 /** One step of the trial countdown — a reminder, the end, or the lock. */
 export async function sendTrialEmail(therapistId: string, stage: TrialEmailInput["stage"]) {
-  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId } });
+  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId }, include: { subscription: true } });
   if (!therapist) return;
   const locale = toLocale(therapist.locale);
-  const price = planPriceIls();
+  const price = priceForSubscription(therapist.subscription);
 
   const { subject, html } = trialEmail({
     locale,

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { appUrl } from "@/lib/public-url";
-import { formatPriceIls, planPriceIls, PLAN_TIER } from "@/lib/plan";
+import { formatPriceIls, planPriceIls, priceForSubscription, PLAN_TIER } from "@/lib/plan";
 import { accessState, graceEndFor } from "@/lib/access";
 import { changeSubscription } from "@/lib/subscriptions";
 import {
@@ -57,8 +57,10 @@ export async function startCheckout(
   const availability = billingAvailability();
   if (!availability.ok) return availability;
 
-  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId } });
+  const therapist = await prisma.therapist.findUnique({ where: { id: therapistId }, include: { subscription: true } });
   if (!therapist) return { ok: false, reason: "not_found" };
+  // Their price: a coupon's, when they entered one, else the list price.
+  const priceIls = priceForSubscription(therapist.subscription) ?? availability.priceIls;
 
   const locale = toLocale(therapist.locale);
   const m = getMessages(locale).billing;
@@ -68,8 +70,8 @@ export async function startCheckout(
     availability.cfg,
     {
       reference: CHECKOUT_REFERENCE,
-      amountIls: availability.priceIls,
-      description: `${m.planName} — ${m.perMonth(formatPriceIls(availability.priceIls, locale))}`,
+      amountIls: priceIls,
+      description: `${m.planName} — ${m.perMonth(formatPriceIls(priceIls, locale))}`,
       customer: { name: therapist.fullName, email: therapist.email, phone: therapist.phone },
       urls: {
         success: `${base}/dashboard/billing?returned=success`,
@@ -163,10 +165,14 @@ export async function applyVerifiedTransaction(
   if (!subscription) return { applied: false, reason: "unknown_therapist" };
 
   const succeeded = verified.statusCode === PAYPLUS_SUCCESS_CODE;
-  const expected = planPriceIls();
+  // Their own price (a coupon's) or the list price: a page opened before the
+  // coupon was entered still carries the list price, and that is still a
+  // payment for the month — they paid more, not less.
+  const accepted = [priceForSubscription(subscription), planPriceIls()].filter((p): p is number => p !== null);
   // A successful charge for the wrong amount is not a subscription payment we
   // recognise; record it (it is real money) but do not unlock anything.
-  const amountOk = expected === null || verified.amount === null || Math.abs(verified.amount - expected) < 0.01;
+  const amountOk =
+    accepted.length === 0 || verified.amount === null || accepted.some((p) => Math.abs(verified.amount! - p) < 0.01);
 
   const period = succeeded && amountOk ? periodAfter(renewalStart(subscription, now)) : null;
 
@@ -309,7 +315,7 @@ export async function chargeDueRenewals(
   const summary: RenewalSummary = { charged: 0, declined: 0, errors: 0, noToken: 0 };
   const availability = billingAvailability();
   if (!availability.ok) return summary;
-  const { cfg, priceIls } = availability;
+  const { cfg } = availability;
 
   const retryBefore = new Date(now.getTime() - CHARGE_RETRY_MS);
   const due = await prisma.subscription.findMany({
@@ -351,7 +357,7 @@ export async function chargeDueRenewals(
           cashierUid,
           tokenUid: sub.payplusTokenUid,
           customerUid: sub.payplusCustomerUid,
-          amountIls: priceIls,
+          amountIls: priceForSubscription(sub) ?? availability.priceIls,
           description: `${CHECKOUT_REFERENCE} renewal`,
         },
         deps.fetchImpl

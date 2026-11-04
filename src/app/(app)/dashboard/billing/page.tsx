@@ -4,7 +4,7 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { accessState, daysLeft } from "@/lib/access";
 import { billingAvailability } from "@/lib/billing";
-import { EARLY_RENEWAL_DAYS, formatPriceIls, planPriceIls } from "@/lib/plan";
+import { EARLY_RENEWAL_DAYS, couponPriceIls, formatPriceIls, priceForSubscription } from "@/lib/plan";
 import { getMessages, toLocale } from "@/i18n";
 import { BillingView } from "./billing-view";
 
@@ -27,7 +27,8 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
   const availability = billingAvailability();
   // The price is shown whenever one is decided, even before the payment
   // provider is wired up — a therapist on trial should know what comes next.
-  const price = planPriceIls();
+  const price = priceForSubscription(therapist.subscription);
+  const couponPrice = couponPriceIls(therapist.subscription.couponCode);
   const payments = await prisma.payment.findMany({
     where: { therapistId: therapist.id },
     orderBy: { createdAt: "desc" },
@@ -48,6 +49,11 @@ export default async function BillingPage({ searchParams }: PageProps<"/dashboar
       <BillingView
         state={state}
         price={price === null ? null : formatPriceIls(price, locale)}
+        coupon={
+          therapist.subscription.couponCode && couponPrice !== null
+            ? { code: therapist.subscription.couponCode, priceIls: couponPrice }
+            : null
+        }
         canPay={availability.ok}
         manualRenewal={manualRenewal}
         renewWindowOpen={renewWindowOpen}

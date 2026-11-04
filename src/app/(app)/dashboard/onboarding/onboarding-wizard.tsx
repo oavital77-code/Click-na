@@ -31,16 +31,19 @@ import {
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
 import { useI18n } from "@/i18n/client";
+import { CouponField } from "@/components/coupon-field";
 
 type SlugCheckStatus = "idle" | "checking" | "available" | "unavailable";
 
 type Props = {
+  /** A coupon already on the account, with its price — shown as applied. */
+  initialCoupon: { code: string; priceIls: number } | null;
   initialFullName: string;
   initialPhone: string;
   initialSlug: string;
 };
 
-export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }: Props) {
+export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone, initialSlug }: Props) {
   const router = useRouter();
   const { m, issue } = useI18n();
   const [step, setStep] = useState(1);
@@ -196,6 +199,9 @@ export function OnboardingWizard({ initialFullName, initialPhone, initialSlug }:
                 </SelectContent>
               </Select>
             </div>
+            {/* Applied on its own (not with the rest of the wizard), so a code
+                entered here holds even if they stop halfway through setup. */}
+            <CouponField initialCode={initialCoupon?.code ?? null} initialPriceIls={initialCoupon?.priceIls ?? null} />
           </div>
         )}
 

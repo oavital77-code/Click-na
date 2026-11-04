@@ -40,6 +40,36 @@ export const PAYMENT_TERMS_VERSION = "2026-11-01";
 /** The decided price, shekels with VAT. PLAN_PRICE_ILS overrides it without a deploy. */
 export const DEFAULT_PLAN_PRICE_ILS = 49;
 
+/**
+ * Coupon codes and the monthly price each one sets, shekels with VAT. Codes
+ * are compared lower-case and trimmed, so "BACLINICA5 " works too. A code
+ * applies for the life of the account (stored on the subscription).
+ */
+export const COUPONS: Readonly<Record<string, number>> = {
+  baclinica5: 39,
+};
+
+export function normalizeCoupon(code: string): string {
+  return code.trim().toLowerCase();
+}
+
+/** The price a code sets, or null for a code that does not exist. */
+export function couponPriceIls(code: string | null | undefined): number | null {
+  if (!code) return null;
+  return COUPONS[normalizeCoupon(code)] ?? null;
+}
+
+/**
+ * What this subscription pays a month: its coupon's price, or the list price.
+ * Every place that charges, checks or quotes a price goes through here.
+ */
+export function priceForSubscription(
+  subscription: { couponCode?: string | null } | null | undefined,
+  env: Record<string, string | undefined> = process.env
+): number | null {
+  return couponPriceIls(subscription?.couponCode) ?? planPriceIls(env);
+}
+
 export function planPriceIls(env: Record<string, string | undefined> = process.env): number | null {
   const raw = env.PLAN_PRICE_ILS;
   if (raw === undefined) return DEFAULT_PLAN_PRICE_ILS;

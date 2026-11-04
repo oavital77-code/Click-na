@@ -540,6 +540,15 @@ export const en = {
     templatesMissing: "To send payment requests, set up treatments and prices in Settings.",
   },
 
+  coupon: {
+    label: "Coupon code (optional)",
+    apply: "Apply",
+    invalid: "That code is not valid. Check it was typed correctly.",
+    tooMany: "Too many tries. Try again in an hour.",
+    applied: (code: string) => `Coupon ${code} applied.`,
+    yourPrice: (price: string) => `Your price: ${price} a month.`,
+  },
+
   onboarding: {
     title: "Let's get acquainted",
     step: (n: number, total: number) => `Step ${n} of ${total}`,

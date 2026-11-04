@@ -529,6 +529,15 @@ export const he: Messages = {
     templatesMissing: "כדי לשלוח בקשות תשלום צריך להגדיר טיפולים ומחירים בהגדרות.",
   },
 
+  coupon: {
+    label: "קוד קופון (לא חובה)",
+    apply: "הפעלה",
+    invalid: "הקוד לא תקין. כדאי לבדוק שהוקלד נכון.",
+    tooMany: "יותר מדי ניסיונות. אפשר לנסות שוב בעוד שעה.",
+    applied: (code) => `קוד הקופון ${code} הופעל.`,
+    yourPrice: (price) => `המחיר שלך: ${price} לחודש.`,
+  },
+
   onboarding: {
     title: "בואו נכיר",
     step: (n, total) => `שלב ${n} מתוך ${total}`,

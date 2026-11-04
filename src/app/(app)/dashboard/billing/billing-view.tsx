@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useI18n } from "@/i18n/client";
+import { CouponField } from "@/components/coupon-field";
 import { fmt } from "@/i18n/dates";
 import type { AccessState } from "@/lib/access";
 import { EARLY_RENEWAL_DAYS, formatPriceIls } from "@/lib/plan";
@@ -29,6 +30,7 @@ const PAYMENT_TONE: Record<PaymentRow["status"], StatusTone> = {
 export function BillingView({
   state,
   price,
+  coupon,
   canPay,
   manualRenewal,
   renewWindowOpen,
@@ -38,6 +40,8 @@ export function BillingView({
 }: {
   state: AccessState;
   price: string | null;
+  /** A coupon on the account, with the price it sets. */
+  coupon: { code: string; priceIls: number } | null;
   canPay: boolean;
   /** No stored card: the next month is paid for here, not charged by us. */
   manualRenewal: boolean;
@@ -181,6 +185,13 @@ export function BillingView({
               </li>
             ))}
           </ul>
+
+          {/* Server-side price follows the coupon at once; refresh to show it. */}
+          <CouponField
+            initialCode={coupon?.code ?? null}
+            initialPriceIls={coupon?.priceIls ?? null}
+            onApplied={() => router.refresh()}
+          />
 
           {error && <p className="text-st-danger text-sm">{error}</p>}
 

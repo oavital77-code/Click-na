@@ -3,6 +3,7 @@ import { getCurrentTherapist } from "@/lib/auth";
 import { SignOutButton } from "@clerk/nextjs";
 import { BrandMark } from "@/components/brand-mark";
 import { getMessages, toLocale } from "@/i18n";
+import { couponPriceIls } from "@/lib/plan";
 import { OnboardingWizard } from "./onboarding-wizard";
 
 export default async function OnboardingPage() {
@@ -24,6 +25,7 @@ export default async function OnboardingPage() {
         </SignOutButton>
       </div>
       <OnboardingWizard
+        initialCoupon={couponFor(therapist.subscription?.couponCode)}
         // A name Clerk never had falls back to the email's local part
         // ("pgl.it"): offering that as their name only invites a typo-ed
         // practice title. An empty field asks for the real one.
@@ -33,4 +35,9 @@ export default async function OnboardingPage() {
       />
     </main>
   );
+}
+
+function couponFor(code: string | null | undefined) {
+  const priceIls = couponPriceIls(code);
+  return code && priceIls !== null ? { code, priceIls } : null;
 }
