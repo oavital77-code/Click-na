@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { AuthLink } from "@/components/auth-link";
 import {
   ArrowRight,
   BellRing,
@@ -189,11 +190,12 @@ export default function Home() {
             <BrandMark className="text-foreground text-xl" />
           </Link>
           <div className="flex items-center gap-3 text-sm">
-            <Link href="/signup" className="text-muted-foreground hover:text-foreground hidden min-h-11 items-center font-medium sm:inline-flex">
+            {/* Into sign-in/sign-up: AuthLink, never <Link> — see components/auth-link.tsx. */}
+            <AuthLink href="/signup" className="text-muted-foreground hover:text-foreground hidden min-h-11 items-center font-medium sm:inline-flex">
               הרשמה
-            </Link>
+            </AuthLink>
             <Button asChild size="lg" className="rounded-2xl px-6 font-semibold">
-              <Link href="/login">כניסה</Link>
+              <AuthLink href="/login">כניסה</AuthLink>
             </Button>
           </div>
         </div>
@@ -217,10 +219,10 @@ export default function Home() {
             </p>
             <div className="flex w-full max-w-md flex-col gap-3">
               <Button asChild size="lg" variant="accent" className="h-14 w-full rounded-2xl text-base font-semibold shadow-lg shadow-accent/25">
-                <Link href="/signup">
+                <AuthLink href="/signup">
                   ליצור את לינק ההזמנה שלי
                   <ArrowRight className="size-5 rtl:rotate-180" aria-hidden />
-                </Link>
+                </AuthLink>
               </Button>
               <Button asChild size="lg" variant="outline" className="h-14 w-full rounded-2xl text-base font-semibold">
                 <Link href="#video">לצפייה בסרטון ההסבר</Link>
@@ -410,10 +412,10 @@ export default function Home() {
                     בלי שיחות ובלי טפסים.
                   </p>
                   <Button asChild size="lg" variant="accent" className="h-12 w-full rounded-2xl font-semibold md:w-auto">
-                    <Link href="/signup">
+                    <AuthLink href="/signup">
                       להתחיל חודש חינם
                       <ArrowRight className="size-4 rtl:rotate-180" aria-hidden />
-                    </Link>
+                    </AuthLink>
                   </Button>
                 </div>
 
@@ -466,10 +468,10 @@ export default function Home() {
               מגדירים שעות עבודה ומשתפים לינק אחד. כל השאר כבר מוכן.
             </p>
             <Button asChild size="lg" variant="accent" className="h-14 w-full max-w-md rounded-2xl text-base font-semibold shadow-lg shadow-accent/25">
-              <Link href="/signup">
+              <AuthLink href="/signup">
                 ליצור את לינק ההזמנה שלי
                 <ArrowRight className="size-5 rtl:rotate-180" aria-hidden />
-              </Link>
+              </AuthLink>
             </Button>
             <TrustRow items={TRUST} />
             <p className="text-muted-foreground text-sm leading-relaxed">
