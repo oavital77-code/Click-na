@@ -504,7 +504,12 @@ export function DashboardSchedule({
                             {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
                           </div>
                           {holidays.has(dateKey) && (
-                            <div className="text-primary text-[10px] leading-tight font-normal">
+                            <div
+                              className={cn(
+                                "text-[10px] leading-tight font-normal",
+                                holidays.get(dateKey)!.kind === "observance" ? "text-muted-foreground" : "text-primary"
+                              )}
+                            >
                               {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
                             </div>
                           )}

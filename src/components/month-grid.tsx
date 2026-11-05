@@ -82,7 +82,13 @@ export function MonthGrid({
             >
               <span className={cn("num text-xs font-medium", isToday && "text-primary")}>{date.slice(8, 10)}</span>
               {holidays.has(date) && (
-                <span className="text-primary block w-full truncate text-[9px] leading-tight">
+                <span
+                  title={m.holidays[holidays.get(date)!.key as keyof typeof m.holidays]}
+                  className={cn(
+                    "line-clamp-2 block w-full text-[9px] leading-tight break-words",
+                    holidays.get(date)!.kind === "observance" ? "text-muted-foreground" : "text-primary"
+                  )}
+                >
                   {m.holidays[holidays.get(date)!.key as keyof typeof m.holidays]}
                 </span>
               )}

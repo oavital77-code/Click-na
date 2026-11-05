@@ -21,8 +21,12 @@ export const TISHREI = 7;
 export const NISAN = 1;
 export const IYAR = 2;
 export const SIVAN = 3;
+export const TAMMUZ = 4;
 export const AV = 5;
+export const CHESHVAN = 8;
 export const KISLEV = 9;
+export const TEVET = 10;
+export const SHEVAT = 11;
 export const ADAR = 12;
 export const ADAR_II = 13;
 
@@ -100,7 +104,12 @@ export type HolidayKind =
   /** The afternoon before a holiday, and Memorial Day: many close early or fully. */
   | "eve"
   /** The intermediate days of Sukkot and Pesach: many work, many don't. */
-  | "cholHamoed";
+  | "cholHamoed"
+  /**
+   * A day in the calendar that is not a day off: Hanukkah, Purim, the fasts,
+   * the remembrance days. Shown on the calendar, never closes anything.
+   */
+  | "observance";
 
 export type Holiday = {
   /** yyyy-MM-dd, in Israel's civil calendar. */
@@ -121,6 +130,18 @@ function yomHaatzmautRd(hebrewYear: number) {
   if (dow === 5) return nominal - 1; // Friday → Thursday
   if (dow === 6) return nominal - 2; // Saturday → Thursday
   if (dow === 1) return nominal + 1; // Monday → Tuesday
+  return nominal;
+}
+
+/**
+ * Yom HaShoah, 27 Nisan, keeps off the days beside Shabbat: a Friday pulls it
+ * back to Thursday, a Sunday pushes it to Monday.
+ */
+function yomHashoahRd(hebrewYear: number) {
+  const nominal = fixedFromHebrew(hebrewYear, NISAN, 27);
+  const dow = weekday(nominal);
+  if (dow === 5) return nominal - 1;
+  if (dow === 0) return nominal + 1;
   return nominal;
 }
 
@@ -162,12 +183,42 @@ export function israeliHolidays(gregorianYear: number): Holiday[] {
     push(atzmaut, "holiday", "yomHaatzmaut");
     push(at(SIVAN, 5), "eve", "erevShavuot");
     push(at(SIVAN, 6), "holiday", "shavuot");
+
+    // The rest of the year's dates: on the calendar, never closing anything.
+    // A fast that falls on Shabbat moves to Sunday (Ta'anit Esther, the one
+    // before it, to Thursday).
+    const notShabbat = (rd: number) => (weekday(rd) === 6 ? rd + 1 : rd);
+    push(notShabbat(at(TISHREI, 3)), "observance", "tzomGedalia");
+    push(at(CHESHVAN, 29), "observance", "sigd");
+    for (let d = 0; d < 8; d++) push(at(KISLEV, 25) + d, "observance", "hanukkah");
+    push(at(TEVET, 10), "observance", "asaraBeTevet");
+    push(at(SHEVAT, 15), "observance", "tuBishvat");
+    const adar = isHebrewLeapYear(hy) ? ADAR_II : ADAR;
+    const esther = at(adar, 13);
+    push(weekday(esther) === 6 ? esther - 2 : esther, "observance", "taanitEsther");
+    push(at(adar, 14), "observance", "purim");
+    push(at(adar, 15), "observance", "shushanPurim");
+    push(yomHashoahRd(hy), "observance", "yomHashoah");
+    push(at(IYAR, 18), "observance", "lagBaomer");
+    push(at(IYAR, 28), "observance", "yomYerushalayim");
+    push(notShabbat(at(TAMMUZ, 17)), "observance", "shivaAsarBeTammuz");
+    push(notShabbat(at(AV, 9)), "observance", "tishaBeAv");
+    push(at(AV, 15), "observance", "tuBeAv");
+
+    // Rosh Chodesh: the 1st of every month but Tishrei (that is Rosh Hashana),
+    // and the 30th of the month before when it has thirty days. Pushed last, so
+    // on a day it shares (Rosh Chodesh Tevet, inside Hanukkah) the other wins.
+    const months = [TISHREI, 8, KISLEV, TEVET, SHEVAT, ADAR, ...(isHebrewLeapYear(hy) ? [ADAR_II] : []), NISAN, IYAR, SIVAN, TAMMUZ, AV, 6];
+    for (let i = 1; i < months.length; i++) {
+      push(at(months[i], 1), "observance", "roshChodesh");
+      if (daysInHebrewMonth(hy, months[i - 1]) === 30) push(at(months[i - 1], 30), "observance", "roshChodesh");
+    }
   }
 
   const fixed = out;
   fixed.sort((a, b) => a.date.localeCompare(b.date));
   // De-duplicate (a date can only be one thing; the more restrictive kind wins).
-  const rank: Record<HolidayKind, number> = { holiday: 3, eve: 2, cholHamoed: 1 };
+  const rank: Record<HolidayKind, number> = { holiday: 3, eve: 2, cholHamoed: 1, observance: 0 };
   const byDate = new Map<string, Holiday>();
   for (const h of fixed) {
     const prev = byDate.get(h.date);
