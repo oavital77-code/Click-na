@@ -158,6 +158,8 @@ export const en = {
     blockCholHamoed: "Also close on Chol HaMoed (the days between)",
     holidaysNote: "Your weekly hours skip a closed day, and empty slots already there are cleared. Booked appointments are never touched, and a slot you open by hand on a closed day stays: working a holiday is your call.",
     saveSettings: "Save settings",
+    tourCard: "Guided tour",
+    tourDescription: "Go through the main buttons again, and what each one does.",
     privacyCard: "Privacy",
     privacyDescription: "Your data only — never visible to other therapists",
     exportData: "Export my data (JSON)",
@@ -538,6 +540,103 @@ export const en = {
     paymentsLead:
       "Connect a payment link, from PayPlus or any other service, and it goes to the client with every payment request. You mark the payment on the bookings page.",
     templatesMissing: "To send payment requests, set up treatments and prices in Settings.",
+  },
+
+  tour: {
+    start: "Let's go",
+    next: "Next",
+    prev: "Back",
+    skip: "Skip the tour",
+    done: "Done",
+    progress: (n: number, total: number) => `Step ${n} of ${total}`,
+    label: "Guided tour",
+    button: "Take the tour",
+    steps: {
+      welcome: {
+        title: "Welcome to Cleana+",
+        body: "We'll go through the main buttons together, and I'll explain what each one does. It takes about two minutes, and you can skip at any time.",
+      },
+      navDashboard: {
+        title: "Home",
+        body: "The screen you are on now: who is next, what is happening today and how the week looks. This is where each day starts.",
+      },
+      navAvailability: {
+        title: "Availability",
+        body: "Set when people can book you: weekly hours that repeat, or a single hour on a given day. Clients can only book the hours you open.",
+      },
+      navBookings: {
+        title: "Bookings",
+        body: "Every booking made. Confirm or cancel one, send a WhatsApp reminder and ask for payment after the session.",
+      },
+      navClients: {
+        title: "Clients",
+        body: "Your clients, with each one's booking history. The list updates by itself the moment someone books, so there is nothing to add by hand.",
+      },
+      navMore: {
+        title: "More",
+        body: "The rest of the places are here. We'll open it and go through them.",
+      },
+      navLink: {
+        title: "My link",
+        body: "Design the page your clients see: logo or photo, title and content. This is also where you share the link on WhatsApp so clients book on their own.",
+      },
+      navAddons: {
+        title: "Add-ons",
+        body: "Connections that add abilities: a payment link, automatic WhatsApp reminders, Zoom meetings and syncing with your Google or Apple calendar.",
+      },
+      navMessages: {
+        title: "Messages",
+        body: "A record of every message the system sent, confirmations, reminders and cancellations, and whether it arrived.",
+      },
+      navBilling: {
+        title: "Subscription",
+        body: "Your plan status, the price and payment. The first month is free and you are not charged until you start the plan. If you have a coupon code, enter it here.",
+      },
+      navSettings: {
+        title: "Settings",
+        body: "Your details, language, session length and the break between sessions, how far ahead people can book and more. The button to replay this tour is here too.",
+      },
+      homeCopy: {
+        title: "Copy the link",
+        body: "Copies the link to your booking page. Send it to clients on WhatsApp or paste it in your Instagram bio, and anyone who taps it books on their own.",
+      },
+      homeOpenHour: {
+        title: "Open an hour",
+        body: "Jumps to the calendar further down, where you open an hour to clients. An hour you have not opened cannot be booked.",
+      },
+      user: {
+        title: "My account",
+        body: "Your profile, changing your password and signing out.",
+      },
+      firstSteps: {
+        title: "First steps",
+        body: "A list of what to do so your first client books: open hours, take a look at the page clients see and send them the link. After the first booking it is replaced by the next-session card.",
+      },
+      next: {
+        title: "Next session",
+        body: "Who the next client is, when and where. From here you send them a WhatsApp reminder in one tap.",
+      },
+      today: {
+        title: "Today",
+        body: "Today's sessions in order, with a line showing where you are now. After a session you can mark the client as paid right from here.",
+      },
+      unpaid: {
+        title: "Awaiting payment",
+        body: "The total of payment requests you sent that are not paid yet. The button below goes to the bookings page.",
+      },
+      week: {
+        title: "This week",
+        body: "How many sessions each day has, with today highlighted.",
+      },
+      calendar: {
+        title: "The calendar",
+        body: "All your sessions and open hours in one place. Switch between day, week and month, open an empty hour to clients, block a free hour and see who booked. Holidays and occasions are marked on it.",
+      },
+      end: {
+        title: "That's it, you're ready!",
+        body: "You can play the tour again any time, from Settings or the button on the home screen. Good luck!",
+      },
+    },
   },
 
   coupon: {

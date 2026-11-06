@@ -158,6 +158,10 @@ model Therapist {
   locale              String          @default("he") @db.VarChar(10)
   status              TherapistStatus @default(active)
   onboardingCompleted Boolean         @default(false) @map("onboarding_completed")
+  // When the guided tour was finished or skipped. Null: not shown yet, so the
+  // dashboard starts it. Accounts that existed when the tour was added were
+  // stamped by its migration and never see it unless they ask (Settings).
+  tourDoneAt          DateTime?       @map("tour_done_at") @db.Timestamptz
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 

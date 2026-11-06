@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignOutButton } from "@clerk/nextjs";
@@ -52,6 +52,7 @@ function NavLinks({ pathname, onNavigate }: { pathname: string | null; onNavigat
         <Link
           key={link.href}
           href={link.href}
+          data-tour={`nav-${link.key}`}
           onClick={onNavigate}
           aria-current={isActive(pathname, link.href) ? "page" : undefined}
           className={cn(
@@ -89,6 +90,13 @@ export function DashboardNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const { m } = useI18n();
 
+  // The guided tour opens and closes the phone's drawer to point at what is in it.
+  useEffect(() => {
+    const onMenu = (e: Event) => setMobileOpen((e as CustomEvent<"open" | "close">).detail === "open");
+    window.addEventListener("cleana:menu", onMenu);
+    return () => window.removeEventListener("cleana:menu", onMenu);
+  }, []);
+
   return (
     <>
       {/* Mobile top bar: the logo only. Navigation is the bottom bar, where the
@@ -106,6 +114,7 @@ export function DashboardNav() {
           <Link
             key={tab.href}
             href={tab.href}
+            data-tour={`nav-${tab.key}`}
             aria-current={isActive(pathname, tab.href) ? "page" : undefined}
             className={cn(
               "flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-semibold",
@@ -119,6 +128,7 @@ export function DashboardNav() {
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
+          data-tour="nav-more"
           aria-label={m.nav.openMenu}
           className="text-background/60 flex min-h-14 flex-col items-center justify-center gap-1 text-[11px] font-semibold"
         >

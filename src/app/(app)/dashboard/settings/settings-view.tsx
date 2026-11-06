@@ -2,6 +2,7 @@
 
 import { LogoField } from "@/components/logo-field";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -508,6 +509,19 @@ export function SettingsView({
         </Button>
         {settingsSaved && <span className="text-sm text-green-600">{m.common.saved}</span>}
       </div>
+
+      {/* The guided tour, again */}
+      <Card>
+        <CardHeader>
+          <CardTitle>{m.settings.tourCard}</CardTitle>
+          <CardDescription>{m.settings.tourDescription}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button asChild variant="outline" className="w-full md:w-fit">
+            <Link href="/dashboard?tour=1">{m.tour.button}</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       {/* Privacy */}
       <Card>

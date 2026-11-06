@@ -24,6 +24,7 @@ import { appUrl } from "@/lib/public-url";
 import { whatsappLink } from "@/lib/whatsapp-link";
 import { reminderWhatsApp } from "@/lib/whatsapp-templates";
 import { formatPriceIls } from "@/lib/plan";
+import { TourLauncher } from "./tour-launcher";
 
 /**
  * The home screen, today first: who is next, today in order (with a line for
@@ -31,7 +32,7 @@ import { formatPriceIls } from "@/lib/plan";
  * for everything else. Every figure comes from the queries below, so the
  * cards and the calendar can never disagree.
  */
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: PageProps<"/dashboard">) {
   const therapist = await getCurrentTherapist();
   const locale = toLocale(therapist?.locale);
   const m = getMessages(locale);
@@ -48,6 +49,7 @@ export default async function DashboardPage() {
     redirect("/dashboard/onboarding");
   }
 
+  const { tour } = await searchParams;
   const t = m.dashboard.home;
   const tz = therapist.timezone;
   const now = new Date();
@@ -200,14 +202,15 @@ export default async function DashboardPage() {
             <span className="text-primary-strong text-sm font-semibold">{fmt(now, tz, locale, "weekdayDate")}</span>
             <h1 className="text-3xl leading-tight font-extrabold md:text-4xl">{t.greeting(part, firstName)}</h1>
             <p className="text-muted-foreground text-base">{metaParts.join(" · ")}</p>
+            <TourLauncher autoStart={!therapist.tourDoneAt} requested={tour === "1"} hasFirstSteps={firstSteps !== null} />
           </div>
-          <div className="md:hidden">
+          <div className="md:hidden" data-tour="user">
             <UserButton />
           </div>
         </div>
         <div className="flex items-center gap-3">
           <HomeActions publicUrl={`${appUrl()}/book/${therapist.slug}`} />
-          <div className="hidden md:block">
+          <div className="hidden md:block" data-tour="user">
             <UserButton />
           </div>
         </div>
@@ -216,7 +219,7 @@ export default async function DashboardPage() {
       {firstSteps ? <FirstStepsCard steps={firstSteps} /> : <NextSessionCard next={next} />}
 
       <div className="grid items-start gap-5 lg:grid-cols-3">
-        <section aria-labelledby="today-h" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2`}>
+        <section aria-labelledby="today-h" data-tour="home-today" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2`}>
           <h2 id="today-h" className="text-xl font-bold">
             {t.today}
           </h2>
@@ -224,7 +227,7 @@ export default async function DashboardPage() {
         </section>
 
         <div className="flex min-w-0 flex-col gap-5">
-          <section aria-labelledby="unpaid-h" className={`${card} home-rise home-d3 flex flex-col gap-2 p-5 md:p-6`}>
+          <section aria-labelledby="unpaid-h" data-tour="home-unpaid" className={`${card} home-rise home-d3 flex flex-col gap-2 p-5 md:p-6`}>
             <h2 id="unpaid-h" className="text-base font-bold">
               {t.unpaidTitle}
             </h2>
@@ -237,7 +240,7 @@ export default async function DashboardPage() {
               {t.toBookings}
             </Link>
           </section>
-          <section aria-labelledby="week-h" className={`${card} home-rise home-d4 flex flex-col gap-3 p-5 md:p-6`}>
+          <section aria-labelledby="week-h" data-tour="home-week" className={`${card} home-rise home-d4 flex flex-col gap-3 p-5 md:p-6`}>
             <h2 id="week-h" className="text-base font-bold">
               {t.weekTitle}
             </h2>
@@ -247,7 +250,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <section id="calendar" aria-label={t.calendarTitle} className="scroll-mt-20">
+      <section id="calendar" data-tour="home-calendar" aria-label={t.calendarTitle} className="scroll-mt-20">
         <DashboardSchedule
           timezone={tz}
           today={todayStr}

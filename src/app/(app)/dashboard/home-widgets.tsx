@@ -22,6 +22,7 @@ export function HomeActions({ publicUrl }: { publicUrl: string }) {
     <div className="grid grid-cols-2 gap-2 md:flex md:flex-wrap md:gap-3">
       <button
         type="button"
+        data-tour="home-copy"
         onClick={() => {
           void navigator.clipboard.writeText(publicUrl).then(() => {
             setCopied(true);
@@ -35,6 +36,7 @@ export function HomeActions({ publicUrl }: { publicUrl: string }) {
       </button>
       <a
         href="#calendar"
+        data-tour="home-open-hour"
         className="bg-primary text-primary-foreground hover:bg-primary/90 flex min-h-14 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold transition-colors md:min-h-11 md:rounded-full"
       >
         <Plus className="size-4" />
@@ -135,7 +137,7 @@ export function FirstStepsCard({ steps }: { steps: FirstSteps }) {
   ];
 
   return (
-    <section aria-labelledby="first-steps-h" className="home-rise home-d1 border-border bg-card flex flex-col gap-4 rounded-[28px] border p-5 md:p-7">
+    <section aria-labelledby="first-steps-h" data-tour="home-first-steps" className="home-rise home-d1 border-border bg-card flex flex-col gap-4 rounded-[28px] border p-5 md:p-7">
       <div className="flex flex-col gap-1">
         <h2 id="first-steps-h" className="text-xl font-bold">
           {t.title}
@@ -193,7 +195,7 @@ export function NextSessionCard({ next }: { next: NextSession | null }) {
 
   if (!next) {
     return (
-      <section className="home-rise home-d1 border-border bg-card flex flex-col gap-1 rounded-[28px] border border-dashed p-6 md:p-7">
+      <section data-tour="home-next" className="home-rise home-d1 border-border bg-card flex flex-col gap-1 rounded-[28px] border border-dashed p-6 md:p-7">
         <h2 className="text-lg font-bold">{t.noNext}</h2>
         <p className="text-muted-foreground text-sm">{t.noNextHint}</p>
       </section>
@@ -202,6 +204,7 @@ export function NextSessionCard({ next }: { next: NextSession | null }) {
 
   return (
     <section
+      data-tour="home-next"
       aria-label={next.heading}
       className="home-rise home-d1 bg-foreground text-background md:bg-primary md:text-primary-foreground flex flex-col gap-5 rounded-[28px] p-6 md:flex-row md:flex-wrap md:items-center md:p-7"
     >
