@@ -63,3 +63,17 @@ describe("the guided tour's steps", () => {
     }
   });
 });
+
+describe("tour order on the home screen", () => {
+  const ids = (mobile: boolean) => tourSteps({ mobile, firstSteps: false }).map((s) => s.id);
+
+  it("goes from today straight to the schedule on a phone, where the page puts it", () => {
+    const list = ids(true);
+    expect(list.slice(list.indexOf("today"), list.indexOf("today") + 4)).toEqual(["today", "calendar", "unpaid", "week"]);
+  });
+
+  it("keeps what is owed and the week beside today on a wide screen, before the schedule", () => {
+    const list = ids(false);
+    expect(list.slice(list.indexOf("today"), list.indexOf("today") + 4)).toEqual(["today", "unpaid", "week", "calendar"]);
+  });
+});

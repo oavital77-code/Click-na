@@ -65,11 +65,19 @@ export const TOUR_STEPS: readonly TourStepDef[] = [
 ];
 
 export function tourSteps(context: { mobile: boolean; firstSteps: boolean }): TourStepDef[] {
-  return TOUR_STEPS.filter((step) => {
+  const steps = TOUR_STEPS.filter((step) => {
     if (step.only === "mobile" && !context.mobile) return false;
     if (step.only === "desktop" && context.mobile) return false;
     if (step.needs === "firstSteps" && !context.firstSteps) return false;
     if (step.needs === "noFirstSteps" && context.firstSteps) return false;
     return true;
   });
+  // On a phone the schedule comes straight after today (the page stacks it there), so the tour
+  // follows the page down instead of jumping back up to what is owed and the week.
+  if (context.mobile) {
+    const calendar = steps.findIndex((s) => s.id === "calendar");
+    const [step] = steps.splice(calendar, 1);
+    steps.splice(steps.findIndex((s) => s.id === "today") + 1, 0, step);
+  }
+  return steps;
 }

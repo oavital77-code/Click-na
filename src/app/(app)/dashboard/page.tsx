@@ -220,15 +220,41 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
 
       {firstSteps ? <FirstStepsCard steps={firstSteps} /> : <NextSessionCard next={next} />}
 
+      {/* Today, then the schedule right under it; on a wide screen what is owed and the week
+          sit beside today, so the schedule comes after both. */}
       <div className="grid items-start gap-5 lg:grid-cols-3">
-        <section aria-labelledby="today-h" data-tour="home-today" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2`}>
+        <section aria-labelledby="today-h" data-tour="home-today" className={`${card} home-rise home-d2 flex min-w-0 flex-col gap-4 p-5 md:p-6 lg:col-span-2 lg:row-start-1`}>
           <h2 id="today-h" className="text-xl font-bold">
             {t.today}
           </h2>
           <TodayList items={today} nowIndex={nowIndex} />
         </section>
+        <section id="calendar" data-tour="home-calendar" aria-label={t.calendarTitle} className="min-w-0 scroll-mt-20 lg:col-span-3">
+          <DashboardSchedule
+            timezone={tz}
+            today={todayStr}
+            defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+            gridStepMinutes={
+              (therapist.settings?.defaultDurationMinutes ?? 50) +
+              (therapist.settings?.bufferBeforeMinutes ?? 0) +
+              (therapist.settings?.bufferAfterMinutes ?? 0)
+            }
+            locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
+            sessions={weekSessions.map((s) => ({
+              id: s.id,
+              startsAt: s.startsAt.toISOString(),
+              endsAt: s.endsAt.toISOString(),
+              status: s.status,
+              clientName: s.booking?.clientNameSnapshot ?? null,
+              clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+              blockedNote: s.blockedNote,
+              locationId: s.location.id,
+              locationColor: s.location.color,
+            }))}
+          />
+        </section>
 
-        <div className="flex min-w-0 flex-col gap-5">
+        <div className="flex min-w-0 flex-col gap-5 lg:col-start-3 lg:row-start-1">
           <section aria-labelledby="unpaid-h" data-tour="home-unpaid" className={`${card} home-rise home-d3 flex flex-col gap-2 p-5 md:p-6`}>
             <h2 id="unpaid-h" className="text-base font-bold">
               {t.unpaidTitle}
@@ -251,31 +277,6 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </section>
         </div>
       </div>
-
-      <section id="calendar" data-tour="home-calendar" aria-label={t.calendarTitle} className="scroll-mt-20">
-        <DashboardSchedule
-          timezone={tz}
-          today={todayStr}
-          defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
-          gridStepMinutes={
-            (therapist.settings?.defaultDurationMinutes ?? 50) +
-            (therapist.settings?.bufferBeforeMinutes ?? 0) +
-            (therapist.settings?.bufferAfterMinutes ?? 0)
-          }
-          locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
-          sessions={weekSessions.map((s) => ({
-            id: s.id,
-            startsAt: s.startsAt.toISOString(),
-            endsAt: s.endsAt.toISOString(),
-            status: s.status,
-            clientName: s.booking?.clientNameSnapshot ?? null,
-            clientPhone: s.booking?.clientPhoneSnapshot ?? null,
-            blockedNote: s.blockedNote,
-            locationId: s.location.id,
-            locationColor: s.location.color,
-          }))}
-        />
-      </section>
     </main>
   );
 }
