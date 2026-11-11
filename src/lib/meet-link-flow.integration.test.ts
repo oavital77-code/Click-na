@@ -8,7 +8,13 @@ vi.mock("@clerk/nextjs/server", () => ({ auth: async () => ({ userId: clerkUserI
 const sendEmailMock = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/email", () => ({ sendEmail: sendEmailMock }));
 
+const createZoomMeetingMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/zoom", () => ({ createZoomMeeting: createZoomMeetingMock }));
+const getCredentialsMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/integrations", async (orig) => ({ ...(await orig<object>()), getCredentials: getCredentialsMock }));
+
 const { POST: addPlace } = await import("@/app/api/me/locations/route");
+const { POST: saveVideo } = await import("@/app/api/me/video/route");
 const { GET: publicProfile } = await import("@/app/api/public/therapists/[slug]/route");
 const { GET: manageBooking } = await import("@/app/api/public/bookings/manage/[token]/route");
 const { GET: bookingIcs } = await import("@/app/api/public/bookings/manage/[token]/ics/route");
@@ -16,12 +22,13 @@ const { createBooking } = await import("@/lib/bookings");
 const { sendBookingCreatedNotifications, sendDueReminders } = await import("@/lib/notifications");
 
 /**
- * A standing Google Meet room, from the therapist pasting it to the client
- * tapping it: what is pasted is completed and kept, the public page never shows
- * it, and every message the client gets carries it as a link they can tap —
- * for an online place and for one that is both clinic and online.
+ * Online sessions, one way for the whole practice, set in Add-ons: from the
+ * therapist pasting a room to the client tapping it. What is pasted is
+ * completed and kept, every online and clinic-and-online place carries it, the
+ * public page never shows it, and every message the client gets has it as a
+ * link they can tap. Switching the way switches every place.
  */
-describe("a Google Meet link, end to end (against a live database)", () => {
+describe("video sessions, end to end (against a live database)", () => {
   const slug = `meet-flow-${Math.random().toString(36).slice(2, 8)}`;
   let therapistId: string;
 
@@ -43,6 +50,8 @@ describe("a Google Meet link, end to end (against a live database)", () => {
 
   beforeEach(() => {
     sendEmailMock.mockReset().mockResolvedValue({ ok: true });
+    createZoomMeetingMock.mockReset().mockResolvedValue({ ok: true, joinUrl: "https://zoom.us/j/555000111" });
+    getCredentialsMock.mockReset().mockResolvedValue(null);
   });
 
   afterAll(async () => {
@@ -51,6 +60,7 @@ describe("a Google Meet link, end to end (against a live database)", () => {
     await prisma.client.deleteMany({ where: { therapistId } });
     await prisma.session.deleteMany({ where: { therapistId } });
     await prisma.location.deleteMany({ where: { therapistId } });
+    await prisma.rateLimit.deleteMany({ where: { key: { contains: therapistId } } });
     await prisma.therapistSettings.deleteMany({ where: { therapistId } });
     await prisma.subscription.deleteMany({ where: { therapistId } });
     await prisma.therapist.deleteMany({ where: { id: therapistId } });
@@ -59,6 +69,23 @@ describe("a Google Meet link, end to end (against a live database)", () => {
   async function place(body: Record<string, unknown>) {
     const res = await addPlace(
       new NextRequest("http://localhost/api/me/locations", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      })
+    );
+    return { status: res.status, body: await res.json() };
+  }
+
+  /** The Zoom add-on connected (WhatsApp stays off). */
+  const zoomConnected = () =>
+    getCredentialsMock.mockImplementation(async (_id: string, provider: string) =>
+      provider === "zoom" ? { accountId: "a", clientId: "c", clientSecret: "s" } : null
+    );
+
+  async function video(body: Record<string, unknown>) {
+    const res = await saveVideo(
+      new NextRequest("http://localhost/api/me/video", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
@@ -87,24 +114,39 @@ describe("a Google Meet link, end to end (against a live database)", () => {
   let onlineId: string;
   let hybridId: string;
 
-  it("keeps a bare Meet code, pasted as Meet shows it, as the full link", async () => {
-    const res = await place({ name: "אונליין", type: "online", onlineMeetingUrl: "abc-defg-hij" });
-    expect(res.status).toBe(201);
-    expect(res.body.location.onlineMeetingUrl).toBe("https://meet.google.com/abc-defg-hij");
-    onlineId = res.body.location.id;
+  it("asks for the address of a clinic-and-online place, and takes no link on a place", async () => {
+    const online = await place({ name: "אונליין", type: "online", onlineMeetingUrl: "https://ignored.example.com/x" });
+    expect(online.status).toBe(201);
+    expect(online.body.location.onlineMeetingUrl).toBeNull();
+    onlineId = online.body.location.id;
+    expect((await place({ name: "משולב", type: "hybrid" })).status).toBe(422);
+    const hybrid = await place({ name: "קליניקה + אונליין", type: "hybrid", address: "הרצל 1, תל אביב" });
+    expect(hybrid.status).toBe(201);
+    hybridId = hybrid.body.location.id;
   });
 
-  it("keeps a link pasted without https, for a clinic-and-online place", async () => {
-    const res = await place({ name: "קליניקה + אונליין", type: "hybrid", address: "הרצל 1, תל אביב", onlineMeetingUrl: "meet.google.com/xyz-abcd-efg" });
-    expect(res.status).toBe(201);
-    expect(res.body.location.onlineMeetingUrl).toBe("https://meet.google.com/xyz-abcd-efg");
-    hybridId = res.body.location.id;
-  });
-
-  it("turns away what is not a link, in the therapist's language", async () => {
-    const res = await place({ name: "אונליין 2", type: "online", onlineMeetingUrl: "החדר שלי" });
+  it("asks for the room link when a link way is saved without one", async () => {
+    const res = await video({ method: "google_meet" });
     expect(res.status).toBe(422);
     expect(res.body.error).toMatch(/[א-ת]/);
+  });
+
+  it("keeps a bare Meet code as the full link, on every online place and none other", async () => {
+    const res = await video({ method: "google_meet", link: "abc-defg-hij" });
+    expect(res.status).toBe(200);
+    expect(res.body.video).toMatchObject({ method: "google_meet", link: "https://meet.google.com/abc-defg-hij", ready: true, missing: false });
+    const clinic = await place({ name: "קליניקה", type: "clinic", address: "ביאליק 3" });
+    const places = await prisma.location.findMany({ where: { therapistId }, select: { id: true, onlineMeetingUrl: true } });
+    const link = (id: string) => places.find((p) => p.id === id)?.onlineMeetingUrl;
+    expect(link(onlineId)).toBe("https://meet.google.com/abc-defg-hij");
+    expect(link(hybridId)).toBe("https://meet.google.com/abc-defg-hij");
+    expect(link(clinic.body.location.id)).toBeNull();
+  });
+
+  it("turns away a Zoom link saved as Google Meet, in the therapist's language", async () => {
+    const res = await video({ method: "google_meet", link: "https://zoom.us/j/1" });
+    expect(res.status).toBe(422);
+    expect(res.body.error).toContain("Google Meet");
   });
 
   it("never shows the room on the public booking page", async () => {
@@ -140,12 +182,40 @@ describe("a Google Meet link, end to end (against a live database)", () => {
 
     const mail = clientMail(booking.clientEmailSnapshot!);
     expect(mail?.html).toContain("הרצל 1, תל אביב");
-    expect(mail?.html).toContain(tappable("https://meet.google.com/xyz-abcd-efg"));
+    expect(mail?.html).toContain(tappable("https://meet.google.com/abc-defg-hij"));
 
     sendEmailMock.mockClear();
     await sendDueReminders(new Date(Date.now() + 10 * 60 * 60 * 1000));
     const reminder = clientMail(booking.clientEmailSnapshot!);
     expect(reminder?.html).toContain("הרצל 1, תל אביב");
-    expect(reminder?.html).toContain(tappable("https://meet.google.com/xyz-abcd-efg"));
+    expect(reminder?.html).toContain(tappable("https://meet.google.com/abc-defg-hij"));
+  });
+
+  it("moves every online place to a standing Zoom room when the way is switched", async () => {
+    const res = await video({ method: "zoom_link", link: "zoom.us/j/7777777777" });
+    expect(res.status).toBe(200);
+    const links = await prisma.location.findMany({ where: { id: { in: [onlineId, hybridId] } }, select: { onlineMeetingUrl: true } });
+    expect(links.map((l) => l.onlineMeetingUrl)).toEqual(["https://zoom.us/j/7777777777", "https://zoom.us/j/7777777777"]);
+  });
+
+  it("opens a Zoom meeting per booking when that is the way, and keeps no standing link", async () => {
+    zoomConnected();
+    expect((await video({ method: "zoom_auto" })).status).toBe(200);
+    expect((await prisma.location.findUniqueOrThrow({ where: { id: onlineId } })).onlineMeetingUrl).toBeNull();
+
+    const booking = await book(onlineId, 40);
+    await sendBookingCreatedNotifications(booking.id);
+    expect(createZoomMeetingMock).toHaveBeenCalledTimes(1);
+    expect(clientMail(booking.clientEmailSnapshot!)?.html).toContain(tappable("https://zoom.us/j/555000111"));
+  });
+
+  it("sends the standing room, and opens no Zoom meeting, when a room link is the way though Zoom is connected", async () => {
+    zoomConnected();
+    expect((await video({ method: "other", link: "https://teams.microsoft.com/l/meetup-join/room-1" })).status).toBe(200);
+
+    const booking = await book(onlineId, 45);
+    await sendBookingCreatedNotifications(booking.id);
+    expect(createZoomMeetingMock).not.toHaveBeenCalled();
+    expect(clientMail(booking.clientEmailSnapshot!)?.html).toContain(tappable("https://teams.microsoft.com/l/meetup-join/room-1"));
   });
 });

@@ -4,7 +4,15 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/client";
-import { isGoogleMeetUrl, normalizeMeetingUrl } from "@/lib/meeting-url";
+import { normalizeMeetingUrl } from "@/lib/meeting-url";
+
+/** Which room is being linked: the help beside the field is for that service. */
+export type MeetingLinkKind = "google_meet" | "zoom_link" | "other";
+
+const OPEN_URL: Partial<Record<MeetingLinkKind, string>> = {
+  google_meet: "https://meet.google.com/",
+  zoom_link: "https://zoom.us/profile",
+};
 
 /**
  * The online meeting link, with the way to get one beside it. A therapist who
@@ -18,14 +26,18 @@ export function MeetingUrlField({
   label,
   value,
   onChange,
+  kind = "google_meet",
 }: {
   id: string;
   label: string;
   value: string;
   onChange: (value: string) => void;
+  kind?: MeetingLinkKind;
 }) {
   const { m } = useI18n();
   const t = m.meetingLink;
+  const g = t.guides[kind];
+  const openUrl = OPEN_URL[kind];
   const [pasteFailed, setPasteFailed] = useState(false);
   const isLink = /^https?:\/\/\S+\.\S+/i.test(value.trim());
 
@@ -51,7 +63,7 @@ export function MeetingUrlField({
           dir="ltr"
           inputMode="url"
           autoComplete="off"
-          placeholder="meet.google.com/abc-defg-hij"
+          placeholder={g.placeholder}
           value={value}
           maxLength={500}
           onChange={(e) => onChange(e.target.value)}
@@ -71,28 +83,29 @@ export function MeetingUrlField({
 
       {isLink ? (
         <p className="text-muted-foreground text-xs">
-          {isGoogleMeetUrl(value) ? t.meetReady : t.linkReady}{" "}
+          {g.ready}{" "}
           <a href={value.trim()} target="_blank" rel="noopener noreferrer" className="text-foreground underline underline-offset-4">
             {t.tryIt}
           </a>
         </p>
       ) : (
         <div id={`${id}-help`} className="bg-secondary/60 flex flex-col gap-2 rounded-2xl p-4 text-sm">
-          <p className="font-medium">{t.howTitle}</p>
+          <p className="font-medium">{g.howTitle}</p>
           <ol className="text-muted-foreground list-decimal space-y-1 ps-5">
-            <li>{t.step1}</li>
-            <li>{t.step2}</li>
-            <li>{t.step3}</li>
+            {g.steps.map((step) => (
+              <li key={step}>{step}</li>
+            ))}
           </ol>
-          <a
-            href="https://meet.google.com/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 items-center justify-center self-start rounded-full px-5 text-sm font-bold"
-          >
-            {t.openMeet}
-          </a>
-          <p className="text-muted-foreground text-xs">{t.zoomToo}</p>
+          {openUrl && (
+            <a
+              href={openUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 items-center justify-center self-start rounded-full px-5 text-sm font-bold"
+            >
+              {g.open}
+            </a>
+          )}
         </div>
       )}
     </div>

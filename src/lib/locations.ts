@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { syncPlaceLinks } from "@/lib/video";
 import type { Prisma } from "@/generated/prisma/client";
 import type { LOCATION_TYPES } from "@/lib/onboarding-schema";
 import {
@@ -87,7 +88,6 @@ function dataFrom(input: LocationInput) {
     name: input.name,
     type: input.type,
     address: input.address || null,
-    onlineMeetingUrl: input.onlineMeetingUrl || null,
     notes: input.notes || null,
   };
 }
@@ -108,7 +108,9 @@ export async function createLocation(therapistId: string, input: LocationInput):
       sortOrder: nextOrder,
     },
   });
-  return toLocation(row);
+  // The room link is the practice's (Add-ons), not typed per place.
+  await syncPlaceLinks(therapistId);
+  return toLocation(await prisma.location.findUniqueOrThrow({ where: { id: row.id } }));
 }
 
 export async function updateLocation(
@@ -122,7 +124,9 @@ export async function updateLocation(
     where: { id },
     data: { ...dataFrom(input), ...(input.color ? { color: input.color } : {}) },
   });
-  return toLocation(row);
+  // A place turned online picks up the practice's link; one turned in-person drops it.
+  await syncPlaceLinks(therapistId);
+  return toLocation(await prisma.location.findUniqueOrThrow({ where: { id: row.id } }));
 }
 
 export type ArchiveLocationResult =
@@ -163,12 +167,11 @@ export async function archiveLocation(therapistId: string, id: string): Promise<
 export async function upsertPrimaryLocation(
   tx: Db,
   therapistId: string,
-  input: { locale: string | null; type: (typeof LOCATION_TYPES)[number]; address?: string; onlineMeetingUrl?: string }
+  input: { locale: string | null; type: (typeof LOCATION_TYPES)[number]; address?: string }
 ): Promise<string> {
   const data = {
     type: input.type,
     address: input.address || null,
-    onlineMeetingUrl: input.onlineMeetingUrl || null,
   };
   const existing = await tx.location.findFirst({
     where: { therapistId, archivedAt: null },

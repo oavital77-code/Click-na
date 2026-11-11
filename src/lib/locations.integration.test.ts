@@ -54,7 +54,7 @@ describe("locations (against a live database)", () => {
 
   it("creates further places with their own handle, colour and order", async () => {
     const ramatGan = await createLocation(therapistId, { name: "Ramat Gan", type: "clinic", address: "ביאליק 3" });
-    const online = await createLocation(therapistId, { name: "Online", type: "online", onlineMeetingUrl: "https://zoom.us/j/1" });
+    const online = await createLocation(therapistId, { name: "Online", type: "online" });
     expect(ramatGan.slug).toBe("ramat-gan");
     expect(online.slug).toBe("online");
     expect(ramatGan.color).not.toBe(online.color);

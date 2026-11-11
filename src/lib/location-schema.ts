@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { normalizeMeetingUrl } from "@/lib/meeting-url";
 import { LOCATION_TYPES } from "@/lib/onboarding-schema";
 import { DEFAULT_LOCALE, toLocale, type Locale } from "@/i18n/config";
 
@@ -21,22 +20,12 @@ export const LOCATION_COLORS = [
   "#5b6b8a",
 ] as const;
 
-const httpUrl = z
-  .string()
-  .trim()
-  .url("validation.urlInvalid")
-  .max(500)
-  .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
-
-/** A meeting link as pasted — a bare Meet code or a link without https is completed first. */
-const meetingUrl = z.preprocess((v) => (typeof v === "string" ? normalizeMeetingUrl(v) : v), httpUrl);
 
 export const locationSchema = z
   .object({
     name: z.string().trim().min(1, "validation.required").max(80),
     type: z.enum(LOCATION_TYPES),
     address: z.string().trim().max(500).optional().or(z.literal("")),
-    onlineMeetingUrl: meetingUrl.optional().or(z.literal("")),
     notes: z.string().trim().max(500).optional().or(z.literal("")),
     color: z
       .string()
@@ -45,16 +34,13 @@ export const locationSchema = z
       .optional()
       .or(z.literal("")),
   })
-  .refine((d) => d.type !== "online" || !!d.onlineMeetingUrl, {
-    message: "validation.meetingUrlRequired",
-    path: ["onlineMeetingUrl"],
-  })
+  // The room link for online places is the practice's, set in Add-ons (lib/video.ts).
   .refine((d) => !["clinic", "client_home"].includes(d.type) || !!d.address, {
     message: "validation.addressRequired",
     path: ["address"],
   })
-  .refine((d) => d.type !== "hybrid" || !!(d.address || d.onlineMeetingUrl), {
-    message: "validation.addressOrMeetingUrlRequired",
+  .refine((d) => d.type !== "hybrid" || !!d.address, {
+    message: "validation.addressRequired",
     path: ["address"],
   });
 

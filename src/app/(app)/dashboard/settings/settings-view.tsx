@@ -27,7 +27,7 @@ import {
   PROFESSION_TYPES,
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
-import { LocationsCard } from "./locations-card";
+import { LocationsCard, type PlaceVideo } from "./locations-card";
 import type { Location } from "@/lib/location-schema";
 import { useI18n } from "@/i18n/client";
 import { LOCALES, type Locale } from "@/i18n/config";
@@ -97,10 +97,12 @@ export function SettingsView({
   profile: initialProfile,
   settings: initialSettings,
   locations,
+  video,
 }: {
   profile: ProfileState;
   settings: SettingsState;
   locations: Location[];
+  video: PlaceVideo;
 }) {
   const router = useRouter();
   const { m, issue } = useI18n();
@@ -360,7 +362,7 @@ export function SettingsView({
         </CardContent>
       </Card>
 
-      <LocationsCard initial={locations} />
+      <LocationsCard initial={locations} video={video} />
 
       {/* Israeli holidays */}
       <Card>

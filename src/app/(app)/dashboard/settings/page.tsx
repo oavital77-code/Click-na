@@ -5,6 +5,7 @@ import { SettingsView } from "./settings-view";
 import { TreatmentTemplates } from "./treatment-templates";
 import { listTreatments } from "@/lib/treatments";
 import { listLocations } from "@/lib/locations";
+import { getVideoStatus } from "@/lib/video";
 import { getMessages, toLocale } from "@/i18n";
 
 export default async function SettingsPage() {
@@ -27,7 +28,11 @@ export default async function SettingsPage() {
     redirect("/dashboard");
   }
 
-  const [treatments, locations] = await Promise.all([listTreatments(therapist.id), listLocations(therapist.id)]);
+  const [treatments, locations, video] = await Promise.all([
+    listTreatments(therapist.id),
+    listLocations(therapist.id),
+    getVideoStatus(therapist.id),
+  ]);
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 p-4 text-center md:p-8 md:text-start">
@@ -68,6 +73,7 @@ export default async function SettingsPage() {
           bookingPageDescription: therapist.settings.bookingPageDescription ?? "",
         }}
         locations={locations}
+        video={{ ready: video.ready, method: video.method }}
       />
       <TreatmentTemplates initial={treatments} />
     </main>

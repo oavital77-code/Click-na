@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getVideoStatus } from "@/lib/video";
 import Link from "next/link";
 import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
@@ -66,6 +67,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const weekEnd = zonedDateTimeToUtc(addDaysUtc(weekStartStr, 7), "00:00", tz);
 
   await releaseExpiredHolds(therapist.id);
+  const video = await getVideoStatus(therapist.id);
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
   const [weekSessions, nextSession, unpaid, locations, everBooked] = await Promise.all([
     prisma.session.findMany({
@@ -217,6 +219,22 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           </div>
         </div>
       </header>
+
+      {video.missing && (
+        // An online place with no way in: a client could book and get nothing to join. Said first.
+        <div role="alert" className="border-destructive/40 bg-destructive/5 flex flex-col items-center gap-3 rounded-2xl border p-4 text-center md:flex-row md:justify-between md:text-start">
+          <div className="flex flex-col gap-1">
+            <p className="font-bold">{m.videoChoice.bannerTitle}</p>
+            <p className="text-muted-foreground text-sm">{m.videoChoice.notConnected}</p>
+          </div>
+          <a
+            href={`/dashboard/addons${video.method ? `?video=${video.method}` : ""}#video`}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 shrink-0 items-center justify-center rounded-full px-5 text-sm font-bold"
+          >
+            {m.videoChoice.goConnect}
+          </a>
+        </div>
+      )}
 
       {firstSteps ? <FirstStepsCard steps={firstSteps} /> : <NextSessionCard next={next} />}
 

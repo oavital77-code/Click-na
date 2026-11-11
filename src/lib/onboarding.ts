@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { setVideoPreference, syncPlaceLinks } from "@/lib/video";
 import { generateOpenSessions, toTimeValue } from "@/lib/availability";
 import { checkSlugAvailability } from "@/lib/profile";
 import { upsertPrimaryLocation } from "@/lib/locations";
@@ -53,8 +54,12 @@ export async function completeOnboarding(
         locale: therapist.locale,
         type: data.locationType,
         address: data.locationAddress,
-        onlineMeetingUrl: data.onlineMeetingUrl,
       });
+      // Online work: the way they chose is kept, and connected in Add-ons after this.
+      if (data.videoMethod && (data.locationType === "online" || data.locationType === "hybrid")) {
+        await setVideoPreference(therapistId, data.videoMethod, tx);
+      }
+      await syncPlaceLinks(therapistId, tx);
 
       // When given, onboarding writes the therapist's full current weekly
       // availability, so replacing rather than diffing keeps this idempotent and

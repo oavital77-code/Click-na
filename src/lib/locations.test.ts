@@ -13,15 +13,13 @@ describe("locationSchema", () => {
     expect(locationSchema.safeParse({ ...valid, type: "client_home", address: undefined }).success).toBe(false);
   });
 
-  it("requires a meeting link for an online place, and only http(s) ones", () => {
-    expect(locationSchema.safeParse({ name: "Online", type: "online" }).success).toBe(false);
-    expect(locationSchema.safeParse({ name: "Online", type: "online", onlineMeetingUrl: "javascript:alert(1)" }).success).toBe(false);
-    expect(locationSchema.safeParse({ name: "Online", type: "online", onlineMeetingUrl: "https://zoom.us/j/1" }).success).toBe(true);
+  it("takes no room link on a place: the practice's link comes from Add-ons", () => {
+    const parsed = locationSchema.parse({ name: "Online", type: "online", onlineMeetingUrl: "https://zoom.us/j/1" });
+    expect(parsed).not.toHaveProperty("onlineMeetingUrl");
   });
 
-  it("accepts a hybrid place with either an address or a link, not neither", () => {
+  it("asks a clinic-and-online place for its address", () => {
     expect(locationSchema.safeParse({ name: "H", type: "hybrid", address: "כתובת" }).success).toBe(true);
-    expect(locationSchema.safeParse({ name: "H", type: "hybrid", onlineMeetingUrl: "https://zoom.us/j/1" }).success).toBe(true);
     expect(locationSchema.safeParse({ name: "H", type: "hybrid" }).success).toBe(false);
   });
 
@@ -58,22 +56,5 @@ describe("labels", () => {
     expect(isOnlineLocation({ type: "online" })).toBe(true);
     expect(isOnlineLocation({ type: "hybrid" })).toBe(true);
     expect(isOnlineLocation({ type: "clinic" })).toBe(false);
-  });
-});
-
-describe("meeting links as pasted", () => {
-  const base = { name: "אונליין", type: "online" as const };
-
-  it("completes a bare Meet code and a link without https", () => {
-    expect(locationSchema.parse({ ...base, onlineMeetingUrl: "abc-defg-hij" }).onlineMeetingUrl).toBe("https://meet.google.com/abc-defg-hij");
-    expect(locationSchema.parse({ ...base, onlineMeetingUrl: " meet.google.com/abc-defg-hij " }).onlineMeetingUrl).toBe(
-      "https://meet.google.com/abc-defg-hij"
-    );
-    expect(locationSchema.parse({ ...base, onlineMeetingUrl: "zoom.us/j/123456" }).onlineMeetingUrl).toBe("https://zoom.us/j/123456");
-  });
-
-  it("still refuses what is not a web link", () => {
-    expect(locationSchema.safeParse({ ...base, onlineMeetingUrl: "javascript:alert(1)" }).success).toBe(false);
-    expect(locationSchema.safeParse({ ...base, onlineMeetingUrl: "my room" }).success).toBe(false);
   });
 });

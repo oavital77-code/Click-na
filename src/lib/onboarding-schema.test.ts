@@ -61,36 +61,15 @@ describe("onboardingSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects a javascript: meeting url even when location type is online", () => {
-    const result = onboardingSchema.safeParse(
-      validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: "javascript:alert(1)" })
-    );
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts an https meeting url", () => {
-    const result = onboardingSchema.safeParse(
-      validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: "https://meet.google.com/abc-defg-hij" })
-    );
-    expect(result.success).toBe(true);
-  });
-
-  it("requires an online meeting url when location type is online", () => {
-    const result = onboardingSchema.safeParse(
-      validPayload({ locationType: "online", locationAddress: undefined, onlineMeetingUrl: undefined })
-    );
-    expect(result.success).toBe(false);
-  });
-
-  it("accepts online location type with a valid meeting url", () => {
-    const result = onboardingSchema.safeParse(
-      validPayload({
-        locationType: "online",
-        locationAddress: undefined,
-        onlineMeetingUrl: "https://zoom.us/j/123",
-      })
-    );
-    expect(result.success).toBe(true);
+  it("asks an online therapist how they will hold sessions, and takes no link here", () => {
+    const online = (extra: Record<string, unknown>) =>
+      onboardingSchema.safeParse(validPayload({ locationType: "online", locationAddress: undefined, ...extra }));
+    expect(online({}).success).toBe(false);
+    expect(online({ videoMethod: "google_meet" }).success).toBe(true);
+    expect(online({ videoMethod: "zoom_link" }).success).toBe(true);
+    expect(online({ videoMethod: "other" }).success).toBe(true);
+    // A Zoom meeting per booking is connected in Add-ons, not chosen here.
+    expect(online({ videoMethod: "zoom_auto" }).success).toBe(false);
   });
 
   it("requires an address for clinic and client_home location types", () => {
@@ -105,25 +84,11 @@ describe("onboardingSchema", () => {
     ).toBe(false);
   });
 
-  it("accepts hybrid with only an address, or only an online url, but not neither", () => {
-    expect(
-      onboardingSchema.safeParse(
-        validPayload({ locationType: "hybrid", locationAddress: "כתובת", onlineMeetingUrl: undefined })
-      ).success
-    ).toBe(true);
-    expect(
-      onboardingSchema.safeParse(
-        validPayload({
-          locationType: "hybrid",
-          locationAddress: undefined,
-          onlineMeetingUrl: "https://zoom.us/j/1",
-        })
-      ).success
-    ).toBe(true);
-    expect(
-      onboardingSchema.safeParse(
-        validPayload({ locationType: "hybrid", locationAddress: undefined, onlineMeetingUrl: undefined })
-      ).success
-    ).toBe(false);
+  it("asks a clinic-and-online therapist for the address and the way they hold sessions online", () => {
+    const hybrid = (extra: Record<string, unknown>) =>
+      onboardingSchema.safeParse(validPayload({ locationType: "hybrid", ...extra })).success;
+    expect(hybrid({ locationAddress: "כתובת", videoMethod: "google_meet" })).toBe(true);
+    expect(hybrid({ locationAddress: "כתובת" })).toBe(false);
+    expect(hybrid({ locationAddress: undefined, videoMethod: "google_meet" })).toBe(false);
   });
 });

@@ -130,6 +130,15 @@ enum IntegrationStatus {
   connected
 }
 
+/// How a therapist holds online sessions. One for the whole practice: every
+/// online or clinic-and-online place uses it. Chosen and connected in Add-ons.
+enum VideoMethod {
+  google_meet
+  zoom_link
+  zoom_auto
+  other
+}
+
 enum AuditActorType {
   therapist
   client
@@ -379,6 +388,11 @@ model TherapistSettings {
   brandLogoUrl            String?      @map("brand_logo_url")
   bookingPageHeadline     String?      @map("booking_page_headline") @db.VarChar(255)
   bookingPageDescription  String?      @map("booking_page_description")
+  /// The way online sessions are held (Add-ons), and its standing room link for
+  /// the link methods. zoom_auto needs no link: each booking gets its own meeting.
+  /// The link is copied onto every online place, which is what messages read.
+  videoMethod             VideoMethod? @map("video_method")
+  videoLink               String?      @map("video_link")
 
   therapist Therapist @relation(fields: [therapistId], references: [id])
 

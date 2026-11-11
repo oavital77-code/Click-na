@@ -1,22 +1,6 @@
 import { z } from "zod";
-import { normalizeMeetingUrl } from "@/lib/meeting-url";
+import { ONBOARDING_VIDEO_CHOICES } from "@/lib/video-schema";
 
-/**
- * A URL a therapist types in and the app later renders as a link or an image
- * source. `.url()` alone accepts any scheme — `javascript:` and `data:` parse as
- * valid URLs — so the scheme is pinned to http(s): a meeting link or a logo is
- * never anything else, and a stored `javascript:` URL is one careless `<a href>`
- * away from running in a client's browser.
- */
-const httpUrl = z
-  .string()
-  .trim()
-  .url("validation.urlInvalid")
-  .max(500)
-  .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
-
-/** A meeting link as pasted — a bare Meet code or a link without https is completed first. */
-const meetingUrl = z.preprocess((v) => (typeof v === "string" ? normalizeMeetingUrl(v) : v), httpUrl);
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 
 export const PROFESSION_TYPES = [
@@ -61,7 +45,8 @@ export const onboardingSchema = z
       .optional(),
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
-    onlineMeetingUrl: meetingUrl.optional().or(z.literal("")),
+    // Online work: which way they will hold sessions. The link itself is connected in Add-ons.
+    videoMethod: z.enum(ONBOARDING_VIDEO_CHOICES).optional(),
     availability: z
       .object({
         days: z.array(z.number().int().min(0).max(6)).min(1, "validation.pickAtLeastOneDay"),
@@ -77,17 +62,16 @@ export const onboardingSchema = z
       .optional(),
   })
   .refine(
-    (data) => data.locationType !== "online" || !!data.onlineMeetingUrl,
-    { message: "validation.meetingUrlRequired", path: ["onlineMeetingUrl"] }
+    (data) => !(data.locationType === "online" || data.locationType === "hybrid") || !!data.videoMethod,
+    { message: "validation.videoMethodRequired", path: ["videoMethod"] }
   )
   .refine(
     (data) => !["clinic", "client_home"].includes(data.locationType) || !!data.locationAddress,
     { message: "validation.addressRequired", path: ["locationAddress"] }
   )
   .refine(
-    (data) =>
-      data.locationType !== "hybrid" || !!(data.locationAddress || data.onlineMeetingUrl),
-    { message: "validation.addressOrMeetingUrlRequired", path: ["locationAddress"] }
+    (data) => data.locationType !== "hybrid" || !!data.locationAddress,
+    { message: "validation.addressRequired", path: ["locationAddress"] }
   );
 
 export type OnboardingInput = z.infer<typeof onboardingSchema>;

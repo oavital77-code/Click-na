@@ -1,6 +1,7 @@
 "use client";
 
-import { MeetingUrlField } from "@/components/meeting-url-field";
+import { VideoChoicePicker, type VideoChoice } from "@/components/video-choice";
+import { ONBOARDING_VIDEO_CHOICES, type VideoMethod } from "@/lib/video-schema";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -17,19 +18,20 @@ type Draft = {
   name: string;
   type: LocationInput["type"];
   address: string;
-  onlineMeetingUrl: string;
   notes: string;
   color: string;
 };
 
-const EMPTY: Draft = { name: "", type: "clinic", address: "", onlineMeetingUrl: "", notes: "", color: "" };
+const EMPTY: Draft = { name: "", type: "clinic", address: "", notes: "", color: "" };
+
+/** The practice's video setup, from Add-ons: what an online place will send clients. */
+export type PlaceVideo = { ready: boolean; method: VideoMethod | null };
 
 function draftOf(location: Location): Draft {
   return {
     name: location.name,
     type: location.type,
     address: location.address ?? "",
-    onlineMeetingUrl: location.onlineMeetingUrl ?? "",
     notes: location.notes ?? "",
     color: location.color,
   };
@@ -40,7 +42,7 @@ function draftOf(location: Location): Draft {
  * address card; the second one is what turns the calendar into colours and
  * hands each clinic its own link.
  */
-export function LocationsCard({ initial }: { initial: Location[] }) {
+export function LocationsCard({ initial, video }: { initial: Location[]; video: PlaceVideo }) {
   const { m, issue } = useI18n();
   const t = m.locations;
   const [locations, setLocations] = useState(initial);
@@ -113,6 +115,7 @@ export function LocationsCard({ initial }: { initial: Location[] }) {
             <li key={location.id} className="rounded-md border px-3 py-2 text-sm">
               {editingId === location.id ? (
                 <LocationForm
+                  video={video}
                   initial={draftOf(location)}
                   busy={busy}
                   submitLabel={t.save}
@@ -165,6 +168,7 @@ export function LocationsCard({ initial }: { initial: Location[] }) {
         {adding ? (
           <div className="rounded-md border px-3 py-3 text-sm">
             <LocationForm
+              video={video}
               initial={{ ...EMPTY, color: LOCATION_COLORS[locations.length % LOCATION_COLORS.length] }}
               busy={busy}
               submitLabel={t.add}
@@ -185,6 +189,7 @@ export function LocationsCard({ initial }: { initial: Location[] }) {
 
 function LocationForm({
   initial,
+  video,
   busy,
   submitLabel,
   busyLabel,
@@ -192,6 +197,7 @@ function LocationForm({
   onCancel,
 }: {
   initial: Draft;
+  video: PlaceVideo;
   busy: boolean;
   submitLabel: string;
   busyLabel: string;
@@ -203,7 +209,10 @@ function LocationForm({
   const [draft, setDraft] = useState(initial);
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => ({ ...d, [key]: value }));
   const wantsAddress = draft.type === "clinic" || draft.type === "client_home" || draft.type === "hybrid";
-  const wantsUrl = draft.type === "online" || draft.type === "hybrid";
+  const online = draft.type === "online" || draft.type === "hybrid";
+  const [choice, setChoice] = useState<VideoChoice | null>(
+    (ONBOARDING_VIDEO_CHOICES as readonly string[]).includes(video.method ?? "") ? (video.method as VideoChoice) : null
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -234,8 +243,29 @@ function LocationForm({
           <Input id="loc-address" value={draft.address} maxLength={500} onChange={(e) => set("address", e.target.value)} />
         </div>
       )}
-      {wantsUrl && (
-        <MeetingUrlField id="loc-url" label={t.meetingUrl} value={draft.onlineMeetingUrl} onChange={(v) => set("onlineMeetingUrl", v)} />
+      {online && (
+        // The room link is the practice's, connected in Add-ons; a place only says it is online.
+        <div className="bg-secondary/60 flex flex-col gap-3 rounded-2xl p-4 text-sm">
+          {video.ready && video.method ? (
+            <p>
+              {m.videoChoice.current(m.addons.video.methods[video.method].name)}{" "}
+              <a href="/dashboard/addons#video" className="underline underline-offset-4">
+                {m.pages.addons.title}
+              </a>
+            </p>
+          ) : (
+            <>
+              <p className="text-destructive">{m.videoChoice.notConnected}</p>
+              <VideoChoicePicker value={choice} onChange={setChoice} />
+              <a
+                href={`/dashboard/addons${choice ? `?video=${choice}` : ""}#video`}
+                className="bg-primary text-primary-foreground hover:bg-primary/90 inline-flex min-h-11 items-center justify-center self-start rounded-full px-5 text-sm font-bold"
+              >
+                {m.videoChoice.goConnect}
+              </a>
+            </>
+          )}
+        </div>
       )}
       <div className="flex flex-col gap-1">
         <Label htmlFor="loc-notes">{t.notes}</Label>

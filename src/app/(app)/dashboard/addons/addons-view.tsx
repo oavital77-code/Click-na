@@ -25,6 +25,8 @@ import type { IntegrationCard, IntegrationProvider } from "@/lib/integrations";
 import { PAYMENT_PROVIDERS } from "@/lib/integration-providers";
 import { useI18n } from "@/i18n/client";
 import { PayPlusSignupCard } from "./payment-setup";
+import { VideoCard } from "./video-card";
+import type { VideoMethod, VideoStatus } from "@/lib/video-schema";
 
 const ICONS: Record<IntegrationProvider, LucideIcon> = {
   calendar: CalendarDays,
@@ -41,14 +43,18 @@ type Payload = { integrations: IntegrationCard[]; credentialStorageReady: boolea
 export function AddonsView({
   initial,
   hasTreatments,
+  video,
 }: {
   initial: Payload;
   /** Whether Settings has any treatment. Requests are picked from that menu. */
   hasTreatments: boolean;
+  video: { status: VideoStatus; onlinePlaces: string[]; preselect: VideoMethod | null };
 }) {
   const { m } = useI18n();
   const [payload, setPayload] = useState(initial);
-  const general = payload.integrations.filter((i) => !PAYMENT.has(i.provider));
+  // Zoom lives inside the video card: it is one of the ways to hold online sessions.
+  const general = payload.integrations.filter((i) => !PAYMENT.has(i.provider) && i.provider !== "zoom");
+  const zoom = payload.integrations.find((i) => i.provider === "zoom");
   // The payment link first: it is the step the PayPlus card leads to. The
   // automatic PayPlus connection is the option for those who want more.
   const payments = payload.integrations
@@ -70,6 +76,13 @@ export function AddonsView({
           </p>
         </div>
       )}
+      <VideoCard
+        initial={video.status}
+        onlinePlaces={video.onlinePlaces}
+        preselect={video.preselect}
+        zoomCard={zoom ? <AddonCard integration={zoom} onChange={setPayload} /> : null}
+      />
+
       <div className="grid gap-4 lg:grid-cols-2">
         {general.map((integration) => (
           <AddonCard key={integration.provider} integration={integration} onChange={setPayload} />

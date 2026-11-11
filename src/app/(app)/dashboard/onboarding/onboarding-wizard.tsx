@@ -32,7 +32,7 @@ import {
 } from "@/lib/onboarding-schema";
 import { useI18n } from "@/i18n/client";
 import { CouponField } from "@/components/coupon-field";
-import { MeetingUrlField } from "@/components/meeting-url-field";
+import { VideoChoicePicker, type VideoChoice } from "@/components/video-choice";
 
 type SlugCheckStatus = "idle" | "checking" | "available" | "unavailable";
 
@@ -64,7 +64,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
   const [breakMinutes, setBreakMinutes] = useState<number>(DEFAULT_BREAK_MINUTES);
   const [locationType, setLocationType] = useState<(typeof LOCATION_TYPES)[number] | "">("");
   const [locationAddress, setLocationAddress] = useState("");
-  const [onlineMeetingUrl, setOnlineMeetingUrl] = useState("");
+  const [videoMethod, setVideoMethod] = useState<VideoChoice | null>(null);
 
   const [days, setDays] = useState<number[]>([]);
   const [startTime, setStartTime] = useState("09:00");
@@ -106,10 +106,11 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
   const canProceedStep3 =
     locationType &&
     (locationType === "online"
-      ? onlineMeetingUrl.trim().length > 0
+      ? videoMethod !== null
       : locationType === "hybrid"
-        ? locationAddress.trim().length > 0 || onlineMeetingUrl.trim().length > 0
+        ? locationAddress.trim().length > 0 && videoMethod !== null
         : locationAddress.trim().length > 0);
+  const worksOnline = locationType === "online" || locationType === "hybrid";
 
   /**
    * `skipAvailability` finishes without a weekly schedule. Nothing is lost by
@@ -128,7 +129,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
       breakMinutes,
       locationType: locationType as (typeof LOCATION_TYPES)[number],
       locationAddress: locationAddress || undefined,
-      onlineMeetingUrl: onlineMeetingUrl || undefined,
+      videoMethod: worksOnline && videoMethod ? videoMethod : undefined,
       availability: skipAvailability ? undefined : { days, startTime, endTime },
     };
 
@@ -157,7 +158,8 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
           return;
         }
       }
-      router.push("/dashboard");
+      // Working online: straight on to connecting the way they chose, in Add-ons.
+      router.push(worksOnline && videoMethod ? `/dashboard/addons?video=${videoMethod}#video` : "/dashboard");
       router.refresh();
     } catch {
       setSubmitError(m.common.networkError);
@@ -307,12 +309,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
               </div>
             )}
             {(locationType === "online" || locationType === "hybrid") && (
-              <MeetingUrlField
-                id="onlineMeetingUrl"
-                label={m.settings.meetingUrl}
-                value={onlineMeetingUrl}
-                onChange={setOnlineMeetingUrl}
-              />
+              <VideoChoicePicker value={videoMethod} onChange={setVideoMethod} />
             )}
           </div>
         )}

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { opensZoomMeetings, type VideoMethod } from "@/lib/video";
 import { mapWithConcurrency } from "@/lib/concurrency";
 import { sendEmail } from "@/lib/email";
 import { generateBookingIcs } from "@/lib/ics";
@@ -71,6 +72,7 @@ type BookingWithContext = {
       sendEmailReminder: boolean;
       sendSmsReminder: boolean;
       reminderHoursBefore: number;
+      videoMethod?: VideoMethod | null;
     } | null;
   };
 };
@@ -167,6 +169,8 @@ async function scheduleReminders(booking: BookingWithContext) {
  */
 async function createMeetingFor(booking: BookingWithContext): Promise<string | null> {
   if (!isOnlineLocation(booking.session.location)) return null;
+  // A standing room (Meet, a fixed Zoom link, another link) was chosen: that is what the client gets.
+  if (!opensZoomMeetings(booking.therapist.settings?.videoMethod ?? null)) return null;
 
   const credentials = await getCredentials(booking.therapistId, "zoom");
   if (!credentials) return null;
