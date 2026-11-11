@@ -1,0 +1,76 @@
+/**
+ * Layout for a calendar drawn to scale: each hour the same height, each
+ * session a block as long as it lasts. Pure, so the arithmetic is tested on
+ * its own; the component (components/time-grid.tsx) only draws what this says.
+ *
+ * Times are minutes from the start of the therapist's local day.
+ */
+
+export type DayItem = { id: string; start: number; end: number };
+
+/** The hours a week shows: a working day at least, widened to hold every session in view. */
+export function visibleRange(items: { start: number; end: number }[], minStartHour = 8, minEndHour = 18) {
+  let startHour = minStartHour;
+  let endHour = minEndHour;
+  for (const item of items) {
+    startHour = Math.min(startHour, Math.floor(item.start / 60));
+    endHour = Math.max(endHour, Math.ceil(item.end / 60));
+  }
+  return { startHour: Math.max(0, startHour), endHour: Math.min(24, Math.max(endHour, startHour + 1)) };
+}
+
+/** Top and height in pixels for a span of minutes, inside a range starting at `startHour`. */
+export function place(start: number, end: number, startHour: number, hourHeight: number) {
+  const top = ((start - startHour * 60) / 60) * hourHeight;
+  const height = Math.max(((end - start) / 60) * hourHeight, 14);
+  return { top, height };
+}
+
+export function toMinutes(time: string): number {
+  const [h, m] = time.split(":").map(Number);
+  return h * 60 + m;
+}
+
+export function toTime(minutes: number): string {
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+export type Proposal = { start: number; fits: boolean };
+
+/**
+ * Where a new slot goes when the therapist taps empty time: on the quarter hour
+ * they tapped, moved past the session before it and its break, so a new slot
+ * never sits on top of one already there. It "fits" when a whole session (not
+ * counting the break) ends before the next one starts and inside the day.
+ */
+export function proposeStart(
+  dayItems: DayItem[],
+  tapped: number,
+  durationMinutes: number,
+  bufferMinutes: number,
+  dayEnd = 24 * 60
+): Proposal {
+  let start = Math.floor(tapped / 15) * 15;
+  for (const item of dayItems) {
+    // A session that has begun by the tap pushes the start past its end and the break after it.
+    if (item.start <= tapped && item.end + bufferMinutes > start) start = Math.max(start, item.end + bufferMinutes);
+  }
+  const end = start + durationMinutes;
+  const fits = end <= dayEnd && !dayItems.some((item) => item.start < end && item.end > start);
+  return { start, fits };
+}
+
+/** The first start on a day where a whole session fits, from `from` on, in quarter hours. For keyboard use. */
+export function firstFreeStart(
+  dayItems: DayItem[],
+  from: number,
+  durationMinutes: number,
+  bufferMinutes: number,
+  dayEnd = 24 * 60
+): number | null {
+  for (let t = Math.ceil(from / 15) * 15; t + durationMinutes <= dayEnd; t += 15) {
+    const proposal = proposeStart(dayItems, t, durationMinutes, bufferMinutes, dayEnd);
+    if (proposal.fits) return proposal.start;
+  }
+  return null;
+}

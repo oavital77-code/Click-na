@@ -13,9 +13,10 @@ import {
 } from "@/components/ui/card";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { useI18n } from "@/i18n/client";
-import { buildTimeAxis } from "@/lib/schedule-grid";
+import { BlockLabel, TimeGrid, blockClass, type ItemInfo } from "@/components/time-grid";
+import { NewSlotForm, type ActionResult } from "../dashboard-schedule";
 import { MonthGrid } from "@/components/month-grid";
-import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
+import { sessionStatusTone } from "@/lib/status-badge";
 import { cn } from "@/lib/utils";
 import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
 import { holidaysByDate, yearsBetween } from "@/lib/holidays";
@@ -64,8 +65,6 @@ export function AvailabilityView({
   const [placeId, setPlaceId] = useState(locations[0]?.id ?? "");
   const [loadingWeek, setLoadingWeek] = useState(false);
   const isFirstRender = useRef(true);
-  const hoursRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -80,19 +79,6 @@ export function AvailabilityView({
     () => Array.from({ length: 7 }, (_, i) => addDaysUtc(startOfWeekUtc(anchorDate), i)),
     [anchorDate]
   );
-
-  // A phone shows three days at a time: open the week on today, not on Sunday.
-  useEffect(() => {
-    const grid = gridRef.current;
-    const todayHeader = grid?.querySelector<HTMLElement>("th[data-today]");
-    if (!grid || !todayHeader) return;
-    // Distance from the grid's start edge to today's column, in either direction.
-    const gridBox = grid.getBoundingClientRect();
-    const cellBox = todayHeader.getBoundingClientRect();
-    const rtl = getComputedStyle(grid).direction === "rtl";
-    const delta = rtl ? gridBox.right - cellBox.right : cellBox.left - gridBox.left;
-    grid.scrollLeft += rtl ? -delta : delta;
-  }, [weekDates, granularity]);
 
   const holidays = useMemo(() => holidaysByDate(yearsBetween(weekDates[0], weekDates[6])), [weekDates]);
 
@@ -144,17 +130,6 @@ export function AvailabilityView({
     };
   }, [range.from, range.to, timezone, a.loadError]);
 
-  const byDayAndTime = useMemo(() => {
-    const map = new Map<string, SessionRow>();
-    const times = new Set<string>();
-    for (const session of sessions) {
-      const dayKey = formatInTimeZone(new Date(session.startsAt), timezone, "yyyy-MM-dd");
-      const timeKey = formatInTimeZone(new Date(session.startsAt), timezone, "HH:mm");
-      map.set(`${dayKey}T${timeKey}`, session);
-      times.add(timeKey);
-    }
-    return { map, times: buildTimeAxis(gridStepMinutes ?? defaultDurationMinutes, times) };
-  }, [sessions, timezone, defaultDurationMinutes, gridStepMinutes]);
 
   async function handleAdd() {
     setFormError(null);
@@ -198,6 +173,39 @@ export function AvailabilityView({
     }
   }
 
+  /** Opens a slot where the therapist tapped empty time on the grid. */
+  async function openSlotAt(dateKey: string, time: string, locationId: string | null): Promise<ActionResult> {
+    const [hh, mm] = time.split(":").map(Number);
+    const endMinutes = hh * 60 + mm + defaultDurationMinutes;
+    const end = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+    try {
+      const res = await fetch("/api/sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: dateKey, startTime: time, endTime: end, locationId: locationId ?? undefined }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        return { ok: false, error: data.error === "overlaps_existing" ? a.overlaps : data.error === "in_past" ? a.inPast : a.addError };
+      }
+      setSessions((prev) => [
+        ...prev,
+        {
+          id: data.session.id,
+          startsAt: data.session.startsAt,
+          endsAt: data.session.endsAt,
+          status: data.session.status,
+          clientName: null,
+          locationId: data.session.location?.id ?? data.session.locationId,
+          locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
+        },
+      ]);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: m.common.networkError };
+    }
+  }
+
   async function toggleStatus(session: SessionRow) {
     const nextStatus = session.status === "open" ? "blocked" : "open";
     setPendingIds((prev) => new Set(prev).add(session.id));
@@ -229,7 +237,10 @@ export function AvailabilityView({
             <CardTitle className="text-base">
               {granularity === "month"
                 ? `${m.labels.months[Number(anchorDate.slice(5, 7)) - 1]} ${anchorDate.slice(0, 4)}`
-                : a.weekTitle(`${weekDates[0].slice(8, 10)}.${weekDates[0].slice(5, 7)}–${weekDates[6].slice(8, 10)}.${weekDates[6].slice(5, 7)}`)}
+                : a.weekTitle(
+                    // Isolated left-to-right: inside a Hebrew title the range otherwise reads backwards.
+                    `\u2066${weekDates[0].slice(8, 10)}.${weekDates[0].slice(5, 7)}–${weekDates[6].slice(8, 10)}.${weekDates[6].slice(5, 7)}\u2069`
+                  )}
             </CardTitle>
             <div className="bg-muted inline-flex gap-1 rounded-md p-1">
               {(["week", "month"] as const).map((g) => (
@@ -303,114 +314,76 @@ export function AvailabilityView({
               }}
             />
           ) : (
-            // The hours live OUTSIDE the box that scrolls sideways, so swiping
-            // through the days can never take them off screen. (They used to be
-            // a sticky first column; on iPhone that column scrolled away with
-            // the days and the slots lost their times.) The grid scrolls both
-            // ways inside a bounded box — so the day header can pin to its top —
-            // and the hours follow its vertical scroll. Rows have a fixed
-            // height on both sides so they stay in line.
+            // Drawn to scale: each slot as long as it lasts, the hours beside
+            // the days and outside their sideways scroll. A phone sees about
+            // three days at a time, starting on today.
             <div>
-              <div className="flex">
-                <div aria-hidden className="w-14 shrink-0">
-                  {/* Level with the day header, which stays pinned above the rows. */}
-                  <div className="h-16" />
-                  <div ref={hoursRef} className="max-h-[calc(70vh-4rem)] overflow-hidden">
-                    {byDayAndTime.times.map((time) => (
-                      <div
-                        key={time}
-                        className="num text-muted-foreground border-border flex h-14 items-center border-t pe-2 text-xs"
-                      >
-                        {time}
+              <TimeGrid
+                days={weekDates}
+                today={today}
+                timezone={timezone}
+                items={sessions}
+                hourHeight={56}
+                minColumnWidth={96}
+                scrollToToday
+                dayHeader={(dateKey) => {
+                  const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+                  const holiday = holidays.get(dateKey);
+                  return (
+                    <>
+                      <div className={cn("text-sm font-medium", dateKey === today && "text-primary")}>{m.labels.daysShort[dow]}</div>
+                      <div className="num text-muted-foreground text-xs">
+                        {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <div
-                  ref={gridRef}
-                  onScroll={(e) => {
-                    if (hoursRef.current) hoursRef.current.scrollTop = e.currentTarget.scrollTop;
-                  }}
-                  className="max-h-[70vh] min-w-0 flex-1 snap-x snap-mandatory overflow-auto"
-                >
-                  <table className="w-full min-w-[640px] table-fixed border-separate border-spacing-0 text-sm">
-                    <thead>
-                      <tr>
-                        {weekDates.map((dateKey) => {
-                          const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
-                          const isToday = dateKey === today;
-                          return (
-                            <th
-                              key={dateKey}
-                              data-today={isToday || undefined}
-                              className="bg-card sticky top-0 z-20 h-16 snap-start pb-2 text-center align-bottom font-medium"
-                            >
-                              <div className={isToday ? "text-primary" : undefined}>
-                                {m.labels.daysShort[dow]}
-                              </div>
-                              <div className="num text-muted-foreground text-xs">
-                                {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
-                              </div>
-                              {holidays.has(dateKey) && (
-                                <div
-                                  className={cn(
-                                    "truncate text-[10px] leading-tight font-normal",
-                                    holidays.get(dateKey)!.kind === "observance" ? "text-muted-foreground" : "text-primary"
-                                  )}
-                                >
-                                  {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
-                                </div>
-                              )}
-                            </th>
-                          );
-                        })}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {byDayAndTime.times.map((time) => (
-                        <tr key={time}>
-                          {weekDates.map((dateKey) => {
-                            const session = byDayAndTime.map.get(`${dateKey}T${time}`);
-                            return (
-                              <td
-                                key={dateKey}
-                                className="border-border h-14 snap-start border-t p-1 text-center align-middle"
-                              >
-                                {session ? (
-                                  <button
-                                    type="button"
-                                    disabled={
-                                      pendingIds.has(session.id) ||
-                                      (session.status !== "open" && session.status !== "blocked")
-                                    }
-                                    onClick={() => toggleStatus(session)}
-                                    title={session.clientName ?? undefined}
-                                    aria-label={`${time} · ${session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}`}
-                                    className={cn(
-                                      statusBadgeClass(sessionStatusTone(session.status)),
-                                      "h-[46px] w-full flex-col justify-center gap-0 rounded-xl leading-tight disabled:opacity-100"
-                                    )}
-                                  >
-                                    {/* The time again, inside the slot: on a phone the
-                                        hours column can be a few columns away. */}
-                                    <span className="num text-[11px] font-bold md:hidden">{time}</span>
-                                    <span className="flex max-w-full items-center gap-1 truncate">
-                                      {manyPlaces && <LocationDot color={session.locationColor} />}
-                                      {session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status}
-                                    </span>
-                                  </button>
-                                ) : (
-                                  <span className="text-muted-foreground/40">—</span>
-                                )}
-                              </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                      {holiday && (
+                        <div className={cn("truncate text-[10px] leading-tight", holiday.kind === "observance" ? "text-muted-foreground" : "text-primary")}>
+                          {m.holidays[holiday.key as keyof typeof m.holidays]}
+                        </div>
+                      )}
+                    </>
+                  );
+                }}
+                renderItem={(session: SessionRow, info: ItemInfo) => {
+                  const title = session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status;
+                  const label = (
+                    <BlockLabel title={title} info={info} place={manyPlaces ? <LocationDot color={session.locationColor} /> : undefined} />
+                  );
+                  const tone = sessionStatusTone(session.status);
+                  // Open and blocked flip with a tap; a booked or held slot is the client's.
+                  return session.status === "open" || session.status === "blocked" ? (
+                    <button
+                      type="button"
+                      disabled={pendingIds.has(session.id)}
+                      onClick={() => toggleStatus(session)}
+                      aria-label={`${info.start}–${info.end} · ${title}`}
+                      className={blockClass(tone)}
+                    >
+                      {label}
+                    </button>
+                  ) : (
+                    <div title={session.clientName ?? undefined} className={blockClass(tone)}>
+                      {label}
+                    </div>
+                  );
+                }}
+                empty={{
+                  durationMinutes: defaultDurationMinutes,
+                  bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
+                  label: (dateKey) => m.dashboard.schedule.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
+                  content: ({ dateKey, time, fits, close }) => (
+                    <NewSlotForm
+                      key={`${dateKey}T${time}`}
+                      dateKey={dateKey}
+                      time={time}
+                      fits={fits}
+                      locations={locations}
+                      defaultLocationId={placeFilter}
+                      onOpenSlot={openSlotAt}
+                      onDone={close}
+                    />
+                  ),
+                }}
+              />
               <p className="text-muted-foreground mt-3 text-xs md:hidden">{a.scrollHint}</p>
             </div>
           )}

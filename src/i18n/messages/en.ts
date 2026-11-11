@@ -838,6 +838,8 @@ export const en = {
       deleteError: "Could not delete",
       reopenError: "Could not reopen",
       status: { open: "Open", blocked: "Blocked", booked: "Booked", held: "Held" },
+      openSlotOnDay: (day: string) => `Open a slot on ${day}`,
+      noRoom: "There is no room for a whole session here before the next one. Pick another time.",
       noSlotHere: "No open slot here",
       openSlotHint: "An open slot, not booked yet",
       blockedSlotHint: "Add a label, or reopen it",

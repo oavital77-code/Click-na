@@ -827,6 +827,8 @@ export const he: Messages = {
       deleteError: "המחיקה לא הצליחה",
       reopenError: "הפתיחה מחדש לא הצליחה",
       status: { open: "פנוי", blocked: "חסום", booked: "מוזמן", held: "שמור זמנית" },
+      openSlotOnDay: (day: string) => `פתיחת שעה ב-${day}`,
+      noRoom: "אין כאן מקום לטיפול שלם לפני התור הבא. אפשר לבחור זמן אחר.",
       noSlotHere: "אין כאן שעה פתוחה",
       openSlotHint: "שעה פתוחה, עוד לא נקבע בה תור",
       blockedSlotHint: "אפשר להוסיף הערה או לפתוח את השעה מחדש",

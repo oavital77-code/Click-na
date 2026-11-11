@@ -15,7 +15,7 @@ import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTim
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { Messages } from "@/i18n";
-import { buildTimeAxis } from "@/lib/schedule-grid";
+import { BlockLabel, TimeGrid, blockClass, type ItemInfo } from "@/components/time-grid";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
@@ -43,7 +43,7 @@ type RawSession = {
   location: { id: string; name: string; color: string };
 };
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+export type ActionResult = { ok: true } | { ok: false; error: string };
 
 type Granularity = "day" | "week" | "month";
 
@@ -76,7 +76,8 @@ function formatRangeLabel(m: Messages, granularity: Granularity, anchorDate: str
   }
   const start = startOfWeekUtc(anchorDate);
   const end = addDaysUtc(start, 6);
-  return `${start.slice(8, 10)}.${start.slice(5, 7)}–${end.slice(8, 10)}.${end.slice(5, 7)}`;
+  // Isolated left-to-right: inside a Hebrew line the range otherwise reads backwards (21.11–15.11).
+  return `\u2066${start.slice(8, 10)}.${start.slice(5, 7)}–${end.slice(8, 10)}.${end.slice(5, 7)}\u2069`;
 }
 
 export function DashboardSchedule({
@@ -160,18 +161,6 @@ export function DashboardSchedule({
       cancelled = true;
     };
   }, [range.from, range.to, timezone, s.loadError]);
-
-  const byDayAndTime = useMemo(() => {
-    const map = new Map<string, SessionRow>();
-    const sessionTimes = new Set<string>();
-    for (const session of sessions) {
-      const dayKey = formatInTimeZone(new Date(session.startsAt), timezone, "yyyy-MM-dd");
-      const timeKey = formatInTimeZone(new Date(session.startsAt), timezone, "HH:mm");
-      map.set(`${dayKey}T${timeKey}`, session);
-      sessionTimes.add(timeKey);
-    }
-    return { map, times: buildTimeAxis(gridStepMinutes ?? defaultDurationMinutes, sessionTimes) };
-  }, [sessions, timezone, defaultDurationMinutes, gridStepMinutes]);
 
   const bookedOrOpen = useMemo(
     () => [...sessions].filter((s) => s.status === "booked" || s.status === "open").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
@@ -315,6 +304,52 @@ export function DashboardSchedule({
     }
   }
 
+  // A tap on empty time offers a slot moved past the session and break before it.
+  const emptySlot = {
+    durationMinutes: defaultDurationMinutes,
+    bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
+    label: (dateKey: string) => s.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
+    content: ({ dateKey, time, fits, close }: { dateKey: string; time: string; fits: boolean; close: () => void }) => (
+      <NewSlotForm
+        key={`${dateKey}T${time}`}
+        dateKey={dateKey}
+        time={time}
+        fits={fits}
+        locations={locations}
+        defaultLocationId={placeFilter}
+        onOpenSlot={handleOpenSlot}
+        onDone={close}
+      />
+    ),
+  };
+  const renderSession = (session: SessionRow, info: ItemInfo) => (
+    <SlotCell
+      session={session}
+      info={info}
+      onBlockSlot={handleBlockSlot}
+      onReopenSlot={handleReopenSlot}
+      onDeleteSlot={handleDeleteSlot}
+      showPlace={manyPlaces}
+    />
+  );
+  const dayHeader = (dateKey: string) => {
+    const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+    const holiday = holidays.get(dateKey);
+    return (
+      <>
+        <div className={cn("text-sm font-medium", dateKey === today && "text-primary")}>{m.labels.daysShort[dow]}</div>
+        <div className="num text-muted-foreground text-xs">
+          {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
+        </div>
+        {holiday && (
+          <div className={cn("truncate text-[10px] leading-tight", holiday.kind === "observance" ? "text-muted-foreground" : "text-primary")}>
+            {m.holidays[holiday.key as keyof typeof m.holidays]}
+          </div>
+        )}
+      </>
+    );
+  };
+
   return (
     <Card>
       {/* Every control row centers as a block on mobile and only splits to the
@@ -444,109 +479,33 @@ export function DashboardSchedule({
                   })}
                 </div>
 
-                <div className="flex flex-col gap-1.5">
-                  {byDayAndTime.times.map((time) => (
-                    <div key={time} className="flex items-center gap-3">
-                      <span className="num text-muted-foreground w-12 shrink-0 text-xs">{time}</span>
-                      <div className="min-w-0 flex-1">
-                        <SlotCell
-                          session={byDayAndTime.map.get(`${phoneDay}T${time}`)}
-                          dateKey={phoneDay}
-                          time={time}
-                          onOpenSlot={handleOpenSlot}
-                          onBlockSlot={handleBlockSlot}
-                          onReopenSlot={handleReopenSlot}
-                          onDeleteSlot={handleDeleteSlot}
-                          locations={locations}
-                          defaultLocationId={placeFilter}
-                          showPlace={manyPlaces}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <TimeGrid
+                  days={[phoneDay]}
+                  today={today}
+                  timezone={timezone}
+                  items={sessions}
+                  hourHeight={64}
+                  renderItem={renderSession}
+                  empty={emptySlot}
+                />
               </div>
             )}
 
-            {/* Desktop, and every granularity on phones except the week. Scrolling
-                snaps to whole day columns (scroll-ps-12 clears the pinned hour
-                column) so a swipe never leaves a cell cut in half. Sticky cells
-                need border-separate — with border-collapse the row line is owned
-                by the table and tears when the pinned column scrolls over it. */}
-            {/* Bounded and scrolling both ways, so the day header pins to the
-                top and the hour column to the edge on every browser — sticky
-                needs a scrolling ancestor on each axis, and the page is not one. */}
-            <div
-              className={cn(
-                "snap-x snap-mandatory scroll-ps-12 max-h-[70vh] overflow-auto",
-                granularity === "week" && "hidden md:block"
-              )}
-            >
-              <table
-                className={cn(
-                  "w-full border-separate border-spacing-0 text-sm",
-                  // 7 × 148px + the 48px pinned hour column. Below this the
-                  // container scrolls; the columns never squeeze, because at
-                  // ~80px a client's name wrapped to one glyph per line.
-                  granularity === "week" && "min-w-[1084px]"
-                )}
-              >
-                <thead>
-                  <tr>
-                    <th className="bg-card sticky start-0 top-0 z-30 w-12 min-w-12" />
-                    {columns.map((dateKey) => {
-                      const dow = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
-                      const isToday = dateKey === today;
-                      return (
-                        <th key={dateKey} className="bg-card sticky top-0 z-20 min-w-[148px] snap-start pb-2 text-center font-medium">
-                          <div className={isToday ? "text-primary" : undefined}>{m.labels.daysShort[dow]}</div>
-                          <div className="num text-muted-foreground text-xs">
-                            {dateKey.slice(8, 10)}.{dateKey.slice(5, 7)}
-                          </div>
-                          {holidays.has(dateKey) && (
-                            <div
-                              className={cn(
-                                "text-[10px] leading-tight font-normal",
-                                holidays.get(dateKey)!.kind === "observance" ? "text-muted-foreground" : "text-primary"
-                              )}
-                            >
-                              {m.holidays[holidays.get(dateKey)!.key as keyof typeof m.holidays]}
-                            </div>
-                          )}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {byDayAndTime.times.map((time) => (
-                    <tr key={time}>
-                      <td className="num text-muted-foreground border-border bg-card sticky start-0 z-10 border-t py-2 pe-2 text-xs">
-                        {time}
-                      </td>
-                      {columns.map((dateKey) => (
-                        <td
-                          key={dateKey}
-                          className="border-border min-w-[148px] snap-start border-t p-1 text-center align-middle"
-                        >
-                          <SlotCell
-                            session={byDayAndTime.map.get(`${dateKey}T${time}`)}
-                            dateKey={dateKey}
-                            time={time}
-                            onOpenSlot={handleOpenSlot}
-                            onBlockSlot={handleBlockSlot}
-                            onReopenSlot={handleReopenSlot}
-                            onDeleteSlot={handleDeleteSlot}
-                            locations={locations}
-                            defaultLocationId={placeFilter}
-                            showPlace={manyPlaces}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* Desktop, and the single day on any screen: the days side by side,
+                drawn to scale. Below 7 × 120px the week scrolls sideways; the
+                hours stay put beside it. */}
+            <div className={cn(granularity === "week" && "hidden md:block")}>
+              <TimeGrid
+                days={columns}
+                today={today}
+                timezone={timezone}
+                items={sessions}
+                hourHeight={56}
+                minColumnWidth={granularity === "week" ? 120 : 0}
+                dayHeader={dayHeader}
+                renderItem={renderSession}
+                empty={emptySlot}
+              />
             </div>
           </>
         ) : bookedOrOpen.length === 0 ? (
@@ -575,28 +534,78 @@ export function DashboardSchedule({
   );
 }
 
-function SlotCell({
-  session,
+/** A tap on empty time: open a slot there, at the place asked. */
+export function NewSlotForm({
   dateKey,
   time,
+  fits,
+  locations,
+  defaultLocationId,
   onOpenSlot,
+  onDone,
+}: {
+  dateKey: string;
+  time: string;
+  fits: boolean;
+  locations: PlaceOption[];
+  defaultLocationId: string | null;
+  onOpenSlot: (dateKey: string, time: string, locationId: string | null) => Promise<ActionResult>;
+  onDone: () => void;
+}) {
+  const { m } = useI18n();
+  const s = m.dashboard.schedule;
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [placeId, setPlaceId] = useState(defaultLocationId ?? locations[0]?.id ?? "");
+  return (
+    <>
+      <p className="num text-sm font-medium" dir="ltr">
+        {time}
+      </p>
+      {fits ? (
+        <>
+          <p className="text-muted-foreground mb-2 text-xs">{s.noSlotHere}</p>
+          <div className="mb-2">
+            <LocationSelect id={`place-${dateKey}-${time}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
+          </div>
+          {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
+          <Button
+            type="button"
+            size="sm"
+            className="w-full"
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              setError(null);
+              const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null);
+              setBusy(false);
+              if (result.ok) onDone();
+              else setError(result.error);
+            }}
+          >
+            {busy ? s.opening : s.openSlot}
+          </Button>
+        </>
+      ) : (
+        <p className="text-muted-foreground text-xs">{s.noRoom}</p>
+      )}
+    </>
+  );
+}
+
+function SlotCell({
+  session,
+  info,
   onBlockSlot,
   onReopenSlot,
   onDeleteSlot,
-  locations,
-  defaultLocationId,
   showPlace,
 }: {
-  session: SessionRow | undefined;
-  dateKey: string;
-  time: string;
-  onOpenSlot: (dateKey: string, time: string, locationId: string | null) => Promise<ActionResult>;
+  session: SessionRow;
+  info: ItemInfo;
   onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
   onReopenSlot: (sessionId: string) => Promise<ActionResult>;
   onDeleteSlot: (sessionId: string) => Promise<ActionResult>;
-  locations: PlaceOption[];
-  /** The place the calendar is filtered to, if any: the natural answer to "where?". */
-  defaultLocationId: string | null;
   showPlace: boolean;
 }) {
   const { m } = useI18n();
@@ -604,66 +613,17 @@ function SlotCell({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [placeId, setPlaceId] = useState(defaultLocationId ?? locations[0]?.id ?? "");
-
-  // Empty cell: click opens a small popover to open a new window right here.
-  if (!session) {
-    return (
-      <Popover.Root
-        open={open}
-        onOpenChange={(next) => {
-          setOpen(next);
-          if (!next) setError(null);
-        }}
-      >
-        <Popover.Trigger asChild>
-          <button
-            type="button"
-            aria-label={s.openSlotAt(time)}
-            className="border-muted-foreground/30 hover:border-primary hover:text-primary focus-visible:border-primary focus-visible:text-primary text-muted-foreground/50 md:border-transparent md:text-transparent flex min-h-11 w-full items-center justify-center rounded-md border border-dashed text-xs transition-colors md:min-h-9"
-          >
-            +
-          </button>
-        </Popover.Trigger>
-        <Popover.Portal>
-          <Popover.Content
-            sideOffset={6}
-            className="bg-card border-border z-50 w-52 rounded-md border p-3 text-start shadow-lg"
-          >
-            <p className="num text-sm font-medium">{time}</p>
-            <p className="text-muted-foreground mb-2 text-xs">{s.noSlotHere}</p>
-            <div className="mb-2">
-              <LocationSelect id={`place-${dateKey}-${time}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
-            </div>
-            {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
-            <Button
-              type="button"
-              size="sm"
-              className="w-full"
-              disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null);
-                setBusy(false);
-                if (result.ok) setOpen(false);
-                else setError(result.error);
-              }}
-            >
-              {busy ? s.opening : s.openSlot}
-            </Button>
-          </Popover.Content>
-        </Popover.Portal>
-      </Popover.Root>
-    );
-  }
+  const time = info.start;
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
   const chipLabel =
     session.clientName ?? session.blockedNote ?? s.status[session.status as keyof typeof s.status] ?? session.status;
   const hoverDetails = isBookedOrHeld
-    ? [session.clientName, session.clientPhone, time].filter(Boolean).join(" · ")
+    ? [session.clientName, session.clientPhone, `${info.start}–${info.end}`].filter(Boolean).join(" · ")
     : undefined;
+  const label = (
+    <BlockLabel title={chipLabel} info={info} place={showPlace ? <LocationDot color={session.locationColor} /> : undefined} />
+  );
 
   // Open (unbooked) slot: click offers to block it, optionally with a label.
   if (session.status === "open") {
@@ -675,9 +635,8 @@ function SlotCell({
           if (!next) setError(null);
         }}
         trigger={
-          <button type="button" className={statusBadgeClass("open") + " w-full min-h-11 md:min-h-9 justify-center"}>
-            {showPlace && <LocationDot color={session.locationColor} />}
-            {chipLabel}
+          <button type="button" className={blockClass("open")}>
+            {label}
           </button>
         }
       >
@@ -723,12 +682,8 @@ function SlotCell({
           if (!next) setError(null);
         }}
         trigger={
-          <button
-            type="button"
-            className={statusBadgeClass("blocked") + " w-full min-h-11 md:min-h-9 justify-center"}
-          >
-            {showPlace && <LocationDot color={session.locationColor} />}
-            {chipLabel}
+          <button type="button" className={blockClass("blocked")}>
+            {label}
           </button>
         }
       >
@@ -781,15 +736,11 @@ function SlotCell({
     );
   }
 
-  // Booked/held: read-only chip; hover reveals a bit more detail.
+  // Booked/held: read-only; hover reveals a bit more detail.
   return (
-    <span
-      title={hoverDetails}
-      className={statusBadgeClass(sessionStatusTone(session.status)) + " w-full min-h-11 md:min-h-9 justify-center"}
-    >
-      {showPlace && <LocationDot color={session.locationColor} />}
-      {chipLabel}
-    </span>
+    <div title={hoverDetails} className={blockClass(sessionStatusTone(session.status))}>
+      {label}
+    </div>
   );
 }
 
