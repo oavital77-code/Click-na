@@ -26,6 +26,8 @@ export type LoginSession = {
     country?: string;
   } | null;
   user?: {
+    /** Milliseconds, as Clerk sends it. */
+    created_at?: number | null;
     first_name?: string | null;
     last_name?: string | null;
     primary_email_address_id?: string | null;
@@ -36,16 +38,39 @@ export type LoginSession = {
 /** A session younger than its account by less than this is the signup itself. */
 const SIGNUP_WINDOW_MS = 5 * 60 * 1000;
 
-export async function sendLoginAlert(session: LoginSession): Promise<"sent" | "skipped" | "duplicate" | "failed"> {
+/**
+ * Clerk sends a signup's user.created and session.created together, in no set
+ * order, so the practice may not exist yet when its first session is reported.
+ * Looked for again after these pauses before the sign-in counts as a stranger's.
+ */
+const LOOKUP_RETRIES_MS = [2000, 4000];
+
+const wait = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+export async function sendLoginAlert(
+  session: LoginSession,
+  { retryDelaysMs = LOOKUP_RETRIES_MS }: { retryDelaysMs?: number[] } = {}
+): Promise<"sent" | "skipped" | "duplicate" | "failed"> {
   const recipient = process.env.OWNER_NOTIFICATION_EMAIL;
   if (!recipient) return "skipped";
 
   const at = new Date(session.created_at || Date.now());
-  const therapist = await prisma.therapist.findUnique({
-    where: { clerkUserId: session.user_id },
-    select: { fullName: true, email: true, createdAt: true },
-  });
-  if (therapist && at.getTime() - therapist.createdAt.getTime() < SIGNUP_WINDOW_MS) return "skipped";
+  const isSignup = (createdAt: number) => at.getTime() - createdAt < SIGNUP_WINDOW_MS;
+  // Clerk's own account age, when it sends one, settles it without the database.
+  if (session.user?.created_at && isSignup(session.user.created_at)) return "skipped";
+
+  const find = () =>
+    prisma.therapist.findUnique({
+      where: { clerkUserId: session.user_id },
+      select: { fullName: true, email: true, createdAt: true },
+    });
+  let therapist = await find();
+  for (const delay of retryDelaysMs) {
+    if (therapist) break;
+    await wait(delay);
+    therapist = await find();
+  }
+  if (therapist && isSignup(therapist.createdAt.getTime())) return "skipped";
 
   // Clerk retries a delivery it did not see answered; one mail per session.
   const key = `login-alert:${session.id}`;

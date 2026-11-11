@@ -88,8 +88,35 @@ describe("login alerts (against a live database)", () => {
     const s = session("user_nobody", {
       user: { first_name: "זר", last_name: null, primary_email_address_id: "e1", email_addresses: [{ id: "e1", email_address: "stranger@example.com" }] },
     });
-    expect(await sendLoginAlert(s)).toBe("sent");
+    expect(await sendLoginAlert(s, { retryDelaysMs: [] })).toBe("sent");
     expect(sendEmailMock.mock.calls[0][0].html).toContain("stranger@example.com");
+  });
+
+  it("skips a signup's session that arrives before its practice exists, by Clerk's account age", async () => {
+    const s = session("user_brand_new", { user: { created_at: Date.now() - 20 * 1000 } });
+    expect(await sendLoginAlert(s, { retryDelaysMs: [] })).toBe("skipped");
+    expect(sendEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("looks for the practice again before calling a new signup a stranger", async () => {
+    const clerkUserId = `user_login_${Math.random().toString(36).slice(2)}`;
+    const s = session(clerkUserId);
+    // The practice is created while the alert waits, as user.created would.
+    const pending = sendLoginAlert(s, { retryDelaysMs: [50, 50] });
+    await new Promise((r) => setTimeout(r, 10));
+    const t = await prisma.therapist.create({
+      data: {
+        clerkUserId,
+        email: `login-${Date.now()}@example.com`,
+        fullName: "חדשה",
+        slug: `login-${Math.random().toString(36).slice(2, 10)}`,
+        subscription: { create: {} },
+        settings: { create: {} },
+      },
+    });
+    therapistIds.push(t.id);
+    expect(await pending).toBe("skipped");
+    expect(sendEmailMock).not.toHaveBeenCalled();
   });
 
   it("flags a sign-in made on the user's behalf", async () => {
@@ -100,7 +127,7 @@ describe("login alerts (against a live database)", () => {
 
   it("escapes what Clerk passes through", async () => {
     const s = session("user_x", { user: { first_name: "<b>x</b>", email_addresses: [] } });
-    await sendLoginAlert(s);
+    await sendLoginAlert(s, { retryDelaysMs: [] });
     expect(sendEmailMock.mock.calls[0][0].html).not.toContain("<b>x</b>");
   });
 
