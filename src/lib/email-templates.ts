@@ -22,6 +22,19 @@ function esc(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
+/**
+ * Escapes like esc(), then makes each http(s) address in the text a link: a
+ * meeting room has to be one tap away in the client's mail, not a string to
+ * copy. The link is matched on the escaped text, so it can hold no markup.
+ */
+function escLinked(value: string): string {
+  return esc(value).replace(
+    // Stops at a space or at an escaped quote, which ends a URL quoted in the text.
+    /https?:\/\/(?:(?!&quot;|&#39;)[^\s<>])+/g,
+    (url) => `<a href="${url}" style="color:#1f6feb;" dir="ltr">${url}</a>`
+  );
+}
+
 /** "6.9.2026" / "6 Sept 2026" — the short date a cancellation names. */
 function day(date: Date, timezone: string, locale: Locale) {
   return formatInTimeZone(date, timezone, DATE_PATTERNS[locale].date, { locale: dateFnsLocale(locale) });
@@ -106,7 +119,7 @@ export function confirmationEmailForClient(input: ConfirmationEmailInput) {
       <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.hello(input.clientFullName))}</h1>
       <p style="font-size:15px;line-height:1.6;">${esc(m.confirmation.lead(input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
-      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
+      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${escLinked(m.location(input.location))}</p>` : ""}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
         ${m.confirmation.icsAttached}
         ${m.confirmation.manageLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.confirmation.manageLink}</a>.
@@ -158,7 +171,7 @@ export function reminderEmailForClient(input: ReminderEmailInput) {
       <h1 style="font-size:20px;margin:0 0 16px;">${m.reminder.title}</h1>
       <p style="font-size:15px;line-height:1.6;">${esc(m.reminder.lead(input.clientFullName, input.therapistFullName))}</p>
       <p style="font-size:16px;font-weight:bold;margin:16px 0;">${when}</p>
-      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${esc(m.location(input.location))}</p>` : ""}
+      ${input.location ? `<p style="font-size:15px;color:#4a4a4a;">${escLinked(m.location(input.location))}</p>` : ""}
       <p style="font-size:14px;line-height:1.6;margin-top:24px;">
         ${m.reminder.cancelLine} <a href="${esc(input.manageUrl)}" style="color:#1f6feb;">${m.reminder.manageLink}</a>.
       </p>

@@ -14,6 +14,23 @@ const endsAt = new Date("2026-09-01T07:50:00Z");
 const timezone = "Asia/Jerusalem";
 
 describe("confirmationEmailForClient", () => {
+  it("makes the meeting link in the location a link, and nothing else", () => {
+    const { html } = confirmationEmailForClient({
+      locale: "he",
+      clientFullName: "דנה",
+      therapistFullName: "ליאור",
+      startsAt,
+      endsAt,
+      timezone,
+      location: 'רחוב הרצל 1 · https://meet.google.com/abc-defg-hij <b>"x"</b>',
+      manageUrl: "https://example.com/m",
+    });
+    expect(html).toContain('<a href="https://meet.google.com/abc-defg-hij" style="color:#1f6feb;" dir="ltr">https://meet.google.com/abc-defg-hij</a>');
+    expect(html).toContain("&lt;b&gt;&quot;x&quot;");
+    expect(html).not.toContain("<b>");
+  });
+
+
   it("includes the client name, therapist name, formatted time, and manage link", () => {
     const { subject, html } = confirmationEmailForClient({
       locale: "he",
