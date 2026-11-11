@@ -326,6 +326,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                   <button
                     key={day}
                     type="button"
+                    aria-pressed={days.includes(day)}
                     onClick={() => toggleDay(day)}
                     className={cn(
                       "min-h-11 rounded-md border px-3 py-1.5 text-sm transition-colors md:min-h-9",

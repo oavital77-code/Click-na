@@ -354,6 +354,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
               <button
                 key={day}
                 type="button"
+                aria-pressed={addingDays.includes(day)}
                 onClick={() => toggleAddingDay(day)}
                 className={cn(
                   "min-h-11 rounded-md border px-3 py-1.5 text-sm transition-colors md:min-h-9",
