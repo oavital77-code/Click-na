@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { releaseExpiredHolds } from "@/lib/bookings";
 import { zonedDateTimeToUtc } from "@/lib/availability";
 import { isExclusionViolation } from "@/lib/prisma-errors";
 import { resolveLocationId } from "@/lib/locations";
@@ -21,6 +22,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "invalid" }, { status: 400 });
   }
 
+  await releaseExpiredHolds(therapist.id);
   const sessions = await prisma.session.findMany({
     where: {
       therapistId: therapist.id,

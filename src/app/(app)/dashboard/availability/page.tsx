@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { formatInTimeZone } from "date-fns-tz";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { releaseExpiredHolds } from "@/lib/bookings";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { listRulesWithCounts } from "@/lib/availability-rules";
 import { AvailabilityView } from "./availability-view";
@@ -34,6 +35,7 @@ export default async function AvailabilityPage() {
   // Seven calendar days, not 168 hours: a clock-change week differs by one.
   const to = zonedDateTimeToUtc(addDaysUtc(weekStart, 7), "00:00", therapist.timezone);
 
+  await releaseExpiredHolds(therapist.id);
   const sessions = await prisma.session.findMany({
     where: { therapistId: therapist.id, startsAt: { gte: from, lt: to }, status: { not: "canceled" } },
     include: { booking: true, location: { select: { id: true, name: true, color: true } } },

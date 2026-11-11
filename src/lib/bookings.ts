@@ -75,6 +75,22 @@ export async function releaseHold(sessionId: string, holdToken: string): Promise
 }
 
 /**
+ * Opens every slot of this therapist whose hold ran out: the client walked
+ * away mid-form. Clients could already book such a slot (see claimableBy), but
+ * the therapist's views read the stored status and showed it as taken, and
+ * would not let them block it. Run before the therapist reads or changes
+ * slots; the condition is in the update itself, so a hold taken a moment ago
+ * is never touched.
+ */
+export async function releaseExpiredHolds(therapistId: string, now: Date = new Date()): Promise<number> {
+  const released = await prisma.session.updateMany({
+    where: { therapistId, status: "held", holdExpiresAt: { lt: now } },
+    data: { status: "open", holdExpiresAt: null, holdToken: null },
+  });
+  return released.count;
+}
+
+/**
  * Who may claim a slot right now: anyone, when it is open or its hold has
  * lapsed; only the holder, while a hold is live. Shared by booking and
  * rescheduling so the two cannot disagree.

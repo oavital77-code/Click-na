@@ -4,6 +4,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { UserButton } from "@clerk/nextjs";
 import { getCurrentTherapist } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { releaseExpiredHolds } from "@/lib/bookings";
 import { addDaysUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { DashboardSchedule } from "./dashboard-schedule";
 import {
@@ -64,6 +65,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
   const weekStart = zonedDateTimeToUtc(weekStartStr, "00:00", tz);
   const weekEnd = zonedDateTimeToUtc(addDaysUtc(weekStartStr, 7), "00:00", tz);
 
+  await releaseExpiredHolds(therapist.id);
   // Independent queries on the shared client (not a transaction) — safe to run concurrently.
   const [weekSessions, nextSession, unpaid, locations, everBooked] = await Promise.all([
     prisma.session.findMany({

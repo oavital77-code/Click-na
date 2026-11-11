@@ -5,6 +5,7 @@ import { ensureDefaultLocation } from "@/lib/locations";
 import {
   holdSession,
   releaseHold,
+  releaseExpiredHolds,
   createBooking,
   confirmBookingByTherapist,
   cancelBookingByTherapist,
@@ -51,6 +52,21 @@ describe("bookings (against a live database)", () => {
       },
     });
   }
+
+  it("opens a slot whose hold ran out, for the therapist's views, and leaves a live hold alone", async () => {
+    const lapsed = await makeSession(48);
+    const live = await makeSession(50);
+    await prisma.session.update({
+      where: { id: lapsed.id },
+      data: { status: "held", holdExpiresAt: new Date(Date.now() - 60 * 1000), holdToken: "t".repeat(32) },
+    });
+    await holdSession(live.id);
+
+    expect(await releaseExpiredHolds(therapistId)).toBe(1);
+    const after = await prisma.session.findUniqueOrThrow({ where: { id: lapsed.id } });
+    expect(after).toMatchObject({ status: "open", holdExpiresAt: null, holdToken: null });
+    expect((await prisma.session.findUniqueOrThrow({ where: { id: live.id } })).status).toBe("held");
+  });
 
   it("holds an open slot", async () => {
     const session = await makeSession(48);

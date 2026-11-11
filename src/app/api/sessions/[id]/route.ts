@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { isUuid, notFoundJson } from "@/lib/ids";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
+import { releaseExpiredHolds } from "@/lib/bookings";
 import { SlotNotDeletableError, deleteSlot } from "@/lib/reset";
 import { requireTherapist } from "@/lib/route-auth";
 
@@ -23,6 +24,7 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/sessio
   const { id } = await ctx.params;
 
   if (!isUuid(id)) return notFoundJson();
+  await releaseExpiredHolds(therapist.id);
   const session = await prisma.session.findUnique({ where: { id } });
 
   if (!session || session.therapistId !== therapist.id) {
@@ -60,6 +62,7 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/sess
   const { id } = await ctx.params;
 
   if (!isUuid(id)) return notFoundJson();
+  await releaseExpiredHolds(therapist.id);
   try {
     const deleted = await deleteSlot(therapist.id, id);
     if (!deleted) return NextResponse.json({ error: "not_found" }, { status: 404 });
