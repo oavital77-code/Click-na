@@ -16,6 +16,7 @@ import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { Messages } from "@/i18n";
 import { BlockLabel, TimeGrid, blockClass, type ItemInfo } from "@/components/time-grid";
+import { ADD_SLOT_EVENT, AddSlotDialog } from "@/components/add-slot-dialog";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
 import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
@@ -110,6 +111,13 @@ export function DashboardSchedule({
   // the week unreadable in the first place.
   const [selectedDay, setSelectedDay] = useState(today);
   const isFirstRender = useRef(true);
+  // The "+ open a slot" button on the home screen is outside this card; it asks by event.
+  const [adding, setAdding] = useState(false);
+  useEffect(() => {
+    const open = () => setAdding(true);
+    window.addEventListener(ADD_SLOT_EVENT, open);
+    return () => window.removeEventListener(ADD_SLOT_EVENT, open);
+  }, []);
 
   const range = useMemo(() => {
     if (granularity === "day") return { from: anchorDate, to: addDaysUtc(anchorDate, 1) };
@@ -202,8 +210,15 @@ export function DashboardSchedule({
     setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
   }
 
-  async function handleOpenSlot(dateKey: string, time: string, locationId: string | null, block?: { note: string }): Promise<ActionResult> {
-    const endTime = addMinutesToTime(time, defaultDurationMinutes);
+  async function handleOpenSlot(
+    dateKey: string,
+    time: string,
+    locationId: string | null,
+    block?: { note: string },
+    /** Typed in by hand (the add dialog); a tap on the calendar gets a session's length. */
+    endTimeTyped?: string
+  ): Promise<ActionResult> {
+    const endTime = endTimeTyped ?? addMinutesToTime(time, defaultDurationMinutes);
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
@@ -228,6 +243,13 @@ export function DashboardSchedule({
                 : s.openError,
         };
       }
+      // Added for a day that is not on screen: go there, and the calendar loads it.
+      if (dateKey < range.from || dateKey >= range.to) {
+        setAnchorDate(granularity === "month" ? startOfMonthUtc(dateKey) : dateKey);
+        setSelectedDay(dateKey);
+        return { ok: true };
+      }
+      setSelectedDay(dateKey);
       setSessions((prev) => [
         ...prev,
         {
@@ -424,6 +446,15 @@ export function DashboardSchedule({
           </div>
         </div>
         <LocationFilter locations={locations} value={placeFilter} onChange={setPlaceFilter} />
+        <AddSlotDialog
+          open={adding}
+          onClose={() => setAdding(false)}
+          today={today}
+          defaultDurationMinutes={defaultDurationMinutes}
+          locations={locations}
+          defaultLocationId={placeFilter}
+          onAdd={(input) => handleOpenSlot(input.date, input.startTime, input.locationId, input.block, input.endTime)}
+        />
       </CardHeader>
       <CardContent>
         {loadError && <p className="text-destructive mb-3 text-sm">{loadError}</p>}

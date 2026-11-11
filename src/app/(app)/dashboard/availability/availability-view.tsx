@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -15,9 +13,10 @@ import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTim
 import { useI18n } from "@/i18n/client";
 import { TimeGrid, type ItemInfo } from "@/components/time-grid";
 import { NewSlotForm, SlotCell, type ActionResult } from "../dashboard-schedule";
+import { AddSlotDialog } from "@/components/add-slot-dialog";
 import { MonthGrid } from "@/components/month-grid";
 import { cn } from "@/lib/utils";
-import { LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
+import { LocationFilter, type PlaceOption } from "@/components/location-filter";
 import { holidaysByDate, yearsBetween } from "@/lib/holidays";
 
 type SessionRow = {
@@ -62,16 +61,12 @@ export function AvailabilityView({
     [allSessions, placeFilter]
   );
   const manyPlaces = locations.length > 1;
-  const [placeId, setPlaceId] = useState(locations[0]?.id ?? "");
+  const [adding, setAdding] = useState(false);
   const [loadingWeek, setLoadingWeek] = useState(false);
   const isFirstRender = useRef(true);
   const [formError, setFormError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const [today] = useState(() => formatInTimeZone(new Date(), timezone, "yyyy-MM-dd"));
-  const [date, setDate] = useState(today);
-  const [startTime, setStartTime] = useState("09:00");
-  const [endTime, setEndTime] = useState("10:00");
 
   const weekStart = startOfWeekUtc(anchorDate);
   const weekDates = useMemo(
@@ -131,54 +126,18 @@ export function AvailabilityView({
   }, [range.from, range.to, timezone, a.loadError]);
 
 
-  async function handleAdd() {
-    setFormError(null);
-    setSubmitting(true);
-    try {
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date, startTime, endTime, locationId: manyPlaces ? placeId : undefined }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setFormError(
-          data.error === "overlaps_existing"
-            ? a.overlaps
-            : data.error === "in_past"
-              ? a.inPast
-              : a.addError
-        );
-        return;
-      }
-      const addedWeekStart = startOfWeekUtc(date);
-      if (addedWeekStart === weekStart) {
-        setSessions((prev) => [
-          ...prev,
-          {
-            id: data.session.id,
-            startsAt: data.session.startsAt,
-            endsAt: data.session.endsAt,
-            status: data.session.status,
-            clientName: null,
-            blockedNote: null,
-            locationId: data.session.location?.id ?? data.session.locationId,
-            locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
-          },
-        ]);
-      }
-    } catch {
-      setFormError(m.common.networkError);
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   /** Opens a slot where the therapist tapped empty time on the grid. */
-  async function openSlotAt(dateKey: string, time: string, locationId: string | null, block?: { note: string }): Promise<ActionResult> {
+  async function openSlotAt(
+    dateKey: string,
+    time: string,
+    locationId: string | null,
+    block?: { note: string },
+    /** Typed in by hand (the add dialog); a tap on the calendar gets a session's length. */
+    endTimeTyped?: string
+  ): Promise<ActionResult> {
     const [hh, mm] = time.split(":").map(Number);
     const endMinutes = hh * 60 + mm + defaultDurationMinutes;
-    const end = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
+    const end = endTimeTyped ?? `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
@@ -194,6 +153,11 @@ export function AvailabilityView({
       const data = await res.json();
       if (!res.ok) {
         return { ok: false, error: data.error === "overlaps_existing" ? a.overlaps : data.error === "in_past" ? a.inPast : a.addError };
+      }
+      // Added for a day that is not on screen: go there, and the calendar loads it.
+      if (dateKey < range.from || dateKey >= range.to) {
+        setAnchorDate(granularity === "month" ? startOfMonthUtc(dateKey) : dateKey);
+        return { ok: true };
       }
       setSessions((prev) => [
         ...prev,
@@ -319,8 +283,13 @@ export function AvailabilityView({
             </Button>
           </div>
           <LocationFilter locations={locations} value={placeFilter} onChange={setPlaceFilter} />
+          {/* Typing a slot in, for when finding its place on the calendar is the slow way. */}
+          <Button type="button" className="self-center md:self-start" onClick={() => setAdding(true)}>
+            {m.addSlot.button}
+          </Button>
         </CardHeader>
         <CardContent>
+          {formError && <p className="text-destructive mb-3 text-sm">{formError}</p>}
           {granularity === "month" ? (
             <MonthGrid
               anchorDate={anchorDate}
@@ -396,42 +365,15 @@ export function AvailabilityView({
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{a.addSlot}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="date">{a.date}</Label>
-              <Input id="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="startTime">{a.from}</Label>
-              <Input
-                id="startTime"
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="endTime">{a.to}</Label>
-              <Input
-                id="endTime"
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              />
-            </div>
-            <LocationSelect id="slot-place" locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
-            <Button type="button" className="w-full md:w-auto" disabled={submitting} onClick={handleAdd}>
-              {submitting ? a.adding : a.addButton}
-            </Button>
-          </div>
-          {formError && <p className="text-destructive text-sm">{formError}</p>}
-        </CardContent>
-      </Card>
+      <AddSlotDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        today={today}
+        defaultDurationMinutes={defaultDurationMinutes}
+        locations={locations}
+        defaultLocationId={placeFilter}
+        onAdd={(input) => openSlotAt(input.date, input.startTime, input.locationId, input.block, input.endTime)}
+      />
     </div>
   );
 }

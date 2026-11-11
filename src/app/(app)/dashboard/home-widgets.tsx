@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { ADD_SLOT_EVENT } from "@/components/add-slot-dialog";
 import { Check, Copy, ExternalLink, MessageCircle, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
@@ -34,14 +35,16 @@ export function HomeActions({ publicUrl }: { publicUrl: string }) {
         {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
         {copied ? t.copied : t.copyLink}
       </button>
-      <a
-        href="#calendar"
+      <button
+        type="button"
         data-tour="home-open-hour"
+        // Opens the add dialog, which lives with the schedule further down the page.
+        onClick={() => window.dispatchEvent(new Event(ADD_SLOT_EVENT))}
         className="bg-primary text-primary-foreground hover:bg-primary/90 flex min-h-14 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-bold transition-colors md:min-h-11 md:rounded-full"
       >
         <Plus className="size-4" />
         {t.openHour}
-      </a>
+      </button>
     </div>
   );
 }
