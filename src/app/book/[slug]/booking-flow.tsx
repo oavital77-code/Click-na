@@ -338,6 +338,13 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
               >
                 {submitting ? b.confirming : b.confirmBooking}
               </Button>
+              {/* Said where the details are given, as the privacy law asks: what they are for, and where to read more. */}
+              <p className="text-muted-foreground text-xs">
+                {b.privacyNotice}{" "}
+                <a href="/privacy" target="_blank" rel="noopener" className="underline underline-offset-4">
+                  {b.privacyLink}
+                </a>
+              </p>
             </>
           )}
         </CardContent>

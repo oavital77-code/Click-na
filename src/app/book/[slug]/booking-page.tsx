@@ -153,6 +153,14 @@ export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug
         }))}
         initialPlaceSlug={chosen?.slug ?? null}
       />
+
+      {/* The terms, privacy and accessibility statement, reachable from the page where clients
+          give their details. Quiet: this is the therapist's front door, not ours. */}
+      <nav aria-label={m.book.legalNav} className="text-muted-foreground mt-auto flex flex-wrap justify-center gap-x-4 pt-4 text-xs">
+        <a href="/terms" className="hover:text-foreground inline-flex min-h-11 items-center">{m.book.terms}</a>
+        <a href="/privacy" className="hover:text-foreground inline-flex min-h-11 items-center">{m.book.privacyLink}</a>
+        <a href="/accessibility" className="hover:text-foreground inline-flex min-h-11 items-center">{m.book.accessibility}</a>
+      </nav>
     </main>
     </I18nProvider>
   );
