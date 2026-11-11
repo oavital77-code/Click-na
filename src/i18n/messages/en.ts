@@ -846,6 +846,7 @@ export const en = {
       SLOT_ON_HOLD: "Somebody else is booking that time right now. Try another.",
       BOOKING_TOO_SOON: "That time is too close to now.",
       PHONE_REQUIRED: "This therapist needs a phone number to book.",
+      rate_limited: "Too many tries in a short time. Please try again in a few minutes.",
       slotGone: "That time is no longer available — pick another",
       loadTimes: "Could not load the available times. Try refreshing.",
     },
