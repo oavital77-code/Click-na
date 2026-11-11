@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeMeetingUrl } from "@/lib/meeting-url";
 import { LOCATION_TYPES } from "@/lib/onboarding-schema";
 import { DEFAULT_LOCALE, toLocale, type Locale } from "@/i18n/config";
 
@@ -27,12 +28,15 @@ const httpUrl = z
   .max(500)
   .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
 
+/** A meeting link as pasted — a bare Meet code or a link without https is completed first. */
+const meetingUrl = z.preprocess((v) => (typeof v === "string" ? normalizeMeetingUrl(v) : v), httpUrl);
+
 export const locationSchema = z
   .object({
     name: z.string().trim().min(1, "validation.required").max(80),
     type: z.enum(LOCATION_TYPES),
     address: z.string().trim().max(500).optional().or(z.literal("")),
-    onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
+    onlineMeetingUrl: meetingUrl.optional().or(z.literal("")),
     notes: z.string().trim().max(500).optional().or(z.literal("")),
     color: z
       .string()
@@ -97,11 +101,16 @@ export function toLocation(row: Row): Location {
   };
 }
 
-/** What a message or a calendar entry says for "where": the address, else the room link. */
+/**
+ * What a message or a calendar entry says for "where": the address, the room
+ * link, or both — a place that is in the clinic and online alike has to tell
+ * the client both, or the online client is sent an address and no way in.
+ */
 export function locationLabel(
   location: { address: string | null; onlineMeetingUrl: string | null } | null | undefined
 ) {
-  return location?.address ?? location?.onlineMeetingUrl ?? null;
+  const parts = [location?.address, location?.onlineMeetingUrl].map((p) => p?.trim()).filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 /** A location where a video meeting makes sense: online, or online some of the time. */

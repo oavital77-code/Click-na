@@ -32,6 +32,7 @@ import {
 } from "@/lib/onboarding-schema";
 import { useI18n } from "@/i18n/client";
 import { CouponField } from "@/components/coupon-field";
+import { MeetingUrlField } from "@/components/meeting-url-field";
 
 type SlugCheckStatus = "idle" | "checking" | "available" | "unavailable";
 
@@ -306,15 +307,12 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
               </div>
             )}
             {(locationType === "online" || locationType === "hybrid") && (
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="onlineMeetingUrl">{m.settings.meetingUrl}</Label>
-                <Input
-                  id="onlineMeetingUrl"
-                  dir="ltr"
-                  value={onlineMeetingUrl}
-                  onChange={(e) => setOnlineMeetingUrl(e.target.value)}
-                />
-              </div>
+              <MeetingUrlField
+                id="onlineMeetingUrl"
+                label={m.settings.meetingUrl}
+                value={onlineMeetingUrl}
+                onChange={setOnlineMeetingUrl}
+              />
             )}
           </div>
         )}

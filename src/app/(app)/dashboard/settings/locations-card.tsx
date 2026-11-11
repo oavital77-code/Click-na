@@ -1,5 +1,6 @@
 "use client";
 
+import { MeetingUrlField } from "@/components/meeting-url-field";
 import { useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -234,10 +235,7 @@ function LocationForm({
         </div>
       )}
       {wantsUrl && (
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="loc-url">{t.meetingUrl}</Label>
-          <Input id="loc-url" dir="ltr" value={draft.onlineMeetingUrl} maxLength={500} onChange={(e) => set("onlineMeetingUrl", e.target.value)} />
-        </div>
+        <MeetingUrlField id="loc-url" label={t.meetingUrl} value={draft.onlineMeetingUrl} onChange={(v) => set("onlineMeetingUrl", v)} />
       )}
       <div className="flex flex-col gap-1">
         <Label htmlFor="loc-notes">{t.notes}</Label>

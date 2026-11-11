@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { normalizeMeetingUrl } from "@/lib/meeting-url";
 
 /**
  * A URL a therapist types in and the app later renders as a link or an image
@@ -13,6 +14,9 @@ const httpUrl = z
   .url("validation.urlInvalid")
   .max(500)
   .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
+
+/** A meeting link as pasted — a bare Meet code or a link without https is completed first. */
+const meetingUrl = z.preprocess((v) => (typeof v === "string" ? normalizeMeetingUrl(v) : v), httpUrl);
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
 
 export const PROFESSION_TYPES = [
@@ -57,7 +61,7 @@ export const onboardingSchema = z
       .optional(),
     locationType: z.enum(LOCATION_TYPES),
     locationAddress: z.string().trim().max(500).optional(),
-    onlineMeetingUrl: httpUrl.optional().or(z.literal("")),
+    onlineMeetingUrl: meetingUrl.optional().or(z.literal("")),
     availability: z
       .object({
         days: z.array(z.number().int().min(0).max(6)).min(1, "validation.pickAtLeastOneDay"),

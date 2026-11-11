@@ -648,6 +648,19 @@ export const en = {
     yourPrice: (price: string) => `Your price: ${price} a month.`,
   },
 
+  meetingLink: {
+    paste: "Paste",
+    pasteFailed: "Your browser did not allow pasting from here. Long-press inside the field and choose Paste.",
+    howTitle: "Making a standing Google Meet link (once, about a minute):",
+    step1: "Press the button below. Google Meet opens in a new tab.",
+    step2: "Choose \"New meeting\", then \"Create a meeting for later\", and copy the link.",
+    step3: "Come back here and press Paste. That's it.",
+    openMeet: "Open Google Meet",
+    zoomToo: "Have a standing Zoom room? Its link works here too.",
+    meetReady: "A valid Google Meet link. Every client who books online gets it with the confirmation and the reminder. At the session, join from the same Google account and admit the client when they ask to join.",
+    linkReady: "Every client who books online gets this link with the confirmation and the reminder.",
+    tryIt: "Try the link",
+  },
   onboarding: {
     title: "Let's get acquainted",
     step: (n: number, total: number) => `Step ${n} of ${total}`,

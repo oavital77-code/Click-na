@@ -46,8 +46,10 @@ describe("slugForName", () => {
 });
 
 describe("labels", () => {
-  it("says the address when there is one, else the room link", () => {
-    expect(locationLabel({ address: "כתובת", onlineMeetingUrl: "https://z" })).toBe("כתובת");
+  it("says the address, the room link, or both for a place that is both", () => {
+    // A clinic-and-online place: the online client needs the link, not only the address.
+    expect(locationLabel({ address: "כתובת", onlineMeetingUrl: "https://z" })).toBe("כתובת · https://z");
+    expect(locationLabel({ address: "כתובת", onlineMeetingUrl: null })).toBe("כתובת");
     expect(locationLabel({ address: null, onlineMeetingUrl: "https://z" })).toBe("https://z");
     expect(locationLabel(null)).toBeNull();
   });
@@ -56,5 +58,22 @@ describe("labels", () => {
     expect(isOnlineLocation({ type: "online" })).toBe(true);
     expect(isOnlineLocation({ type: "hybrid" })).toBe(true);
     expect(isOnlineLocation({ type: "clinic" })).toBe(false);
+  });
+});
+
+describe("meeting links as pasted", () => {
+  const base = { name: "אונליין", type: "online" as const };
+
+  it("completes a bare Meet code and a link without https", () => {
+    expect(locationSchema.parse({ ...base, onlineMeetingUrl: "abc-defg-hij" }).onlineMeetingUrl).toBe("https://meet.google.com/abc-defg-hij");
+    expect(locationSchema.parse({ ...base, onlineMeetingUrl: " meet.google.com/abc-defg-hij " }).onlineMeetingUrl).toBe(
+      "https://meet.google.com/abc-defg-hij"
+    );
+    expect(locationSchema.parse({ ...base, onlineMeetingUrl: "zoom.us/j/123456" }).onlineMeetingUrl).toBe("https://zoom.us/j/123456");
+  });
+
+  it("still refuses what is not a web link", () => {
+    expect(locationSchema.safeParse({ ...base, onlineMeetingUrl: "javascript:alert(1)" }).success).toBe(false);
+    expect(locationSchema.safeParse({ ...base, onlineMeetingUrl: "my room" }).success).toBe(false);
   });
 });
