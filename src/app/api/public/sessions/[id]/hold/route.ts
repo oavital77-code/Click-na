@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { z } from "zod";
 import { holdSession, releaseHold } from "@/lib/bookings";
 import { checkRateLimit, clientIp } from "@/lib/rate-limit";
@@ -18,6 +19,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/public/
   if (!limit.ok) return tooManyRequests(limit.retryAfterSeconds);
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const result = await holdSession(id);
 
   if (!result.ok) {
@@ -34,6 +37,7 @@ export async function DELETE(request: NextRequest, ctx: RouteContext<"/api/publi
   const parsed = releaseSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "invalid" }, { status: 422 });
   const { id } = await ctx.params;
+  if (!isUuid(id)) return notFoundJson();
   const released = await releaseHold(id, parsed.data.holdToken);
   return NextResponse.json({ released });
 }

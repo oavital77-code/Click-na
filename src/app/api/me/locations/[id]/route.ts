@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { archiveLocation, locationSchema, updateLocation } from "@/lib/locations";
 import { getMessages, toLocale, translateIssue } from "@/i18n";
 import { requireTherapist } from "@/lib/route-auth";
@@ -18,6 +19,8 @@ export async function PATCH(request: NextRequest, ctx: RouteContext<"/api/me/loc
   }
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const location = await updateLocation(therapist.id, id, parsed.data);
   if (!location) return NextResponse.json({ error: "not_found" }, { status: 404 });
   return NextResponse.json({ location });
@@ -30,6 +33,8 @@ export async function DELETE(_request: NextRequest, ctx: RouteContext<"/api/me/l
   const { therapist } = gate;
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const result = await archiveLocation(therapist.id, id);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: result.error === "NOT_FOUND" ? 404 : 409 });

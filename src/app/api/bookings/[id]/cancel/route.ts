@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest, after } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { z } from "zod";
 import { cancelBookingByTherapist } from "@/lib/bookings";
 import { sendBookingCanceledNotifications } from "@/lib/notifications";
@@ -22,6 +23,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/booking
   }
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const result = await cancelBookingByTherapist(therapist.id, id, parsed.data.reason);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });

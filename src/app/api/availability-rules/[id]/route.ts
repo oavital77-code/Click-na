@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
 import { updateRule, deleteRule } from "@/lib/availability-rules";
 import { ruleUpdateSchema } from "@/lib/availability-rule-schema";
@@ -19,6 +20,8 @@ export async function PATCH(
   const { therapist } = gate;
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const existing = await getOwnedRule(therapist.id, id);
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
 
@@ -40,6 +43,8 @@ export async function DELETE(
   const { therapist } = gate;
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const existing = await getOwnedRule(therapist.id, id);
   if (!existing) return NextResponse.json({ error: "not_found" }, { status: 404 });
 

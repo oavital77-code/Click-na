@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { prisma } from "@/lib/prisma";
 import { requireTherapist } from "@/lib/route-auth";
 
@@ -16,6 +17,8 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/bookin
   const { therapist } = gate;
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const booking = await prisma.booking.findUnique({ where: { id } });
   if (!booking || booking.therapistId !== therapist.id) {
     return NextResponse.json({ error: "not_found" }, { status: 404 });

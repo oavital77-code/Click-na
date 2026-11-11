@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { getLogo } from "@/lib/logos";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import { isUuid } from "@/lib/ids";
 
 /**
  * A therapist's uploaded logo, for their booking page and emails. Public by
@@ -10,7 +9,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  */
 export async function GET(request: NextRequest, ctx: RouteContext<"/api/public/logo/[id]">) {
   const { id } = await ctx.params;
-  if (!UUID.test(id)) return new Response("Not found", { status: 404 });
+  if (!isUuid(id)) return new Response("Not found", { status: 404 });
   const logo = await getLogo(id);
   if (!logo) return new Response("Not found", { status: 404 });
 

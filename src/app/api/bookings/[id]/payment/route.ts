@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest, after } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { z } from "zod";
 import { markBookingPaidByTherapist, requestPayment } from "@/lib/client-payments";
 import { sendPaymentRequestNotifications } from "@/lib/notifications";
@@ -32,6 +33,8 @@ export async function POST(request: NextRequest, ctx: RouteContext<"/api/booking
   if (!parsed.success) return NextResponse.json({ error: "invalid", issues: parsed.error.issues }, { status: 422 });
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
 
   if (parsed.data.action === "mark") {
     const result = await markBookingPaidByTherapist(therapist.id, id, parsed.data.paid);

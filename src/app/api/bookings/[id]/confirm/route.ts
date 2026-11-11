@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { isUuid, notFoundJson } from "@/lib/ids";
 import { confirmBookingByTherapist } from "@/lib/bookings";
 import { requireTherapist } from "@/lib/route-auth";
 
@@ -14,6 +15,8 @@ export async function POST(_request: NextRequest, ctx: RouteContext<"/api/bookin
   const { therapist } = gate;
 
   const { id } = await ctx.params;
+
+  if (!isUuid(id)) return notFoundJson();
   const result = await confirmBookingByTherapist(therapist.id, id);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: STATUS_BY_ERROR[result.error] });
