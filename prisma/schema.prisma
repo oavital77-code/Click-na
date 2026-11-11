@@ -359,7 +359,9 @@ model TherapistSettings {
   requirePhone            Boolean      @default(true) @map("require_phone")
   autoConfirm             Boolean      @default(true) @map("auto_confirm")
   sendEmailConfirmation   Boolean      @default(true) @map("send_email_confirmation")
-  sendEmailReminder       Boolean      @default(false) @map("send_email_reminder")
+  // On for new practices: a reminder the day before is most of why clients
+  // turn up, and it costs the therapist nothing. Existing rows keep their choice.
+  sendEmailReminder       Boolean      @default(true) @map("send_email_reminder")
   // Named for SMS, which was never implemented. It is the "message the client a
   // reminder" switch, and WhatsApp is what it now drives — see scheduleReminders
   // in src/lib/notifications.ts. Renaming the column would break every existing row.
