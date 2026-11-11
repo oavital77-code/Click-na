@@ -27,7 +27,7 @@ type SessionRow = {
   endsAt: string;
   status: string;
   clientName: string | null;
-  clientPhone: string | null;
+  clientPhone?: string | null;
   blockedNote: string | null;
   locationId: string;
   locationColor: string;
@@ -202,13 +202,19 @@ export function DashboardSchedule({
     setAnchorDate((d) => (g === "month" ? startOfMonthUtc(d) : d));
   }
 
-  async function handleOpenSlot(dateKey: string, time: string, locationId: string | null): Promise<ActionResult> {
+  async function handleOpenSlot(dateKey: string, time: string, locationId: string | null, block?: { note: string }): Promise<ActionResult> {
     const endTime = addMinutesToTime(time, defaultDurationMinutes);
     try {
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: dateKey, startTime: time, endTime, locationId: locationId ?? undefined }),
+        body: JSON.stringify({
+          date: dateKey,
+          startTime: time,
+          endTime,
+          locationId: locationId ?? undefined,
+          ...(block ? { status: "blocked", note: block.note.trim() || undefined } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -231,7 +237,7 @@ export function DashboardSchedule({
           status: data.session.status,
           clientName: null,
           clientPhone: null,
-          blockedNote: null,
+          blockedNote: data.session.blockedNote ?? null,
           locationId: data.session.location?.id ?? data.session.locationId,
           locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
         },
@@ -549,11 +555,12 @@ export function NewSlotForm({
   fits: boolean;
   locations: PlaceOption[];
   defaultLocationId: string | null;
-  onOpenSlot: (dateKey: string, time: string, locationId: string | null) => Promise<ActionResult>;
+  onOpenSlot: (dateKey: string, time: string, locationId: string | null, block?: { note: string }) => Promise<ActionResult>;
   onDone: () => void;
 }) {
   const { m } = useI18n();
   const s = m.dashboard.schedule;
+  const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState(defaultLocationId ?? locations[0]?.id ?? "");
@@ -585,6 +592,35 @@ export function NewSlotForm({
           >
             {busy ? s.opening : s.openSlot}
           </Button>
+          {/* Or the opposite: time the therapist is busy, set aside with a word on why. */}
+          <div className="border-border mt-3 flex flex-col gap-2 border-t pt-3">
+            <p className="text-muted-foreground text-xs">{s.blockHere}</p>
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder={s.blockNotePlaceholder}
+              aria-label={s.blockNotePlaceholder}
+              maxLength={80}
+              className="h-9 text-sm"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full"
+              disabled={busy}
+              onClick={async () => {
+                setBusy(true);
+                setError(null);
+                const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null, { note });
+                setBusy(false);
+                if (result.ok) onDone();
+                else setError(result.error);
+              }}
+            >
+              {busy ? s.blocking : s.block}
+            </Button>
+          </div>
         </>
       ) : (
         <p className="text-muted-foreground text-xs">{s.noRoom}</p>
@@ -593,7 +629,7 @@ export function NewSlotForm({
   );
 }
 
-function SlotCell({
+export function SlotCell({
   session,
   info,
   onBlockSlot,

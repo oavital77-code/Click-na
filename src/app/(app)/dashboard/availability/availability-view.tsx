@@ -13,12 +13,11 @@ import {
 } from "@/components/ui/card";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { useI18n } from "@/i18n/client";
-import { BlockLabel, TimeGrid, blockClass, type ItemInfo } from "@/components/time-grid";
-import { NewSlotForm, type ActionResult } from "../dashboard-schedule";
+import { TimeGrid, type ItemInfo } from "@/components/time-grid";
+import { NewSlotForm, SlotCell, type ActionResult } from "../dashboard-schedule";
 import { MonthGrid } from "@/components/month-grid";
-import { sessionStatusTone } from "@/lib/status-badge";
 import { cn } from "@/lib/utils";
-import { LocationDot, LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
+import { LocationFilter, LocationSelect, type PlaceOption } from "@/components/location-filter";
 import { holidaysByDate, yearsBetween } from "@/lib/holidays";
 
 type SessionRow = {
@@ -27,6 +26,7 @@ type SessionRow = {
   endsAt: string;
   status: string;
   clientName: string | null;
+  blockedNote: string | null;
   locationId: string;
   locationColor: string;
 };
@@ -65,7 +65,6 @@ export function AvailabilityView({
   const [placeId, setPlaceId] = useState(locations[0]?.id ?? "");
   const [loadingWeek, setLoadingWeek] = useState(false);
   const isFirstRender = useRef(true);
-  const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -105,7 +104,7 @@ export function AvailabilityView({
     const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
     fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
-      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
+      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; blockedNote?: string | null; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
         if (cancelled) return;
         setSessions(
           data.sessions.map((s) => ({
@@ -114,6 +113,7 @@ export function AvailabilityView({
             endsAt: s.endsAt,
             status: s.status,
             clientName: s.booking?.clientNameSnapshot ?? null,
+            blockedNote: s.blockedNote ?? null,
             locationId: s.location.id,
             locationColor: s.location.color,
           }))
@@ -161,6 +161,7 @@ export function AvailabilityView({
             endsAt: data.session.endsAt,
             status: data.session.status,
             clientName: null,
+            blockedNote: null,
             locationId: data.session.location?.id ?? data.session.locationId,
             locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
           },
@@ -174,7 +175,7 @@ export function AvailabilityView({
   }
 
   /** Opens a slot where the therapist tapped empty time on the grid. */
-  async function openSlotAt(dateKey: string, time: string, locationId: string | null): Promise<ActionResult> {
+  async function openSlotAt(dateKey: string, time: string, locationId: string | null, block?: { note: string }): Promise<ActionResult> {
     const [hh, mm] = time.split(":").map(Number);
     const endMinutes = hh * 60 + mm + defaultDurationMinutes;
     const end = `${String(Math.floor(endMinutes / 60)).padStart(2, "0")}:${String(endMinutes % 60).padStart(2, "0")}`;
@@ -182,7 +183,13 @@ export function AvailabilityView({
       const res = await fetch("/api/sessions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ date: dateKey, startTime: time, endTime: end, locationId: locationId ?? undefined }),
+        body: JSON.stringify({
+          date: dateKey,
+          startTime: time,
+          endTime: end,
+          locationId: locationId ?? undefined,
+          ...(block ? { status: "blocked", note: block.note.trim() || undefined } : {}),
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -196,6 +203,7 @@ export function AvailabilityView({
           endsAt: data.session.endsAt,
           status: data.session.status,
           clientName: null,
+          blockedNote: data.session.blockedNote ?? null,
           locationId: data.session.location?.id ?? data.session.locationId,
           locationColor: data.session.location?.color ?? locations[0]?.color ?? "#000000",
         },
@@ -206,26 +214,37 @@ export function AvailabilityView({
     }
   }
 
-  async function toggleStatus(session: SessionRow) {
-    const nextStatus = session.status === "open" ? "blocked" : "open";
-    setPendingIds((prev) => new Set(prev).add(session.id));
+  // The same three acts as on the home screen's schedule: block with a note, reopen, delete.
+  async function patchSlot(sessionId: string, body: { status: "open" | "blocked"; note?: string }, failed: string): Promise<ActionResult> {
     try {
-      const res = await fetch(`/api/sessions/${session.id}`, {
+      const res = await fetch(`/api/sessions/${sessionId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: nextStatus }),
+        body: JSON.stringify(body),
       });
-      if (res.ok) {
-        setSessions((prev) =>
-          prev.map((s) => (s.id === session.id ? { ...s, status: nextStatus } : s))
-        );
+      if (!res.ok) return { ok: false, error: failed };
+      setSessions((prev) =>
+        prev.map((s) => (s.id === sessionId ? { ...s, status: body.status, blockedNote: body.status === "blocked" ? (body.note ?? null) : null } : s))
+      );
+      return { ok: true };
+    } catch {
+      return { ok: false, error: m.common.networkError };
+    }
+  }
+  const blockSlot = (sessionId: string, note: string) =>
+    patchSlot(sessionId, { status: "blocked", note: note.trim() || undefined }, m.dashboard.schedule.saveError);
+  const reopenSlot = (sessionId: string) => patchSlot(sessionId, { status: "open" }, m.dashboard.schedule.reopenError);
+  async function deleteSlot(sessionId: string): Promise<ActionResult> {
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        return { ok: false, error: data?.error === "not_deletable" ? m.dashboard.schedule.deleteBooked : m.dashboard.schedule.deleteError };
       }
-    } finally {
-      setPendingIds((prev) => {
-        const next = new Set(prev);
-        next.delete(session.id);
-        return next;
-      });
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+      return { ok: true };
+    } catch {
+      return { ok: false, error: m.common.networkError };
     }
   }
 
@@ -343,29 +362,16 @@ export function AvailabilityView({
                     </>
                   );
                 }}
-                renderItem={(session: SessionRow, info: ItemInfo) => {
-                  const title = session.clientName ?? a.status[session.status as keyof typeof a.status] ?? session.status;
-                  const label = (
-                    <BlockLabel title={title} info={info} place={manyPlaces ? <LocationDot color={session.locationColor} /> : undefined} />
-                  );
-                  const tone = sessionStatusTone(session.status);
-                  // Open and blocked flip with a tap; a booked or held slot is the client's.
-                  return session.status === "open" || session.status === "blocked" ? (
-                    <button
-                      type="button"
-                      disabled={pendingIds.has(session.id)}
-                      onClick={() => toggleStatus(session)}
-                      aria-label={`${info.start}–${info.end} · ${title}`}
-                      className={blockClass(tone)}
-                    >
-                      {label}
-                    </button>
-                  ) : (
-                    <div title={session.clientName ?? undefined} className={blockClass(tone)}>
-                      {label}
-                    </div>
-                  );
-                }}
+                renderItem={(session: SessionRow, info: ItemInfo) => (
+                  <SlotCell
+                    session={session}
+                    info={info}
+                    onBlockSlot={blockSlot}
+                    onReopenSlot={reopenSlot}
+                    onDeleteSlot={deleteSlot}
+                    showPlace={manyPlaces}
+                  />
+                )}
                 empty={{
                   durationMinutes: defaultDurationMinutes,
                   bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),

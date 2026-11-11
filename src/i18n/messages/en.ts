@@ -840,6 +840,7 @@ export const en = {
       status: { open: "Open", blocked: "Blocked", booked: "Booked", held: "Held" },
       openSlotOnDay: (day: string) => `Open a slot on ${day}`,
       noRoom: "There is no room for a whole session here before the next one. Pick another time.",
+      blockHere: "Or block this time (not offered to clients):",
       noSlotHere: "No open slot here",
       openSlotHint: "An open slot, not booked yet",
       blockedSlotHint: "Add a label, or reopen it",

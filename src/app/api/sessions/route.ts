@@ -44,6 +44,10 @@ const createSchema = z
     endTime: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
     // Where the slot is. Omitted: the therapist's default place.
     locationId: z.string().uuid().optional(),
+    // Time the therapist is busy, set aside straight from empty time: a blocked
+    // slot, with a note saying why (lunch, a client booked by phone).
+    status: z.enum(["open", "blocked"]).optional(),
+    note: z.string().trim().max(80).optional(),
   })
   .refine((d) => d.startTime < d.endTime, { message: "end must be after start", path: ["endTime"] });
 
@@ -68,7 +72,13 @@ export async function POST(request: NextRequest) {
 
   try {
     const session = await prisma.session.create({
-      data: { therapistId: therapist.id, locationId, startsAt, endsAt },
+      data: {
+        therapistId: therapist.id,
+        locationId,
+        startsAt,
+        endsAt,
+        ...(parsed.data.status === "blocked" ? { status: "blocked" as const, blockedNote: parsed.data.note || null } : {}),
+      },
       include: { location: { select: { id: true, name: true, color: true } } },
     });
     return NextResponse.json({ session }, { status: 201 });
