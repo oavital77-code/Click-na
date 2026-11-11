@@ -51,6 +51,8 @@ describe("completeOnboarding (against a live database)", () => {
       include: { settings: true },
     });
     expect(therapist.onboardingCompleted).toBe(true);
+    // Finishing is accepting the terms; when, is kept.
+    expect(therapist.termsAcceptedAt).toBeInstanceOf(Date);
     expect(therapist.slug).toBe("onboarding-integration-slug");
     expect(therapist.fullName).toBe("לירון כהן");
     expect(therapist.settings?.defaultDurationMinutes).toBe(50);

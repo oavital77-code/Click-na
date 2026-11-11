@@ -669,6 +669,10 @@ export const en = {
     prev: "Previous",
     finish: "Finish",
     skipAvailability: "Skip for now, I'll open hours later",
+    consentPrefix: "By finishing I accept the",
+    consentTerms: "terms of use",
+    consentAnd: "and the",
+    consentPrivacy: "privacy policy",
     skipAvailabilityHint: "You can open hours any time from the dashboard calendar or the Availability page.",
   },
 
@@ -841,6 +845,11 @@ export const en = {
     notFound: "Page not found",
     checkLink: "Check that the link is correct.",
     onlineBooking: "Online booking",
+    privacyNotice: "Your details are used only to arrange this appointment: the confirmation, a reminder and word of any change.",
+    privacyLink: "Privacy policy",
+    legalNav: "Legal",
+    terms: "Terms of use",
+    accessibility: "Accessibility",
     errors: {
       SLOT_ALREADY_BOOKED: "That time was just taken. Please pick another.",
       SLOT_ON_HOLD: "Somebody else is booking that time right now. Try another.",

@@ -29,6 +29,8 @@ export async function completeOnboarding(
           professionType: data.professionType,
           slug: data.slug,
           onboardingCompleted: true,
+          // Finishing is the acceptance: the line above the button says so, with the links.
+          termsAcceptedAt: new Date(),
         },
       });
 

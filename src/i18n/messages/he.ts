@@ -658,6 +658,10 @@ export const he: Messages = {
     prev: "הקודם",
     finish: "סיום",
     skipAvailability: "אדלג בינתיים ואפתח שעות אחר כך",
+    consentPrefix: "בלחיצה על סיום אני מאשר/ת את",
+    consentTerms: "תנאי השימוש",
+    consentAnd: "ואת",
+    consentPrivacy: "מדיניות הפרטיות",
     skipAvailabilityHint: "אפשר לפתוח שעות בכל זמן מהיומן במסך הראשי או מעמוד הזמינות.",
   },
 
@@ -830,6 +834,11 @@ export const he: Messages = {
     notFound: "הדף לא נמצא",
     checkLink: "כדאי לבדוק שהקישור נכון.",
     onlineBooking: "קביעת תור אונליין",
+    privacyNotice: "הפרטים ישמשו רק לתיאום התור הזה: אישור, תזכורת והודעה על שינוי.",
+    privacyLink: "מדיניות הפרטיות",
+    legalNav: "מידע משפטי",
+    terms: "תנאי שימוש",
+    accessibility: "הצהרת נגישות",
     errors: {
       SLOT_ALREADY_BOOKED: "מישהו כבר קבע את השעה הזו. אפשר לבחור שעה אחרת.",
       SLOT_ON_HOLD: "מישהו אחר באמצע קביעת תור לשעה הזו. אפשר לבחור שעה אחרת.",

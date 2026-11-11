@@ -162,6 +162,8 @@ model Therapist {
   // dashboard starts it. Accounts that existed when the tour was added were
   // stamped by its migration and never see it unless they ask (Settings).
   tourDoneAt          DateTime?       @map("tour_done_at") @db.Timestamptz
+  /// When the therapist accepted the terms and privacy policy (on finishing onboarding). Null for accounts from before it was asked.
+  termsAcceptedAt     DateTime?       @map("terms_accepted_at") @db.Timestamptz
   createdAt           DateTime        @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime        @updatedAt @map("updated_at") @db.Timestamptz
 

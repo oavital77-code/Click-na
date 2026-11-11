@@ -366,6 +366,20 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
 
         {submitError && <p className="text-destructive text-sm">{submitError}</p>}
 
+        {step === 4 && (
+          <p className="text-muted-foreground text-xs">
+            {m.onboarding.consentPrefix}{" "}
+            <a href="/terms" target="_blank" rel="noopener" className="text-foreground underline underline-offset-4">
+              {m.onboarding.consentTerms}
+            </a>{" "}
+            {m.onboarding.consentAnd}{" "}
+            <a href="/privacy" target="_blank" rel="noopener" className="text-foreground underline underline-offset-4">
+              {m.onboarding.consentPrivacy}
+            </a>
+            .
+          </p>
+        )}
+
         <div className="flex flex-col-reverse gap-2 md:flex-row md:items-center md:justify-between">
           <Button
             type="button"
