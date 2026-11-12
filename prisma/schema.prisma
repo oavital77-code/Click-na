@@ -119,6 +119,10 @@ enum IntegrationProvider {
   // Any hosted payment page the therapist already has (Bit, PayBox, Morning…)
   // — shown to the client as a link, no API involved.
   paymentLink
+  // The therapist's account at Cleana (room rental, same group): a room booked
+  // there can open matching slots here. Not in the add-on catalogue — it is
+  // connected from Cleana's side; see src/lib/cleana-link.ts.
+  cleana
 }
 
 // Only what a therapist actually did. "Unavailable" (the server has no API

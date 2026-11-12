@@ -6,6 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { isOnlineLocation, listLocations } from "@/lib/locations";
 import { getVideoStatus, VIDEO_METHODS, type VideoMethod } from "@/lib/video";
 import { AddonsView } from "./addons-view";
+import { CleanaCard } from "./cleana-card";
+import { cleanaLinkStatus } from "@/lib/cleana-link";
+import { fmt } from "@/i18n/dates";
 import { getMessages, toLocale } from "@/i18n";
 
 export default async function AddonsPage({ searchParams }: PageProps<"/dashboard/addons">) {
@@ -29,7 +32,11 @@ export default async function AddonsPage({ searchParams }: PageProps<"/dashboard
 
   const integrations = await listIntegrations(therapist.id, locale);
   const treatmentCount = await prisma.treatmentTemplate.count({ where: { therapistId: therapist.id } });
-  const [video, places] = await Promise.all([getVideoStatus(therapist.id), listLocations(therapist.id)]);
+  const [video, places, cleana] = await Promise.all([
+    getVideoStatus(therapist.id),
+    listLocations(therapist.id),
+    cleanaLinkStatus(therapist.id),
+  ]);
   const onlinePlaces = places.filter((l) => isOnlineLocation(l)).map((l) => l.name);
 
   return (
@@ -44,6 +51,9 @@ export default async function AddonsPage({ searchParams }: PageProps<"/dashboard
         hasTreatments={treatmentCount > 0}
         video={{ status: video, onlinePlaces, preselect }}
       />
+      {cleana.connected && cleana.connectedAt && (
+        <CleanaCard connectedSince={fmt(cleana.connectedAt, therapist.timezone, locale, "date")} />
+      )}
     </main>
   );
 }
