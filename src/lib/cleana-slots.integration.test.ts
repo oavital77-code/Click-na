@@ -2,7 +2,13 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { exchangeAuthorizationCode, issueAuthorizationCode } from "@/lib/cleana-link";
-import { bookedCleanaSlots, closeCleanaSlots, openCleanaSlots, type OpenSlotsInput } from "@/lib/cleana-slots";
+import {
+  bookedCleanaSlots,
+  closeCleanaSlots,
+  openCleanaSlots,
+  openSlotsSchema,
+  type OpenSlotsInput,
+} from "@/lib/cleana-slots";
 import { cancelBookingByTherapist } from "@/lib/bookings";
 
 const sendEmail = vi.hoisted(() =>
@@ -87,6 +93,14 @@ describe("opening slots from Cleana (against a live database)", () => {
     expect(sessions.every((s) => s.cleanaRoom === "Room 3" && s.status === "open")).toBe(true);
     const place = await prisma.location.findUniqueOrThrow({ where: { id: result.location.id } });
     expect(place).toMatchObject({ address: BRANCH.address, cleanaBranchId: BRANCH.id, type: "clinic" });
+  });
+
+  it("accepts Cleana's seeded branch ids (00000000-…-000000000001) through the route schema", async () => {
+    const parsed = openSlotsSchema.safeParse(
+      booking({ branch: { ...BRANCH, id: "00000000-0000-0000-0000-000000000001" } })
+    );
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect((await openCleanaSlots(alice, parsed.data)).opened).toHaveLength(3);
   });
 
   it("uses a place the therapist already has at that address, and remembers it", async () => {

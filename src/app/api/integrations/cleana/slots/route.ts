@@ -1,7 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { therapistForCleanaToken } from "@/lib/cleana-link";
-import { bookedCleanaSlots, openCleanaSlots, openSlotsSchema } from "@/lib/cleana-slots";
-import { z } from "zod";
+import { bookedCleanaSlots, openCleanaSlots, openSlotsSchema, pgUuid } from "@/lib/cleana-slots";
 import { writeBlocked } from "@/lib/require-access";
 import { appUrl } from "@/lib/public-url";
 
@@ -36,7 +35,7 @@ export async function GET(request: NextRequest) {
   const therapistId = await therapistForCleanaToken(request.headers.get("authorization"));
   if (!therapistId) return NextResponse.json({ error: "invalid_token" }, { status: 401 });
 
-  const bookingId = z.string().uuid().safeParse(request.nextUrl.searchParams.get("bookingId"));
+  const bookingId = pgUuid.safeParse(request.nextUrl.searchParams.get("bookingId"));
   if (!bookingId.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
   return NextResponse.json(

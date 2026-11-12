@@ -24,11 +24,18 @@ import { getMessages, toLocale } from "@/i18n";
  * constraint that already guards every slot here.
  */
 
+/**
+ * Any UUID Postgres accepts. zod's uuid() checks the RFC version and variant
+ * digits, and Cleana's seeded branches have ids like 00000000-…-000000000001,
+ * which Postgres stores happily but zod refuses.
+ */
+export const pgUuid = z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+
 export const openSlotsSchema = z
   .object({
-    bookingId: z.string().uuid(),
+    bookingId: pgUuid,
     branch: z.object({
-      id: z.string().uuid(),
+      id: pgUuid,
       name: z.string().trim().min(1).max(60),
       address: z.string().trim().max(300),
     }),

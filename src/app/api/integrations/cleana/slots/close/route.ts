@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { therapistForCleanaToken } from "@/lib/cleana-link";
-import { closeCleanaSlots } from "@/lib/cleana-slots";
+import { closeCleanaSlots, pgUuid } from "@/lib/cleana-slots";
 
-const bodySchema = z.object({ bookingId: z.string().uuid() });
+const bodySchema = z.object({ bookingId: pgUuid });
 
 /**
  * The room at Cleana was cancelled or moved. Not gated on the subscription:
