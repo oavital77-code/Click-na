@@ -5,7 +5,9 @@ import { exchangeAuthorizationCode, issueAuthorizationCode } from "@/lib/cleana-
 import { bookedCleanaSlots, closeCleanaSlots, openCleanaSlots, type OpenSlotsInput } from "@/lib/cleana-slots";
 import { cancelBookingByTherapist } from "@/lib/bookings";
 
-const sendEmail = vi.hoisted(() => vi.fn(async () => ({ ok: true as const })));
+const sendEmail = vi.hoisted(() =>
+  vi.fn<(input: { to: string; subject: string; html: string }) => Promise<{ ok: true }>>(async () => ({ ok: true }))
+);
 vi.mock("@/lib/email", () => ({ sendEmail }));
 
 const { POST: openRoute } = await import("@/app/api/integrations/cleana/slots/route");
