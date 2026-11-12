@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
 import { BookClientForm, MoveSlotForm, SLOTS_CHANGED_EVENT } from "./slot-actions";
+import { CleanaMark } from "@/components/brand-mark";
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { Messages } from "@/i18n";
@@ -730,7 +731,18 @@ export function SlotCell({
     ? [session.clientName, session.clientPhone, `${info.start}–${info.end}`].filter(Boolean).join(" · ")
     : undefined;
   const label = (
-    <BlockLabel title={chipLabel} info={info} place={showPlace ? <LocationDot color={session.locationColor} /> : undefined} />
+    <BlockLabel
+      title={chipLabel}
+      info={info}
+      place={
+        fromCleana || showPlace ? (
+          <>
+            {fromCleana && <CleanaMark />}
+            {showPlace && <LocationDot color={session.locationColor} />}
+          </>
+        ) : undefined
+      }
+    />
   );
 
   // Open (unbooked) slot: click offers to block it, optionally with a label.

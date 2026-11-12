@@ -48,3 +48,16 @@ export function BrandTile({ className }: { className?: string }) {
     </svg>
   );
 }
+
+/**
+ * Cleana's own mark (the purple one), small: on a slot in the calendar it says
+ * "this hour came from a room booked at Cleana". Decorative — the popover says it in words.
+ */
+export function CleanaMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 100 100" aria-hidden="true" className={className ?? "size-3.5 shrink-0"}>
+      <rect width="100" height="100" rx="28" fill="#7A5AF8" />
+      <circle cx="50" cy="50" r="24" fill="none" stroke="#FFFFFF" strokeWidth="9" />
+    </svg>
+  );
+}

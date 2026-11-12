@@ -1260,4 +1260,16 @@ export const en = {
     roomTimeNote: "Free room time (Cleana)",
     disconnect: "Disconnect",
   },
+  whatsNew: {
+    title: "What's new in Cleana+",
+    lead: "A few changes since your last visit:",
+    items: [
+      { title: "Cleana and Cleana+ now work together", body: "Book a room at Cleana, and the hours open here for appointments by themselves. Connect once from \"My card\" in Cleana." },
+      { title: "Everything on the half hour", body: "A session is half an hour, an hour, an hour and a half or two, and every slot starts on the hour or the half." },
+      { title: "Book a client yourself", body: "Click an open slot to book a client into it, from your list or somebody new." },
+      { title: "A clearer calendar", body: "Every slot shows from when to when, and an empty slot's time can be changed with a click." },
+      { title: "Your booking page in four languages", body: "Clients can read it in Hebrew, English, Russian or Arabic." },
+    ],
+    close: "Got it",
+  },
 };

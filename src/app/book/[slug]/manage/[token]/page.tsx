@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { formatPriceIls } from "@/lib/plan";
 import { locationLabel } from "@/lib/locations";
 import { ManageBooking } from "./manage-booking";
-import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
+import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale, visitorLocale } from "@/i18n";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 
 /**
@@ -38,7 +38,8 @@ export default async function ManageBookingPage({
     );
   }
 
-  const locale = toLocale(booking.therapist.locale);
+  // The language the client booked in (the link carries it), else the practice's own.
+  const locale = visitorLocale((await searchParams).lang, toLocale(booking.therapist.locale));
   const cancellationPolicyHours = booking.therapist.settings?.cancellationPolicyHours ?? 24;
 
   // Only once the therapist asked, after the session — and only while unpaid.
