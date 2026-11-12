@@ -30,6 +30,8 @@ type SessionRow = {
   clientName: string | null;
   clientPhone?: string | null;
   blockedNote: string | null;
+  /** The Cleana room this open slot came from. The therapist's eyes only. */
+  cleanaRoom?: string | null;
   locationId: string;
   locationColor: string;
 };
@@ -40,6 +42,7 @@ type RawSession = {
   endsAt: string;
   status: string;
   blockedNote?: string | null;
+  cleanaRoom?: string | null;
   booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null;
   location: { id: string; name: string; color: string };
 };
@@ -154,6 +157,7 @@ export function DashboardSchedule({
             clientName: s.booking?.clientNameSnapshot ?? null,
             clientPhone: s.booking?.clientPhoneSnapshot ?? null,
             blockedNote: s.blockedNote ?? null,
+            cleanaRoom: s.cleanaRoom ?? null,
             locationId: s.location.id,
             locationColor: s.location.color,
           }))
@@ -683,8 +687,11 @@ export function SlotCell({
   const time = info.start;
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
+  const statusLabel = s.status[session.status as keyof typeof s.status] ?? session.status;
   const chipLabel =
-    session.clientName ?? session.blockedNote ?? s.status[session.status as keyof typeof s.status] ?? session.status;
+    session.clientName ??
+    session.blockedNote ??
+    (session.status === "open" && session.cleanaRoom ? m.cleanaLink.slotLabel(statusLabel, session.cleanaRoom) : statusLabel);
   const hoverDetails = isBookedOrHeld
     ? [session.clientName, session.clientPhone, `${info.start}–${info.end}`].filter(Boolean).join(" · ")
     : undefined;

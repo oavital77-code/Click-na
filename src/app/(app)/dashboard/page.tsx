@@ -175,7 +175,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       time: time(s.startsAt),
       kind,
       title: kind === "booked" || kind === "held" ? (b?.clientNameSnapshot ?? t.badge.booked) : kind === "blocked" ? (s.blockedNote ?? t.blocked) : t.openSlot,
-      sub: kind === "open" ? t.openSub : [s.location.name, price].filter(Boolean).join(" · ") || null,
+      sub: kind === "open" ? (s.cleanaRoom ? m.cleanaLink.slotSub(s.cleanaRoom) : t.openSub) : [s.location.name, price].filter(Boolean).join(" · ") || null,
       bookingId: kind === "booked" && b ? b.id : null,
       paid: b?.paymentStatus === "paid",
       done,
@@ -266,6 +266,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               clientName: s.booking?.clientNameSnapshot ?? null,
               clientPhone: s.booking?.clientPhoneSnapshot ?? null,
               blockedNote: s.blockedNote,
+              cleanaRoom: s.cleanaRoom,
               locationId: s.location.id,
               locationColor: s.location.color,
             }))}

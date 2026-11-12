@@ -1218,6 +1218,8 @@ export const en = {
     cardLead: "Rooms you book in Cleana can open matching slots here.",
     connectedSince: (when: string) => `Connected since ${when}`,
     notConnected: "Not connected. Connect from your profile in Cleana.",
+    slotLabel: (status: string, room: string) => `${status} · Baclinica ${room}`,
+    slotSub: (room: string) => `Opened from Cleana · Baclinica ${room}`,
     disconnect: "Disconnect",
   },
 };

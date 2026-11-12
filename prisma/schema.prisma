@@ -442,6 +442,12 @@ model Session {
   // Where this slot takes place. One therapist, one calendar: the overlap
   // constraint spans every location, because nobody is in two clinics at once.
   locationId          String        @map("location_id") @db.Uuid
+  /// Opened from a room the therapist booked at Cleana (src/lib/cleana-slots.ts):
+  /// the Cleana booking it came from, so asking twice opens it once and a
+  /// cancellation there can find it. Null for every slot opened here.
+  cleanaBookingId     String?       @map("cleana_booking_id") @db.Uuid
+  /// The room at Cleana ("Room 3"). Shown to the therapist only, never to a client.
+  cleanaRoom          String?       @map("cleana_room") @db.VarChar(80)
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -449,6 +455,8 @@ model Session {
   location          Location          @relation(fields: [locationId], references: [id])
   generatedFromRule AvailabilityRule? @relation(fields: [generatedFromRuleId], references: [id])
   booking           Booking?
+
+  @@unique([therapistId, cleanaBookingId, startsAt])
 
   @@index([therapistId, startsAt])
   @@index([therapistId, status, startsAt])
@@ -578,6 +586,9 @@ model Location {
   color            String       @db.VarChar(7)
   sortOrder        Int          @default(0) @map("sort_order")
   archivedAt       DateTime?    @map("archived_at") @db.Timestamptz
+  /// The Cleana branch this place stands for, once a room there opened slots
+  /// here. Remembered so the next booking at that branch lands in the same place.
+  cleanaBranchId   String?      @map("cleana_branch_id") @db.Uuid
   createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
 
   therapist Therapist          @relation(fields: [therapistId], references: [id])
@@ -585,6 +596,7 @@ model Location {
   sessions  Session[]
 
   @@unique([therapistId, slug])
+  @@unique([therapistId, cleanaBranchId])
   @@index([therapistId, sortOrder])
   @@map("locations")
 }

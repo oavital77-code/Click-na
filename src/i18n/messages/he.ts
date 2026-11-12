@@ -1200,6 +1200,8 @@ export const he: Messages = {
     cardLead: "חדרים שקובעים ב-Cleana יכולים לפתוח כאן משבצות תואמות.",
     connectedSince: (when) => `מחובר מאז ${when}`,
     notConnected: "לא מחובר. מתחברים מהכרטיס האישי ב-Cleana.",
+    slotLabel: (status, room) => `${status} · בקליניקה ${room}`,
+    slotSub: (room) => `נפתח מ-Cleana · בקליניקה ${room}`,
     disconnect: "ניתוק",
   },
 };

@@ -1,0 +1,217 @@
+import { z } from "zod";
+import { prisma } from "@/lib/prisma";
+import { LOCATION_COLORS, slugForName } from "@/lib/locations";
+import { isExclusionViolation, isUniqueViolation } from "@/lib/prisma-errors";
+
+/**
+ * A room the therapist booked at Cleana opens matching slots here (the link is
+ * src/lib/cleana-link.ts). Cleana sends the branch, the room and the hours —
+ * nothing about clients, other therapists or money — and gets back which
+ * slots opened and which did not.
+ *
+ * The room is cut into slots of the therapist's treatment length plus break,
+ * starting at the room's start, keeping only those that end by the room's end.
+ * The cut is on the room's round hours: the five-minute early entry and early
+ * exit at Cleana are for display there only.
+ *
+ * Opening is safe to repeat: each slot is unique per (therapist, Cleana
+ * booking, start), so a double click or a retry opens nothing twice. A slot
+ * that would overlap the therapist's own calendar is skipped by the overlap
+ * constraint that already guards every slot here.
+ */
+
+export const openSlotsSchema = z
+  .object({
+    bookingId: z.string().uuid(),
+    branch: z.object({
+      id: z.string().uuid(),
+      name: z.string().trim().min(1).max(60),
+      address: z.string().trim().max(300),
+    }),
+    room: z.string().trim().min(1).max(80),
+    startsAt: z.iso.datetime({ offset: true }),
+    endsAt: z.iso.datetime({ offset: true }),
+  })
+  .refine((v) => new Date(v.endsAt) > new Date(v.startsAt), { message: "end must be after start" })
+  // A room booking at Cleana is a few hours, never days. A bound keeps a bad
+  // request from writing hundreds of rows.
+  .refine((v) => new Date(v.endsAt).getTime() - new Date(v.startsAt).getTime() <= 16 * 60 * 60 * 1000, {
+    message: "too long",
+  });
+
+export type OpenSlotsInput = z.infer<typeof openSlotsSchema>;
+
+export type Slot = { startsAt: Date; endsAt: Date };
+
+/** The cut itself. Pure, so every combination in the spec is a unit test. */
+export function splitIntoSlots(startsAt: Date, endsAt: Date, durationMinutes: number, breakMinutes: number): Slot[] {
+  if (durationMinutes <= 0) return [];
+  const step = (durationMinutes + Math.max(0, breakMinutes)) * 60_000;
+  const length = durationMinutes * 60_000;
+  const slots: Slot[] = [];
+  for (let t = startsAt.getTime(); t + length <= endsAt.getTime(); t += step) {
+    slots.push({ startsAt: new Date(t), endsAt: new Date(t + length) });
+  }
+  return slots;
+}
+
+export type SkipReason = "overlap" | "past";
+
+export type OpenSlotsResult = {
+  location: { id: string; name: string; created: boolean };
+  opened: string[];
+  alreadyOpen: string[];
+  skipped: { startsAt: string; reason: SkipReason }[];
+};
+
+function normalizeAddress(address: string | null | undefined) {
+  return (address ?? "").replace(/[\s,.'"״׳-]+/g, " ").trim().toLowerCase();
+}
+
+/**
+ * The place a Cleana branch stands for in this therapist's calendar: the one
+ * already linked to it, else a place at the same address (linked from now
+ * on), else a new "Baclinica — <branch>" place.
+ */
+export async function resolveBranchLocation(
+  therapistId: string,
+  branch: OpenSlotsInput["branch"]
+): Promise<{ id: string; name: string; created: boolean }> {
+  const linked = await prisma.location.findFirst({
+    where: { therapistId, cleanaBranchId: branch.id, archivedAt: null },
+    select: { id: true, name: true },
+  });
+  if (linked) return { ...linked, created: false };
+
+  // Archived since: the link goes with it, so the branch can be placed again.
+  await prisma.location.updateMany({
+    where: { therapistId, cleanaBranchId: branch.id, archivedAt: { not: null } },
+    data: { cleanaBranchId: null },
+  });
+
+  const wanted = normalizeAddress(branch.address);
+  if (wanted) {
+    const places = await prisma.location.findMany({
+      where: { therapistId, archivedAt: null, cleanaBranchId: null, type: { in: ["clinic", "hybrid"] } },
+      select: { id: true, name: true, address: true },
+      orderBy: { sortOrder: "asc" },
+    });
+    const same = places.find((p) => normalizeAddress(p.address) === wanted);
+    if (same) {
+      const linkedNow = await linkBranch(therapistId, same.id, branch.id);
+      if (linkedNow) return { id: same.id, name: same.name, created: false };
+    }
+  }
+
+  return createBranchLocation(therapistId, branch);
+}
+
+/**
+ * A new place for the branch, made under a per-(therapist, branch) lock so two
+ * requests arriving together make one place, not two. The second waits, then
+ * finds the first one's place.
+ */
+async function createBranchLocation(
+  therapistId: string,
+  branch: OpenSlotsInput["branch"]
+): Promise<{ id: string; name: string; created: boolean }> {
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`cleana-branch:${therapistId}:${branch.id}`}))`;
+
+    const linked = await tx.location.findFirst({
+      where: { therapistId, cleanaBranchId: branch.id, archivedAt: null },
+      select: { id: true, name: true },
+    });
+    if (linked) return { ...linked, created: false };
+
+    const siblings = await tx.location.findMany({ where: { therapistId }, select: { slug: true, sortOrder: true } });
+    const name = `בקליניקה — ${branch.name}`.slice(0, 80);
+    const row = await tx.location.create({
+      data: {
+        therapistId,
+        name,
+        type: "clinic",
+        address: branch.address || null,
+        slug: slugForName(name, new Set(siblings.map((l) => l.slug))),
+        color: LOCATION_COLORS[siblings.length % LOCATION_COLORS.length],
+        sortOrder: siblings.reduce((max, l) => Math.max(max, l.sortOrder), -1) + 1,
+        cleanaBranchId: branch.id,
+      },
+      select: { id: true, name: true },
+    });
+    return { ...row, created: true };
+  });
+}
+
+async function linkBranch(therapistId: string, locationId: string, branchId: string): Promise<boolean> {
+  try {
+    await prisma.location.update({ where: { id: locationId, therapistId }, data: { cleanaBranchId: branchId } });
+    return true;
+  } catch (error) {
+    if (isUniqueViolation(error)) return false;
+    throw error;
+  }
+}
+
+export async function openCleanaSlots(
+  therapistId: string,
+  input: OpenSlotsInput,
+  now: Date = new Date()
+): Promise<OpenSlotsResult> {
+  const settings = await prisma.therapistSettings.findUnique({
+    where: { therapistId },
+    select: { defaultDurationMinutes: true, bufferAfterMinutes: true },
+  });
+  const slots = splitIntoSlots(
+    new Date(input.startsAt),
+    new Date(input.endsAt),
+    settings?.defaultDurationMinutes ?? 50,
+    settings?.bufferAfterMinutes ?? 0
+  );
+
+  const location = await resolveBranchLocation(therapistId, input.branch);
+  const result: OpenSlotsResult = { location, opened: [], alreadyOpen: [], skipped: [] };
+
+  // Opened by an earlier request for this booking. Checked first: the overlap
+  // constraint would otherwise report such a slot as clashing with itself.
+  const existing = await prisma.session.findMany({
+    where: { therapistId, cleanaBookingId: input.bookingId, status: { not: "canceled" } },
+    select: { startsAt: true },
+  });
+  const openedBefore = new Set(existing.map((s) => s.startsAt.toISOString()));
+
+  for (const slot of slots) {
+    const iso = slot.startsAt.toISOString();
+    if (openedBefore.has(iso)) {
+      result.alreadyOpen.push(iso);
+      continue;
+    }
+    if (slot.startsAt <= now) {
+      result.skipped.push({ startsAt: iso, reason: "past" });
+      continue;
+    }
+    try {
+      await prisma.session.create({
+        data: {
+          therapistId,
+          locationId: location.id,
+          startsAt: slot.startsAt,
+          endsAt: slot.endsAt,
+          cleanaBookingId: input.bookingId,
+          cleanaRoom: input.room,
+        },
+      });
+      result.opened.push(iso);
+    } catch (error) {
+      if (isUniqueViolation(error)) {
+        result.alreadyOpen.push(iso);
+      } else if (isExclusionViolation(error, "sessions_no_overlap")) {
+        result.skipped.push({ startsAt: iso, reason: "overlap" });
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return result;
+}
