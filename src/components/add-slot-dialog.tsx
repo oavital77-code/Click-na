@@ -131,13 +131,13 @@ export function AddSlotDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-slot-from">{t.from}</Label>
-            <Input id="add-slot-from" type="time" value={startTime} onChange={(e) => changeStart(e.target.value)} />
+            <Input id="add-slot-from" type="time" step={1800} value={startTime} onChange={(e) => changeStart(e.target.value)} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-slot-to">{t.to}</Label>
             <Input
               id="add-slot-to"
-              type="time"
+              type="time" step={1800}
               value={endTime}
               onChange={(e) => {
                 setEndTime(e.target.value);

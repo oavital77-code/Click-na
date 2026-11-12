@@ -17,6 +17,8 @@ export const he: Messages = {
     finishingSignup: "מסיימים את ההרשמה שלך... אם זה לוקח יותר מדי זמן, כדאי לרענן את הדף.",
     accountSuspended: "החשבון הזה מושעה. לבירור אפשר לכתוב לנו: baclinica5@gmail.com",
     minutes: (n) => `${n} דקות`,
+    duration: (n) =>
+      n === 30 ? "חצי שעה" : n === 60 ? "שעה" : n === 90 ? "שעה וחצי" : n === 120 ? "שעתיים" : `${n} דקות`,
     minutesShort: (n) => `${n} דק׳`,
     hours: (n) => (n === 1 ? "שעה" : n === 2 ? "שעתיים" : `${n} שעות`),
     days: (n) => (n === 1 ? "יום" : n === 2 ? "יומיים" : `${n} ימים`),
@@ -73,6 +75,7 @@ export const he: Messages = {
     urlScheme: "הקישור חייב להתחיל ב-http:// או https://",
     slugFormat: "בין 3 ל-40 תווים: אותיות קטנות באנגלית, ספרות ומקפים",
     slugReserved: "הכתובת הזו לא זמינה",
+    timeOnHalfHour: "השעות הן בשעה עגולה או בחצי",
     durationInvalid: "משך לא תקין",
     timeInvalid: "שעה לא תקינה",
     pickAtLeastOneDay: "צריך לבחור לפחות יום אחד",

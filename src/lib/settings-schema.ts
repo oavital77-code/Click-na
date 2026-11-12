@@ -15,7 +15,7 @@ const httpUrl = z
   .max(500)
   .refine((value) => /^https?:\/\//i.test(value), "validation.urlScheme");
 import { RESERVED_SLUGS, SLUG_REGEX } from "@/lib/slug";
-import { PROFESSION_TYPES, DURATION_OPTIONS } from "@/lib/onboarding-schema";
+import { PROFESSION_TYPES, isAllowedBreak, isAllowedDuration } from "@/lib/onboarding-schema";
 
 export const profileSchema = z.object({
   fullName: z.string().trim().min(2, "validation.nameTooShort").max(255),
@@ -39,9 +39,9 @@ export const settingsSchema = z
     defaultDurationMinutes: z
       .number()
       .int()
-      .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid"),
-    bufferBeforeMinutes: timeUnitSchema.max(120),
-    bufferAfterMinutes: timeUnitSchema.max(120),
+      .refine(isAllowedDuration, "validation.durationInvalid"),
+    bufferBeforeMinutes: timeUnitSchema.refine(isAllowedBreak, "validation.durationInvalid"),
+    bufferAfterMinutes: timeUnitSchema.refine(isAllowedBreak, "validation.durationInvalid"),
     minNoticeHours: timeUnitSchema.max(24 * 30),
     maxAdvanceDays: z.number().int().min(1).max(365),
     cancellationPolicyHours: timeUnitSchema.max(24 * 30),

@@ -47,26 +47,26 @@ describe("POST /api/sessions (against a live database)", () => {
   };
 
   it("opens a slot by default", async () => {
-    const res = await post({ date: day, startTime: "09:00", endTime: "09:45" });
+    const res = await post({ date: day, startTime: "09:00", endTime: "10:00" });
     expect(res.status).toBe(201);
     expect(res.body.session).toMatchObject({ status: "open", blockedNote: null });
   });
 
   it("blocks empty time at once, with the note", async () => {
-    const res = await post({ date: day, startTime: "12:00", endTime: "12:45", status: "blocked", note: "  ארוחת צהריים " });
+    const res = await post({ date: day, startTime: "12:00", endTime: "13:00", status: "blocked", note: "  ארוחת צהריים " });
     expect(res.status).toBe(201);
     expect(res.body.session).toMatchObject({ status: "blocked", blockedNote: "ארוחת צהריים" });
   });
 
   it("blocks without a note too, and keeps no note on an open slot", async () => {
-    const blocked = await post({ date: day, startTime: "14:00", endTime: "14:45", status: "blocked" });
+    const blocked = await post({ date: day, startTime: "14:00", endTime: "15:00", status: "blocked" });
     expect(blocked.body.session).toMatchObject({ status: "blocked", blockedNote: null });
-    const open = await post({ date: day, startTime: "15:00", endTime: "15:45", note: "ignored" });
+    const open = await post({ date: day, startTime: "15:00", endTime: "16:00", note: "ignored" });
     expect(open.body.session).toMatchObject({ status: "open", blockedNote: null });
   });
 
   it("refuses a slot on top of blocked time, and an over-long note", async () => {
-    expect((await post({ date: day, startTime: "12:30", endTime: "13:15" })).status).toBe(409);
-    expect((await post({ date: day, startTime: "17:00", endTime: "17:45", status: "blocked", note: "x".repeat(81) })).status).toBe(422);
+    expect((await post({ date: day, startTime: "12:30", endTime: "13:30" })).status).toBe(409);
+    expect((await post({ date: day, startTime: "17:00", endTime: "18:00", status: "blocked", note: "x".repeat(81) })).status).toBe(422);
   });
 });

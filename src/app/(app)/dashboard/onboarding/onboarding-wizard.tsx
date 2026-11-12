@@ -62,7 +62,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
   const [slugStatus, setSlugStatus] = useState<SlugCheckStatus>("idle");
   const [slugReason, setSlugReason] = useState<string | undefined>();
 
-  const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<number>(50);
+  const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<number>(60);
   const [breakMinutes, setBreakMinutes] = useState<number>(DEFAULT_BREAK_MINUTES);
   const [locationType, setLocationType] = useState<(typeof LOCATION_TYPES)[number] | "">("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -258,7 +258,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <SelectContent>
                   {DURATION_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {m.common.minutes(d)}
+                      {m.common.duration(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -273,7 +273,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <SelectContent>
                   {BREAK_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d === 0 ? m.onboarding.noBreak : m.common.minutes(d)}
+                      {d === 0 ? m.onboarding.noBreak : m.common.duration(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -346,7 +346,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <Label htmlFor="startTime">{m.onboarding.from}</Label>
                 <Input
                   id="startTime"
-                  type="time"
+                  type="time" step={1800}
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
                 />
@@ -355,7 +355,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <Label htmlFor="endTime">{m.onboarding.to}</Label>
                 <Input
                   id="endTime"
-                  type="time"
+                  type="time" step={1800}
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
                 />

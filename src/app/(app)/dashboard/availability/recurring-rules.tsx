@@ -14,7 +14,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/client";
-import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
+import { DURATION_OPTIONS, optionsWith } from "@/lib/onboarding-schema";
 import { LocationDot, LocationSelect, type PlaceOption } from "@/components/location-filter";
 
 type Rule = {
@@ -43,13 +43,13 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
 
   const [editStart, setEditStart] = useState("09:00");
   const [editEnd, setEditEnd] = useState("17:00");
-  const [editDuration, setEditDuration] = useState(50);
+  const [editDuration, setEditDuration] = useState(60);
   const [editPlace, setEditPlace] = useState("");
 
   const [addingDays, setAddingDays] = useState<number[]>([]);
   const [addStart, setAddStart] = useState("09:00");
   const [addEnd, setAddEnd] = useState("17:00");
-  const [addDuration, setAddDuration] = useState(50);
+  const [addDuration, setAddDuration] = useState(60);
   const [addPlace, setAddPlace] = useState(locations[0]?.id ?? "");
   const [adding, setAdding] = useState(false);
 
@@ -206,6 +206,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
                         <Input
                           id={`start-${rule.id}`}
                           type="time"
+                step={1800}
                           value={editStart}
                           onChange={(e) => setEditStart(e.target.value)}
                         />
@@ -215,6 +216,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
                         <Input
                           id={`end-${rule.id}`}
                           type="time"
+                step={1800}
                           value={editEnd}
                           onChange={(e) => setEditEnd(e.target.value)}
                         />
@@ -229,9 +231,9 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {DURATION_OPTIONS.map((d) => (
+                            {optionsWith(DURATION_OPTIONS, editDuration).map((d) => (
                               <SelectItem key={d} value={String(d)}>
-                                {m.common.minutes(d)}
+                                {m.common.duration(d)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -373,6 +375,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
               <Input
                 id="addStart"
                 type="time"
+                step={1800}
                 value={addStart}
                 onChange={(e) => setAddStart(e.target.value)}
               />
@@ -382,6 +385,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
               <Input
                 id="addEnd"
                 type="time"
+                step={1800}
                 value={addEnd}
                 onChange={(e) => setAddEnd(e.target.value)}
               />
@@ -395,7 +399,7 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
                 <SelectContent>
                   {DURATION_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {m.common.minutes(d)}
+                      {m.common.duration(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>

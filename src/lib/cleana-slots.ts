@@ -176,7 +176,7 @@ export async function openCleanaSlots(
   const slots = splitIntoSlots(
     new Date(input.startsAt),
     new Date(input.endsAt),
-    settings?.defaultDurationMinutes ?? 50,
+    settings?.defaultDurationMinutes ?? 60,
     settings?.bufferAfterMinutes ?? 0
   );
 

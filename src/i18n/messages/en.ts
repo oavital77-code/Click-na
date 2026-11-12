@@ -22,6 +22,9 @@ export const en = {
     finishingSignup: "Finishing your sign-up… If this takes a while, refresh the page.",
     accountSuspended: "This account is suspended. To ask about it, write to baclinica5@gmail.com",
     minutes: (n: number) => (n === 1 ? "1 minute" : `${n} minutes`),
+    /** A session's length, in the half hours everything here runs on. */
+    duration: (n: number) =>
+      n === 30 ? "Half an hour" : n === 60 ? "1 hour" : n === 90 ? "1.5 hours" : n === 120 ? "2 hours" : `${n} minutes`,
     minutesShort: (n: number) => `${n} min`,
     hours: (n: number) => (n === 1 ? "1 hour" : `${n} hours`),
     days: (n: number) => (n === 1 ? "1 day" : `${n} days`),
@@ -79,6 +82,7 @@ export const en = {
     urlScheme: "The link must start with http:// or https://",
     slugFormat: "3–40 characters: lowercase Latin letters, digits and hyphens only",
     slugReserved: "This address is reserved",
+    timeOnHalfHour: "Times are on the hour or the half hour",
     durationInvalid: "Duration is not valid",
     timeInvalid: "Time is not valid",
     pickAtLeastOneDay: "Pick at least one day",

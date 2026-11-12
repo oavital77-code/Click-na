@@ -1,11 +1,8 @@
 import { z } from "zod";
-import { DURATION_OPTIONS } from "@/lib/onboarding-schema";
+import { halfHourTimeSchema, isAllowedDuration } from "@/lib/onboarding-schema";
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "validation.timeInvalid");
-const durationSchema = z
-  .number()
-  .int()
-  .refine((v) => (DURATION_OPTIONS as readonly number[]).includes(v), "validation.durationInvalid");
+const timeSchema = halfHourTimeSchema;
+const durationSchema = z.number().int().refine(isAllowedDuration, "validation.durationInvalid");
 
 export const ruleCreateSchema = z
   .object({
