@@ -20,7 +20,7 @@ Cleana (השכרת חדרים) יכולה לפתוח ולסגור משבצות �
 `POST /api/integrations/cleana/slots` עם המפתח של המטפל/ת. גוף הבקשה:
 `{bookingId, branch: {id, name, address}, room, startsAt, endsAt}` (`src/lib/cleana-slots.ts`).
 
-- **פירוק לתורים.** החדר מתחלק לפי אורך הטיפול וההפסקה שבהגדרות (`defaultDurationMinutes`,
+- **פירוק לתורים.** זמן שנשאר בסוף החדר (חצי שעה ומעלה) נפתח כתור קצר משלו. החדר מתחלק לפי אורך הטיפול וההפסקה שבהגדרות (`defaultDurationMinutes`,
   `bufferAfterMinutes`), החל משעת ההתחלה. תור שלא נכנס במלואו לא נפתח. החישוב על השעות
   העגולות, בלי 5 דקות הכניסה והפינוי.
 - **סניף ← מיקום.** קודם מיקום שכבר מקושר לסניף (`locations.cleana_branch_id`), אחר כך

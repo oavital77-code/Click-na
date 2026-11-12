@@ -32,12 +32,33 @@ describe("splitIntoSlots — the table in the spec", () => {
     ]);
   });
 
-  it("09:00–10:30, 60 + 0: the half hour left is too short", () => {
-    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 10:30"), 60, 0))).toEqual(["09:00-10:00"]);
+  it("09:00–10:30, 60 + 0: the half hour left opens as a slot of its own", () => {
+    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 10:30"), 60, 0))).toEqual([
+      "09:00-10:00",
+      "10:00-10:30",
+    ]);
   });
 
-  it("a room shorter than one treatment opens nothing", () => {
-    expect(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 09:30"), 50, 10)).toEqual([]);
+  it("a room shorter than one treatment opens as one short slot", () => {
+    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 09:30"), 60, 0))).toEqual(["09:00-09:30"]);
+  });
+
+  it("time left over that is only the break opens nothing more", () => {
+    // 60 + 30: after 09:00–10:00 comes the break until 10:30, and the room ends there.
+    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 10:30"), 60, 30))).toEqual(["09:00-10:00"]);
+  });
+
+  it("the leftover starts after the break", () => {
+    // 60 + 30 in three hours: 09:00–10:00, 10:30–11:30, then 12:00 is the room's end.
+    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 12:00"), 60, 30))).toEqual([
+      "09:00-10:00",
+      "10:30-11:30",
+    ]);
+    // 90 + 0 in two hours: one session, then half an hour left.
+    expect(times(splitIntoSlots(at("2026-11-17 09:00"), at("2026-11-17 11:00"), 90, 0))).toEqual([
+      "09:00-10:30",
+      "10:30-11:00",
+    ]);
   });
 
   it("the last slot may end exactly at the room's end without its break", () => {

@@ -14,7 +14,8 @@ import { getMessages, toLocale } from "@/i18n";
  * slots opened and which did not.
  *
  * The room is cut into slots of the therapist's treatment length plus break,
- * starting at the room's start, keeping only those that end by the room's end.
+ * starting at the room's start; time left over at the end (half an hour or
+ * more) opens as a shorter slot.
  * The cut is on the room's round hours: the five-minute early entry and early
  * exit at Cleana are for display there only.
  *
@@ -54,17 +55,30 @@ export type OpenSlotsInput = z.infer<typeof openSlotsSchema>;
 
 export type Slot = { startsAt: Date; endsAt: Date };
 
-/** The cut itself. Pure, so every combination in the spec is a unit test. */
+/**
+ * The cut itself. Pure, so every combination in the spec is a unit test.
+ *
+ * Whole sessions first, from the room's start. Whatever paid room time is left
+ * after the last one (and its break) opens as a shorter slot of its own, as
+ * long as it is at least half an hour: the therapist paid for that time at
+ * Cleana, so it shows in the calendar here rather than vanishing.
+ */
 export function splitIntoSlots(startsAt: Date, endsAt: Date, durationMinutes: number, breakMinutes: number): Slot[] {
   if (durationMinutes <= 0) return [];
-  const step = (durationMinutes + Math.max(0, breakMinutes)) * 60_000;
+  const rest = Math.max(0, breakMinutes) * 60_000;
   const length = durationMinutes * 60_000;
+  const end = endsAt.getTime();
   const slots: Slot[] = [];
-  for (let t = startsAt.getTime(); t + length <= endsAt.getTime(); t += step) {
+  let t = startsAt.getTime();
+  for (; t + length <= end; t += length + rest) {
     slots.push({ startsAt: new Date(t), endsAt: new Date(t + length) });
   }
+  // `t` is now where the next session would start, break included.
+  if (end - t >= MIN_REMAINDER_MS) slots.push({ startsAt: new Date(t), endsAt: new Date(end) });
   return slots;
 }
+
+const MIN_REMAINDER_MS = 30 * 60_000;
 
 export type SkipReason = "overlap" | "past";
 
