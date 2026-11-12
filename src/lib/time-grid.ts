@@ -35,10 +35,13 @@ export function toTime(minutes: number): string {
   return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 }
 
+/** Slots start on the half hour. */
+const STEP = 30;
+
 export type Proposal = { start: number; fits: boolean };
 
 /**
- * Where a new slot goes when the therapist taps empty time: on the quarter hour
+ * Where a new slot goes when the therapist taps empty time: on the half hour
  * they tapped, moved past the session before it and its break, so a new slot
  * never sits on top of one already there. It "fits" when a whole session (not
  * counting the break) ends before the next one starts and inside the day.
@@ -50,7 +53,7 @@ export function proposeStart(
   bufferMinutes: number,
   dayEnd = 24 * 60
 ): Proposal {
-  let start = Math.floor(tapped / 15) * 15;
+  let start = Math.floor(tapped / STEP) * STEP;
   for (const item of dayItems) {
     // A session that has begun by the tap pushes the start past its end and the break after it.
     if (item.start <= tapped && item.end + bufferMinutes > start) start = Math.max(start, item.end + bufferMinutes);
@@ -60,7 +63,7 @@ export function proposeStart(
   return { start, fits };
 }
 
-/** The first start on a day where a whole session fits, from `from` on, in quarter hours. For keyboard use. */
+/** The first start on a day where a whole session fits, from `from` on, in half hours. For keyboard use. */
 export function firstFreeStart(
   dayItems: DayItem[],
   from: number,
@@ -68,7 +71,7 @@ export function firstFreeStart(
   bufferMinutes: number,
   dayEnd = 24 * 60
 ): number | null {
-  for (let t = Math.ceil(from / 15) * 15; t + durationMinutes <= dayEnd; t += 15) {
+  for (let t = Math.ceil(from / STEP) * STEP; t + durationMinutes <= dayEnd; t += STEP) {
     const proposal = proposeStart(dayItems, t, durationMinutes, bufferMinutes, dayEnd);
     if (proposal.fits) return proposal.start;
   }

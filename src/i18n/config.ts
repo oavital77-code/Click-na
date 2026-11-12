@@ -1,4 +1,4 @@
-import { enUS, he } from "date-fns/locale";
+import { ar, enUS, he, ru } from "date-fns/locale";
 import type { Locale as DateFnsLocale } from "date-fns";
 
 /**
@@ -16,32 +16,47 @@ import type { Locale as DateFnsLocale } from "date-fns";
  * This constant is the one source: signup writes it onto the new row explicitly
  * (src/lib/webhooks.ts), and the column default only mirrors it.
  */
-export const LOCALES = ["en", "he"] as const;
+export const THERAPIST_LOCALES = ["en", "he"] as const;
+export type TherapistLocale = (typeof THERAPIST_LOCALES)[number];
+
+/**
+ * Every language a page can be read in. The two above are what a therapist
+ * works in — dashboard, emails, messages. Russian and Arabic exist for the
+ * client at the public booking page only, who picks one for themselves there
+ * (the language button); the therapist's dashboard and the mail they send stay
+ * in the therapist's own language.
+ */
+export const LOCALES = ["en", "he", "ru", "ar"] as const;
 export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = "he";
+export const DEFAULT_LOCALE: TherapistLocale = "he";
 
 export function isLocale(value: unknown): value is Locale {
   return typeof value === "string" && (LOCALES as readonly string[]).includes(value);
 }
 
-/** Coerces whatever is stored on the therapist row into a supported locale. */
-export function toLocale(value: string | null | undefined): Locale {
-  return isLocale(value) ? value : DEFAULT_LOCALE;
+/** Coerces whatever is stored on the therapist row into a language a therapist can work in. */
+export function toLocale(value: string | null | undefined): TherapistLocale {
+  return (THERAPIST_LOCALES as readonly string[]).includes(value ?? "") ? (value as TherapistLocale) : DEFAULT_LOCALE;
+}
+
+/** The language a visitor asked for (?lang=), or the practice's own when they asked for none we speak. */
+export function visitorLocale(requested: unknown, fallback: Locale): Locale {
+  return isLocale(requested) ? requested : fallback;
 }
 
 export type Dir = "ltr" | "rtl";
 
 export function dirFor(locale: Locale): Dir {
-  return locale === "he" ? "rtl" : "ltr";
+  return locale === "he" || locale === "ar" ? "rtl" : "ltr";
 }
 
 /** BCP 47 tag for <html lang> and Open Graph. */
 export function langTag(locale: Locale): string {
-  return locale === "he" ? "he-IL" : "en";
+  return locale === "he" ? "he-IL" : locale;
 }
 
 export function dateFnsLocale(locale: Locale): DateFnsLocale {
-  return locale === "he" ? he : enUS;
+  return locale === "he" ? he : locale === "ru" ? ru : locale === "ar" ? ar : enUS;
 }
 
 /**
@@ -66,6 +81,20 @@ export const DATE_PATTERNS: Record<
     weekdayDateShort: "EEEE, d MMM",
     date: "d MMM yyyy",
     dateTime: "d MMM yyyy, HH:mm",
+    time: "HH:mm",
+  },
+  ru: {
+    weekdayDate: "EEEE, d MMMM yyyy",
+    weekdayDateShort: "EEEE, d MMM",
+    date: "d.MM.yyyy",
+    dateTime: "d.MM.yyyy, HH:mm",
+    time: "HH:mm",
+  },
+  ar: {
+    weekdayDate: "EEEE، d MMMM yyyy",
+    weekdayDateShort: "EEEE، d MMM",
+    date: "d.M.yyyy",
+    dateTime: "d.M.yyyy, HH:mm",
     time: "HH:mm",
   },
 };

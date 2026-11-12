@@ -30,6 +30,8 @@ type Booking = {
   locationId: string;
   locationName: string;
   locationColor: string;
+  /** Its room at Cleana was cancelled; the appointment itself stands. */
+  noRoom?: boolean;
   manageToken: string;
   /** When a WhatsApp reminder went out — automatically or by the therapist's tap. */
   reminderSentAt: string | null;
@@ -203,6 +205,11 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
                       {m.bookings.status[booking.status as keyof typeof m.bookings.status] ?? booking.status}
                     </span>
                   </div>
+                  {booking.noRoom && CANCELABLE.has(booking.status) && (
+                    <p className={`${statusBadgeClass("danger")} w-full justify-start rounded-md px-3 py-2 text-start text-sm`}>
+                      ⚠ {m.cleanaLink.noRoom} · {m.cleanaLink.noRoomNote}
+                    </p>
+                  )}
                   {booking.status === "pending" && (
                     <Button type="button" size="sm" className="w-full md:w-fit" onClick={() => confirmBooking(booking.id)}>
                       {m.bookings.confirmBooking}

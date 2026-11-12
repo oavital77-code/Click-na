@@ -7,7 +7,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     phone: "0501234567",
     professionType: "coach",
     slug: "liron-coaching",
-    defaultDurationMinutes: 50,
+    defaultDurationMinutes: 60,
     locationType: "clinic",
     locationAddress: "רוטשילד 12, תל אביב",
     availability: { days: [0, 2, 4], startTime: "09:00", endTime: "17:00" },
@@ -90,5 +90,16 @@ describe("onboardingSchema", () => {
     expect(hybrid({ locationAddress: "כתובת", videoMethod: "google_meet" })).toBe(true);
     expect(hybrid({ locationAddress: "כתובת" })).toBe(false);
     expect(hybrid({ locationAddress: undefined, videoMethod: "google_meet" })).toBe(false);
+  });
+
+  it("runs on the half hour: no 45 or 50 minute sessions, no short breaks for a new practice", () => {
+    for (const minutes of [45, 50]) {
+      expect(onboardingSchema.safeParse(validPayload({ defaultDurationMinutes: minutes })).success).toBe(false);
+    }
+    for (const minutes of [30, 60, 90, 120]) {
+      expect(onboardingSchema.safeParse(validPayload({ defaultDurationMinutes: minutes })).success).toBe(true);
+    }
+    expect(onboardingSchema.safeParse(validPayload({ breakMinutes: 10 })).success).toBe(false);
+    expect(onboardingSchema.safeParse(validPayload({ breakMinutes: 30 })).success).toBe(true);
   });
 });

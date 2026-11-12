@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { TimeSelect } from "@/components/time-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -131,16 +132,16 @@ export function AddSlotDialog({
         <div className="grid grid-cols-2 gap-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-slot-from">{t.from}</Label>
-            <Input id="add-slot-from" type="time" value={startTime} onChange={(e) => changeStart(e.target.value)} />
+            <TimeSelect id="add-slot-from" value={startTime} onChange={changeStart} />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="add-slot-to">{t.to}</Label>
-            <Input
+            <TimeSelect
               id="add-slot-to"
-              type="time"
               value={endTime}
-              onChange={(e) => {
-                setEndTime(e.target.value);
+              min={startTime}
+              onChange={(value) => {
+                setEndTime(value);
                 setEndTouched(true);
                 setAdded(null);
               }}

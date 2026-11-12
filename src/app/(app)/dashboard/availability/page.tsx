@@ -68,9 +68,9 @@ export default async function AvailabilityPage() {
       <AvailabilityView
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
-        defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+        defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 60}
         gridStepMinutes={
-          (therapist.settings?.defaultDurationMinutes ?? 50) +
+          (therapist.settings?.defaultDurationMinutes ?? 60) +
           (therapist.settings?.bufferBeforeMinutes ?? 0) +
           (therapist.settings?.bufferAfterMinutes ?? 0)
         }
@@ -81,6 +81,9 @@ export default async function AvailabilityPage() {
           endsAt: s.endsAt.toISOString(),
           status: s.status,
           clientName: s.booking?.clientNameSnapshot ?? null,
+          clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+          cleanaRoom: s.cleanaRoom,
+          noRoom: s.cleanaRoomCanceledAt !== null,
           blockedNote: s.blockedNote,
           locationId: s.location.id,
           locationColor: s.location.color,

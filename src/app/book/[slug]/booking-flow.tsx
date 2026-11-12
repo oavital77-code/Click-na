@@ -259,7 +259,7 @@ export function BookingFlow({ slug, timezone, requirePhone, maxAdvanceDays, loca
                 {b.addToCalendar}
               </a>
               <a
-                href={`/book/${slug}/manage/${manageToken}`}
+                href={`/book/${slug}/manage/${manageToken}?lang=${locale}`}
                 className="text-primary text-sm underline underline-offset-4"
               >
                 {b.changeOrCancel}
