@@ -1223,6 +1223,7 @@ export const en = {
       subscription: "Subscription",
       trial_reminder: "Free month",
       payment_setup: "Card payments",
+      room_canceled: "Room cancelled at Cleana",
     },
     channel: { email: "Email", whatsapp: "WhatsApp", sms: "SMS" },
     scheduledFor: (when: string) => `Due ${when}`,
