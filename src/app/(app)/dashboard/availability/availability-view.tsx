@@ -125,7 +125,7 @@ export function AvailabilityView({
     return () => {
       cancelled = true;
     };
-  }, [range.from, range.to, timezone, a.loadError]);
+  }, [range.from, range.to, timezone, a.loadError, m.cleanaLink.noRoom]);
 
 
   /** Opens a slot where the therapist tapped empty time on the grid. */
