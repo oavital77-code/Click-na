@@ -432,7 +432,9 @@ export async function rescheduleBookingByClient(
       });
       await tx.session.updateMany({
         where: { id: booking.sessionId, cleanaRoomCanceledAt: { not: null } },
-        data: { status: "canceled" },
+        // Unlinked from the room booking: a canceled row that kept the link would
+        // make the same hour look "already open" if that room is opened again.
+        data: { status: "canceled", cleanaBookingId: null },
       });
       await tx.booking.update({ where: { id: booking.id }, data: { sessionId: newSessionId } });
     });
