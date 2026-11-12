@@ -311,4 +311,24 @@ describe("opening slots from Cleana (against a live database)", () => {
       expect(await prisma.session.count({ where: { therapistId: alice } })).toBe(0);
     });
   });
+
+  it("gives an appointment its room back when the room is cancelled and booked afresh, and opens the free time around it", async () => {
+    // 12:00–13:00 booked by a client, then the room is cancelled at Cleana.
+    const first = booking({ startsAt: at("12:00"), endsAt: at("13:00") });
+    await openCleanaSlots(alice, first);
+    await clientBooks(alice, at("12:00"));
+    await closeCleanaSlots(alice, first.bookingId);
+
+    // Booked again as a new Cleana booking, 11:30–13:30.
+    const second = booking({ startsAt: at("11:30"), endsAt: at("13:30") });
+    const result = await openCleanaSlots(alice, second);
+
+    expect(result.opened).toEqual([at("11:30"), at("13:00")]);
+    expect(result.alreadyOpen).toEqual([at("12:00")]);
+    expect(result.skipped).toEqual([]);
+    const appt = await prisma.session.findFirstOrThrow({ where: { therapistId: alice, status: "booked" } });
+    expect(appt).toMatchObject({ cleanaRoomCanceledAt: null, cleanaBookingId: second.bookingId });
+    // And a later cancellation of the new booking finds it again.
+    expect((await closeCleanaSlots(alice, second.bookingId)).noRoom).toEqual([at("12:00")]);
+  });
 });

@@ -195,13 +195,6 @@ export async function openCleanaSlots(
     where: { therapistId },
     select: { defaultDurationMinutes: true, bufferAfterMinutes: true },
   });
-  const slots = splitIntoSlots(
-    new Date(input.startsAt),
-    new Date(input.endsAt),
-    settings?.defaultDurationMinutes ?? 60,
-    settings?.bufferAfterMinutes ?? 0
-  );
-
   // A move of a booking that never opened slots here opens none now either.
   if (input.replacesBookingId) {
     const had = await prisma.session.count({
@@ -254,27 +247,45 @@ export async function openCleanaSlots(
     if (newlyWithoutRoom.length > 0) await sendRoomCanceledEmail(therapistId, newlyWithoutRoom);
   }
 
-  // Marked "no room" earlier, and the room now covers it again (moved back, or
-  // booked afresh and opened by hand): it has a room.
+  // Marked "no room" earlier, and a room now covers it again — this booking
+  // moved back, or the therapist cancelled and then booked the room afresh
+  // (a new booking at Cleana, with a new id): the appointment has a room, and
+  // belongs to this booking from here on.
   await prisma.session.updateMany({
-    where: { ...covered, cleanaBookingId: input.bookingId, cleanaRoomCanceledAt: { not: null } },
-    data: { cleanaRoomCanceledAt: null, cleanaRoom: input.room },
+    where: { ...covered, cleanaRoomCanceledAt: { not: null } },
+    data: { cleanaRoomCanceledAt: null, cleanaRoom: input.room, cleanaBookingId: input.bookingId },
   });
 
-  // Opened by an earlier request for this booking. Checked first: the overlap
-  // constraint would otherwise report such a slot as clashing with itself.
-  const existing = await prisma.session.findMany({
-    where: { therapistId, cleanaBookingId: input.bookingId, status: { not: "canceled" } },
-    select: { startsAt: true },
+  // What already stands in the calendar inside the room's hours. This
+  // booking's own slots are "already open"; anything else is the therapist's
+  // and is reported as taken. New slots are cut from the free time around
+  // all of it, so half an hour before an appointment still opens.
+  const standing = await prisma.session.findMany({
+    where: {
+      therapistId,
+      startsAt: { lt: window.end },
+      endsAt: { gt: window.start },
+      OR: [{ status: { in: ["open", "booked", "blocked"] } }, { status: "held", holdExpiresAt: { gte: now } }],
+    },
+    select: { startsAt: true, endsAt: true, cleanaBookingId: true },
+    orderBy: { startsAt: "asc" },
   });
-  const openedBefore = new Set(existing.map((s) => s.startsAt.toISOString()));
+  for (const s of standing) {
+    if (s.cleanaBookingId === input.bookingId) result.alreadyOpen.push(s.startsAt.toISOString());
+    else result.skipped.push({ startsAt: s.startsAt.toISOString(), reason: "overlap" });
+  }
+  const duration = settings?.defaultDurationMinutes ?? 60;
+  const rest = settings?.bufferAfterMinutes ?? 0;
+  const slots: Slot[] = [];
+  let cursor = window.start;
+  for (const s of [...standing, { startsAt: window.end, endsAt: window.end }]) {
+    if (s.startsAt > cursor) slots.push(...splitIntoSlots(cursor, s.startsAt, duration, rest));
+    const after = new Date(s.endsAt.getTime() + rest * 60_000);
+    if (after > cursor) cursor = after;
+  }
 
   for (const slot of slots) {
     const iso = slot.startsAt.toISOString();
-    if (openedBefore.has(iso)) {
-      result.alreadyOpen.push(iso);
-      continue;
-    }
     if (slot.startsAt <= now) {
       result.skipped.push({ startsAt: iso, reason: "past" });
       continue;
