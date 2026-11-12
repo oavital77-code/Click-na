@@ -307,7 +307,7 @@ describe("opening slots from Cleana (against a live database)", () => {
     it("opens nothing for a booking that never had slots here", async () => {
       const b = booking();
       const moved = await openCleanaSlots(alice, { ...b, replacesBookingId: b.bookingId });
-      expect(moved).toEqual({ location: null, opened: [], alreadyOpen: [], skipped: [] });
+      expect(moved).toEqual({ location: null, opened: [], roomTime: [], alreadyOpen: [], skipped: [] });
       expect(await prisma.session.count({ where: { therapistId: alice } })).toBe(0);
     });
   });
@@ -323,12 +323,33 @@ describe("opening slots from Cleana (against a live database)", () => {
     const second = booking({ startsAt: at("11:30"), endsAt: at("13:30") });
     const result = await openCleanaSlots(alice, second);
 
-    expect(result.opened).toEqual([at("11:30"), at("13:00")]);
+    // Half an hour either side: room time for the therapist, not slots for clients.
+    expect(result.opened).toEqual([]);
+    expect(result.roomTime).toEqual([at("11:30"), at("13:00")]);
     expect(result.alreadyOpen).toEqual([at("12:00")]);
+    expect(await prisma.session.count({ where: { therapistId: alice, status: "open" } })).toBe(0);
     expect(result.skipped).toEqual([]);
     const appt = await prisma.session.findFirstOrThrow({ where: { therapistId: alice, status: "booked" } });
     expect(appt).toMatchObject({ cleanaRoomCanceledAt: null, cleanaBookingId: second.bookingId });
     // And a later cancellation of the new booking finds it again.
     expect((await closeCleanaSlots(alice, second.bookingId)).noRoom).toEqual([at("12:00")]);
+  });
+
+  it("sets leftover room time aside for the therapist instead of offering clients half a session", async () => {
+    await prisma.therapistSettings.update({ where: { therapistId: bob }, data: { defaultDurationMinutes: 60, bufferAfterMinutes: 0 } });
+    const b = booking({ startsAt: at("10:00"), endsAt: at("11:30") });
+    const result = await openCleanaSlots(bob, b);
+    expect(result.opened).toEqual([at("10:00")]);
+    expect(result.roomTime).toEqual([at("11:00")]);
+    const leftover = await prisma.session.findFirstOrThrow({ where: { therapistId: bob, startsAt: new Date(at("11:00")) } });
+    expect(leftover).toMatchObject({ status: "blocked", blockedNote: "זמן חדר פנוי (Cleana)", cleanaBookingId: b.bookingId });
+
+    // Asked again: nothing new, and the room time is not counted as an open slot.
+    const again = await openCleanaSlots(bob, b);
+    expect(again).toMatchObject({ opened: [], roomTime: [], alreadyOpen: [at("10:00")] });
+
+    // Cancelling the room takes the set-aside time with it.
+    expect(await closeCleanaSlots(bob, b.bookingId)).toEqual({ closed: 2, noRoom: [] });
+    expect(await prisma.session.count({ where: { therapistId: bob, status: { not: "canceled" } } })).toBe(0);
   });
 });

@@ -1234,6 +1234,7 @@ export const en = {
     },
     heldByClient: "A client completing a booking",
     noRoomNote: "The room at Cleana was cancelled. The appointment stands: move or cancel it with the client, or book a room again.",
+    roomTimeNote: "Free room time (Cleana)",
     disconnect: "Disconnect",
   },
 };

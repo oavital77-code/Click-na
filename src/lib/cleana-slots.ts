@@ -60,15 +60,17 @@ export const openSlotsSchema = z
 
 export type OpenSlotsInput = z.infer<typeof openSlotsSchema>;
 
-export type Slot = { startsAt: Date; endsAt: Date };
+/** `short`: paid room time too brief for a whole session — the therapist's to see, not a client's to book. */
+export type Slot = { startsAt: Date; endsAt: Date; short?: boolean };
 
 /**
  * The cut itself. Pure, so every combination in the spec is a unit test.
  *
  * Whole sessions first, from the room's start. Whatever paid room time is left
- * after the last one (and its break) opens as a shorter slot of its own, as
- * long as it is at least half an hour: the therapist paid for that time at
- * Cleana, so it shows in the calendar here rather than vanishing.
+ * after the last one (and its break) comes back as a `short` slot, as long as
+ * it is at least half an hour: the therapist paid for that time at Cleana, so
+ * it shows in their calendar here — set aside, not offered to clients, who
+ * would be booking half a session. The therapist can open it by hand.
  */
 export function splitIntoSlots(startsAt: Date, endsAt: Date, durationMinutes: number, breakMinutes: number): Slot[] {
   if (durationMinutes <= 0) return [];
@@ -81,7 +83,7 @@ export function splitIntoSlots(startsAt: Date, endsAt: Date, durationMinutes: nu
     slots.push({ startsAt: new Date(t), endsAt: new Date(t + length) });
   }
   // `t` is now where the next session would start, break included.
-  if (end - t >= MIN_REMAINDER_MS) slots.push({ startsAt: new Date(t), endsAt: new Date(end) });
+  if (end - t >= MIN_REMAINDER_MS) slots.push({ startsAt: new Date(t), endsAt: new Date(end), short: true });
   return slots;
 }
 
@@ -93,6 +95,8 @@ export type OpenSlotsResult = {
   /** Null only when a move had nothing here to move. */
   location: { id: string; name: string; created: boolean } | null;
   opened: string[];
+  /** Room time too short for a session: marked in the therapist's calendar, not bookable. */
+  roomTime: string[];
   alreadyOpen: string[];
   skipped: { startsAt: string; reason: SkipReason }[];
 };
@@ -193,18 +197,19 @@ export async function openCleanaSlots(
 ): Promise<OpenSlotsResult> {
   const settings = await prisma.therapistSettings.findUnique({
     where: { therapistId },
-    select: { defaultDurationMinutes: true, bufferAfterMinutes: true },
+    select: { defaultDurationMinutes: true, bufferAfterMinutes: true, therapist: { select: { locale: true } } },
   });
+  const roomTimeNote = getMessages(toLocale(settings?.therapist.locale)).cleanaLink.roomTimeNote;
   // A move of a booking that never opened slots here opens none now either.
   if (input.replacesBookingId) {
     const had = await prisma.session.count({
       where: { therapistId, cleanaBookingId: input.replacesBookingId, status: { not: "canceled" } },
     });
-    if (had === 0) return { location: null, opened: [], alreadyOpen: [], skipped: [] };
+    if (had === 0) return { location: null, opened: [], roomTime: [], alreadyOpen: [], skipped: [] };
   }
 
   const location = await resolveBranchLocation(therapistId, input.branch);
-  const result: OpenSlotsResult = { location, opened: [], alreadyOpen: [], skipped: [] };
+  const result: OpenSlotsResult = { location, opened: [], roomTime: [], alreadyOpen: [], skipped: [] };
 
   const window = { start: new Date(input.startsAt), end: new Date(input.endsAt) };
   // A client's appointment the room (still, or again) covers has a room.
@@ -220,7 +225,7 @@ export async function openCleanaSlots(
     const old = input.replacesBookingId;
     const newlyWithoutRoom = await prisma.$transaction(async (tx) => {
       await tx.session.updateMany({
-        where: { therapistId, cleanaBookingId: old, OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }] },
+        where: { therapistId, cleanaBookingId: old, OR: [{ status: { in: ["open", "blocked"] } }, { status: "held", holdExpiresAt: { lt: now } }] },
         data: { status: "canceled", cleanaBookingId: null, holdToken: null, holdExpiresAt: null },
       });
       await tx.session.updateMany({
@@ -267,12 +272,14 @@ export async function openCleanaSlots(
       endsAt: { gt: window.start },
       OR: [{ status: { in: ["open", "booked", "blocked"] } }, { status: "held", holdExpiresAt: { gte: now } }],
     },
-    select: { startsAt: true, endsAt: true, cleanaBookingId: true },
+    select: { startsAt: true, endsAt: true, cleanaBookingId: true, status: true },
     orderBy: { startsAt: "asc" },
   });
   for (const s of standing) {
-    if (s.cleanaBookingId === input.bookingId) result.alreadyOpen.push(s.startsAt.toISOString());
-    else result.skipped.push({ startsAt: s.startsAt.toISOString(), reason: "overlap" });
+    if (s.cleanaBookingId === input.bookingId) {
+      // Room time already set aside is neither news nor an open slot.
+      if (s.status !== "blocked") result.alreadyOpen.push(s.startsAt.toISOString());
+    } else result.skipped.push({ startsAt: s.startsAt.toISOString(), reason: "overlap" });
   }
   const duration = settings?.defaultDurationMinutes ?? 60;
   const rest = settings?.bufferAfterMinutes ?? 0;
@@ -299,9 +306,10 @@ export async function openCleanaSlots(
           endsAt: slot.endsAt,
           cleanaBookingId: input.bookingId,
           cleanaRoom: input.room,
+          ...(slot.short ? { status: "blocked" as const, blockedNote: roomTimeNote } : {}),
         },
       });
-      result.opened.push(iso);
+      (slot.short ? result.roomTime : result.opened).push(iso);
     } catch (error) {
       if (isUniqueViolation(error)) {
         result.alreadyOpen.push(iso);
@@ -353,7 +361,8 @@ export async function closeCleanaSlots(
       where: {
         therapistId,
         cleanaBookingId: bookingId,
-        OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
+        // Blocked too: room time set aside, or a slot of this room the therapist blocked.
+        OR: [{ status: { in: ["open", "blocked"] } }, { status: "held", holdExpiresAt: { lt: now } }],
       },
       // Unlinked, so the same hours can be opened again if the room is booked again.
       data: { status: "canceled", cleanaBookingId: null, holdToken: null, holdExpiresAt: null },
