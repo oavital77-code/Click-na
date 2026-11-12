@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TimeSelect } from "@/components/time-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -344,21 +345,11 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="startTime">{m.onboarding.from}</Label>
-                <Input
-                  id="startTime"
-                  type="time" step={1800}
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
+                <TimeSelect id="startTime" value={startTime} onChange={setStartTime} />
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="endTime">{m.onboarding.to}</Label>
-                <Input
-                  id="endTime"
-                  type="time" step={1800}
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
+                <TimeSelect id="endTime" value={endTime} onChange={setEndTime} />
               </div>
             </div>
           </div>

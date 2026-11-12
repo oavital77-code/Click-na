@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { TimeSelect } from "@/components/time-select";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -203,23 +203,11 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
                     <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
                       <div className="flex flex-col gap-1">
                         <Label htmlFor={`start-${rule.id}`}>{m.availability.from}</Label>
-                        <Input
-                          id={`start-${rule.id}`}
-                          type="time"
-                step={1800}
-                          value={editStart}
-                          onChange={(e) => setEditStart(e.target.value)}
-                        />
+                        <TimeSelect id={`start-${rule.id}`} value={editStart} onChange={setEditStart} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor={`end-${rule.id}`}>{m.availability.to}</Label>
-                        <Input
-                          id={`end-${rule.id}`}
-                          type="time"
-                step={1800}
-                          value={editEnd}
-                          onChange={(e) => setEditEnd(e.target.value)}
-                        />
+                        <TimeSelect id={`end-${rule.id}`} value={editEnd} onChange={setEditEnd} />
                       </div>
                       <div className="flex flex-col gap-1">
                         <Label htmlFor={`duration-${rule.id}`}>{r.duration}</Label>
@@ -372,23 +360,11 @@ export function RecurringRules({ initialRules, locations }: { initialRules: Rule
           <div className="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end">
             <div className="flex flex-col gap-1">
               <Label htmlFor="addStart">{m.availability.from}</Label>
-              <Input
-                id="addStart"
-                type="time"
-                step={1800}
-                value={addStart}
-                onChange={(e) => setAddStart(e.target.value)}
-              />
+              <TimeSelect id="addStart" value={addStart} onChange={setAddStart} />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="addEnd">{m.availability.to}</Label>
-              <Input
-                id="addEnd"
-                type="time"
-                step={1800}
-                value={addEnd}
-                onChange={(e) => setAddEnd(e.target.value)}
-              />
+              <TimeSelect id="addEnd" value={addEnd} onChange={setAddEnd} />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="addDuration">{r.duration}</Label>

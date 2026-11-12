@@ -10,6 +10,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { SLOTS_CHANGED_EVENT } from "../slot-actions";
 import { useI18n } from "@/i18n/client";
 import { TimeGrid, type ItemInfo } from "@/components/time-grid";
 import { NewSlotForm, SlotCell, type ActionResult } from "../dashboard-schedule";
@@ -25,7 +26,10 @@ type SessionRow = {
   endsAt: string;
   status: string;
   clientName: string | null;
+  clientPhone?: string | null;
   blockedNote: string | null;
+  cleanaRoom?: string | null;
+  noRoom?: boolean;
   locationId: string;
   locationColor: string;
 };
@@ -76,6 +80,14 @@ export function AvailabilityView({
 
   const holidays = useMemo(() => holidaysByDate(yearsBetween(weekDates[0], weekDates[6])), [weekDates]);
 
+  // A slot was booked or moved from its popover: load the range again.
+  const [reloadTick, setReloadTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setReloadTick((n) => n + 1);
+    window.addEventListener(SLOTS_CHANGED_EVENT, bump);
+    return () => window.removeEventListener(SLOTS_CHANGED_EVENT, bump);
+  }, []);
+
   const range = useMemo(() => {
     if (granularity === "month") {
       const gridStart = startOfWeekUtc(startOfMonthUtc(anchorDate));
@@ -99,7 +111,7 @@ export function AvailabilityView({
     const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
     fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
-      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; blockedNote?: string | null; cleanaRoomCanceledAt?: string | null; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
+      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; blockedNote?: string | null; cleanaRoom?: string | null; cleanaRoomCanceledAt?: string | null; booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null; location: { id: string; color: string } }[] }) => {
         if (cancelled) return;
         setSessions(
           data.sessions.map((s) => ({
@@ -107,9 +119,10 @@ export function AvailabilityView({
             startsAt: s.startsAt,
             endsAt: s.endsAt,
             status: s.status,
-            clientName: s.booking
-              ? `${s.cleanaRoomCanceledAt ? `⚠ ${m.cleanaLink.noRoom} · ` : ""}${s.booking.clientNameSnapshot}`
-              : null,
+            clientName: s.booking?.clientNameSnapshot ?? null,
+            clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+            cleanaRoom: s.cleanaRoom ?? null,
+            noRoom: !!s.cleanaRoomCanceledAt,
             blockedNote: s.blockedNote ?? null,
             locationId: s.location.id,
             locationColor: s.location.color,
@@ -125,7 +138,7 @@ export function AvailabilityView({
     return () => {
       cancelled = true;
     };
-  }, [range.from, range.to, timezone, a.loadError, m.cleanaLink.noRoom]);
+  }, [range.from, range.to, timezone, a.loadError, reloadTick]);
 
 
   /** Opens a slot where the therapist tapped empty time on the grid. */
@@ -341,6 +354,7 @@ export function AvailabilityView({
                     onReopenSlot={reopenSlot}
                     onDeleteSlot={deleteSlot}
                     showPlace={manyPlaces}
+                    timezone={timezone}
                   />
                 )}
                 empty={{

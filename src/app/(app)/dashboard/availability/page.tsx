@@ -80,9 +80,10 @@ export default async function AvailabilityPage() {
           startsAt: s.startsAt.toISOString(),
           endsAt: s.endsAt.toISOString(),
           status: s.status,
-          clientName: s.booking
-            ? `${s.cleanaRoomCanceledAt ? `⚠ ${m.cleanaLink.noRoom} · ` : ""}${s.booking.clientNameSnapshot}`
-            : null,
+          clientName: s.booking?.clientNameSnapshot ?? null,
+          clientPhone: s.booking?.clientPhoneSnapshot ?? null,
+          cleanaRoom: s.cleanaRoom,
+          noRoom: s.cleanaRoomCanceledAt !== null,
           blockedNote: s.blockedNote,
           locationId: s.location.id,
           locationColor: s.location.color,
