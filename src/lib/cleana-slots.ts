@@ -43,6 +43,13 @@ export const openSlotsSchema = z
     room: z.string().trim().min(1).max(80),
     startsAt: z.iso.datetime({ offset: true }),
     endsAt: z.iso.datetime({ offset: true }),
+    /**
+     * The room booking was moved (other hours, another room): the Cleana
+     * booking these hours replace. The same id when the booking kept its id.
+     * Its empty slots close; a client's appointment that the new hours still
+     * cover, at the same branch, keeps its room.
+     */
+    replacesBookingId: pgUuid.optional(),
   })
   .refine((v) => new Date(v.endsAt) > new Date(v.startsAt), { message: "end must be after start" })
   // A room booking at Cleana is a few hours, never days. A bound keeps a bad
@@ -83,7 +90,8 @@ const MIN_REMAINDER_MS = 30 * 60_000;
 export type SkipReason = "overlap" | "past";
 
 export type OpenSlotsResult = {
-  location: { id: string; name: string; created: boolean };
+  /** Null only when a move had nothing here to move. */
+  location: { id: string; name: string; created: boolean } | null;
   opened: string[];
   alreadyOpen: string[];
   skipped: { startsAt: string; reason: SkipReason }[];
@@ -194,8 +202,64 @@ export async function openCleanaSlots(
     settings?.bufferAfterMinutes ?? 0
   );
 
+  // A move of a booking that never opened slots here opens none now either.
+  if (input.replacesBookingId) {
+    const had = await prisma.session.count({
+      where: { therapistId, cleanaBookingId: input.replacesBookingId, status: { not: "canceled" } },
+    });
+    if (had === 0) return { location: null, opened: [], alreadyOpen: [], skipped: [] };
+  }
+
   const location = await resolveBranchLocation(therapistId, input.branch);
   const result: OpenSlotsResult = { location, opened: [], alreadyOpen: [], skipped: [] };
+
+  const window = { start: new Date(input.startsAt), end: new Date(input.endsAt) };
+  // A client's appointment the room (still, or again) covers has a room.
+  const covered = {
+    therapistId,
+    locationId: location.id,
+    status: { in: ["booked", "held"] as ("booked" | "held")[] },
+    startsAt: { gte: window.start },
+    endsAt: { lte: window.end },
+  };
+
+  if (input.replacesBookingId) {
+    const old = input.replacesBookingId;
+    const newlyWithoutRoom = await prisma.$transaction(async (tx) => {
+      await tx.session.updateMany({
+        where: { therapistId, cleanaBookingId: old, OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }] },
+        data: { status: "canceled", cleanaBookingId: null, holdToken: null, holdExpiresAt: null },
+      });
+      await tx.session.updateMany({
+        where: { ...covered, cleanaBookingId: old },
+        data: { cleanaBookingId: input.bookingId, cleanaRoom: input.room, cleanaRoomCanceledAt: null },
+      });
+      // What the new hours left behind (only reachable when the id changed, or
+      // the appointment fell outside them): no room.
+      const left = await tx.session.findMany({
+        where: {
+          therapistId,
+          cleanaBookingId: old,
+          cleanaRoomCanceledAt: null,
+          status: { in: ["booked", "held"] },
+          NOT: { locationId: location.id, startsAt: { gte: window.start }, endsAt: { lte: window.end } },
+        },
+        select: { id: true },
+      });
+      if (left.length > 0) {
+        await tx.session.updateMany({ where: { id: { in: left.map((r) => r.id) } }, data: { cleanaRoomCanceledAt: now } });
+      }
+      return left.map((r) => r.id);
+    });
+    if (newlyWithoutRoom.length > 0) await sendRoomCanceledEmail(therapistId, newlyWithoutRoom);
+  }
+
+  // Marked "no room" earlier, and the room now covers it again (moved back, or
+  // booked afresh and opened by hand): it has a room.
+  await prisma.session.updateMany({
+    where: { ...covered, cleanaBookingId: input.bookingId, cleanaRoomCanceledAt: { not: null } },
+    data: { cleanaRoomCanceledAt: null, cleanaRoom: input.room },
+  });
 
   // Opened by an earlier request for this booking. Checked first: the overlap
   // constraint would otherwise report such a slot as clashing with itself.

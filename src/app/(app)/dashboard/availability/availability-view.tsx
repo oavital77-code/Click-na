@@ -99,7 +99,7 @@ export function AvailabilityView({
     const toIso = zonedDateTimeToUtc(range.to, "00:00", timezone).toISOString();
     fetch(`/api/sessions?from=${fromIso}&to=${toIso}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error("failed"))))
-      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; blockedNote?: string | null; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
+      .then((data: { sessions: { id: string; startsAt: string; endsAt: string; status: string; blockedNote?: string | null; cleanaRoomCanceledAt?: string | null; booking: { clientNameSnapshot: string } | null; location: { id: string; color: string } }[] }) => {
         if (cancelled) return;
         setSessions(
           data.sessions.map((s) => ({
@@ -107,7 +107,9 @@ export function AvailabilityView({
             startsAt: s.startsAt,
             endsAt: s.endsAt,
             status: s.status,
-            clientName: s.booking?.clientNameSnapshot ?? null,
+            clientName: s.booking
+              ? `${s.cleanaRoomCanceledAt ? `⚠ ${m.cleanaLink.noRoom} · ` : ""}${s.booking.clientNameSnapshot}`
+              : null,
             blockedNote: s.blockedNote ?? null,
             locationId: s.location.id,
             locationColor: s.location.color,

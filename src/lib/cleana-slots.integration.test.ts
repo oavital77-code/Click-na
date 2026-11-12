@@ -91,7 +91,7 @@ describe("opening slots from Cleana (against a live database)", () => {
     const sessions = await prisma.session.findMany({ where: { therapistId: alice }, orderBy: { startsAt: "asc" } });
     expect(sessions.map((s) => s.endsAt.getTime() - s.startsAt.getTime())).toEqual([50, 50, 50].map((m) => m * 60_000));
     expect(sessions.every((s) => s.cleanaRoom === "Room 3" && s.status === "open")).toBe(true);
-    const place = await prisma.location.findUniqueOrThrow({ where: { id: result.location.id } });
+    const place = await prisma.location.findUniqueOrThrow({ where: { id: result.location!.id } });
     expect(place).toMatchObject({ address: BRANCH.address, cleanaBranchId: BRANCH.id, type: "clinic" });
   });
 
@@ -110,7 +110,7 @@ describe("opening slots from Cleana (against a live database)", () => {
     const first = await openCleanaSlots(alice, booking());
     expect(first.location).toEqual({ id: own.id, name: "הקליניקה שלי", created: false });
     const second = await openCleanaSlots(alice, booking({ startsAt: at("18:00"), endsAt: at("19:00") }));
-    expect(second.location.id).toBe(own.id);
+    expect(second.location!.id).toBe(own.id);
     expect(await prisma.location.count({ where: { therapistId: alice } })).toBe(1);
   });
 
@@ -253,6 +253,62 @@ describe("opening slots from Cleana (against a live database)", () => {
       await openCleanaSlots(alice, b);
       expect(await closeCleanaSlots(bob, b.bookingId)).toEqual({ closed: 0, noRoom: [] });
       expect(await prisma.session.count({ where: { therapistId: alice, status: "open" } })).toBe(3);
+    });
+  });
+
+  describe("moving a room booking at Cleana", () => {
+    it("keeps a client's appointment that the new hours still cover, without an alarm", async () => {
+      const b = booking({ startsAt: at("12:00"), endsAt: at("13:00") });
+      await openCleanaSlots(alice, b);
+      await clientBooks(alice, at("12:00"));
+
+      const moved = await openCleanaSlots(alice, {
+        ...b,
+        startsAt: at("12:00"),
+        endsAt: at("14:00"),
+        room: "Room 2",
+        replacesBookingId: b.bookingId,
+      });
+      expect(moved.opened).toEqual([at("13:00")]);
+      const appt = await prisma.session.findFirstOrThrow({ where: { therapistId: alice, status: "booked" } });
+      expect(appt).toMatchObject({ cleanaRoomCanceledAt: null, cleanaRoom: "Room 2", cleanaBookingId: b.bookingId });
+      expect(sendEmail).not.toHaveBeenCalled();
+    });
+
+    it("marks an appointment the new hours no longer cover, and closes the old empty slots", async () => {
+      const b = booking(); // 14:00–17:00
+      await openCleanaSlots(alice, b);
+      await clientBooks(alice, at("14:00"));
+
+      const moved = await openCleanaSlots(alice, { ...b, startsAt: at("18:00"), endsAt: at("20:00"), replacesBookingId: b.bookingId });
+      expect(moved.opened).toEqual([at("18:00"), at("19:00")]);
+      const live = await prisma.session.findMany({
+        where: { therapistId: alice, status: { not: "canceled" } },
+        orderBy: { startsAt: "asc" },
+      });
+      expect(live.map((s) => [s.startsAt.toISOString(), s.status, s.cleanaRoomCanceledAt !== null])).toEqual([
+        [at("14:00"), "booked", true],
+        [at("18:00"), "open", false],
+        [at("19:00"), "open", false],
+      ]);
+      expect(sendEmail).toHaveBeenCalledTimes(1);
+    });
+
+    it("gives the room back to an appointment when the booking moves back over it", async () => {
+      const b = booking();
+      await openCleanaSlots(alice, b);
+      await clientBooks(alice, at("14:00"));
+      await openCleanaSlots(alice, { ...b, startsAt: at("18:00"), endsAt: at("20:00"), replacesBookingId: b.bookingId });
+      await openCleanaSlots(alice, { ...b, replacesBookingId: b.bookingId });
+      const appt = await prisma.session.findFirstOrThrow({ where: { therapistId: alice, status: "booked" } });
+      expect(appt.cleanaRoomCanceledAt).toBeNull();
+    });
+
+    it("opens nothing for a booking that never had slots here", async () => {
+      const b = booking();
+      const moved = await openCleanaSlots(alice, { ...b, replacesBookingId: b.bookingId });
+      expect(moved).toEqual({ location: null, opened: [], alreadyOpen: [], skipped: [] });
+      expect(await prisma.session.count({ where: { therapistId: alice } })).toBe(0);
     });
   });
 });

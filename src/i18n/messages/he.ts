@@ -1214,6 +1214,7 @@ export const he: Messages = {
       button: "ליומן שלי",
     },
     heldByClient: "לקוח/ה באמצע קביעה",
+    noRoomNote: "החדר ב-Cleana בוטל. התור עדיין קבוע: כדאי להזיז או לבטל מול הלקוח/ה, או לקבוע חדר מחדש.",
     disconnect: "ניתוק",
   },
 };

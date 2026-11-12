@@ -1233,6 +1233,7 @@ export const en = {
       button: "Open my calendar",
     },
     heldByClient: "A client completing a booking",
+    noRoomNote: "The room at Cleana was cancelled. The appointment stands: move or cancel it with the client, or book a room again.",
     disconnect: "Disconnect",
   },
 };
