@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { LOCATION_TYPES } from "@/lib/onboarding-schema";
-import { DEFAULT_LOCALE, toLocale, type Locale } from "@/i18n/config";
+import { DEFAULT_LOCALE, toLocale, type TherapistLocale } from "@/i18n/config";
 
 /**
  * The places a therapist works from — the part of it a browser may import.
@@ -104,7 +104,7 @@ export function isOnlineLocation(location: { type: string } | null | undefined) 
   return location?.type === "online" || location?.type === "hybrid";
 }
 
-export const DEFAULT_NAMES: Record<Locale, Record<(typeof LOCATION_TYPES)[number], string>> = {
+export const DEFAULT_NAMES: Record<TherapistLocale, Record<(typeof LOCATION_TYPES)[number], string>> = {
   he: { clinic: "הקליניקה", online: "אונליין", client_home: "אצל המטופל", hybrid: "הקליניקה" },
   en: { clinic: "My clinic", online: "Online", client_home: "At the client's", hybrid: "My clinic" },
 };

@@ -79,8 +79,8 @@ export function planPriceIls(env: Record<string, string | undefined> = process.e
 }
 
 /** "89.90 ₪" / "₪89.90" by locale, or null when no price is configured. */
-export function formatPriceIls(amount: number, locale: "en" | "he"): string {
-  return new Intl.NumberFormat(locale === "he" ? "he-IL" : "en-IL", {
+export function formatPriceIls(amount: number, locale: "en" | "he" | "ru" | "ar"): string {
+  return new Intl.NumberFormat(locale === "he" ? "he-IL" : locale === "ru" ? "ru-IL" : locale === "ar" ? "ar-IL-u-nu-latn" : "en-IL", {
     style: "currency",
     currency: "ILS",
     minimumFractionDigits: amount % 1 === 0 ? 0 : 2,

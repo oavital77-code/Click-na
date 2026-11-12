@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale } from "@/i18n";
+import { DEFAULT_LOCALE, dirFor, getMessages, langTag, toLocale, visitorLocale } from "@/i18n";
+import { LanguageSwitcher } from "./language-switcher";
 import { HtmlLangDir, I18nProvider } from "@/i18n/client";
 import { isPublicPractice, resolveSlugRedirect } from "@/lib/profile";
 import { hexToHslTriple } from "@/lib/color";
@@ -50,7 +51,16 @@ export async function bookingMetadata(slug: string, placeSlug: string | null) {
  * several: /book/<slug> asks "where?", and /book/<slug>/<place> — the link a
  * therapist gives the clients of that clinic — skips the question.
  */
-export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug: string | null }) {
+export async function BookingPage({
+  slug,
+  placeSlug,
+  lang,
+}: {
+  slug: string;
+  placeSlug: string | null;
+  /** The language the visitor picked (?lang=). Absent: the practice's own. */
+  lang?: string | string[];
+}) {
   const therapist = await prisma.therapist.findUnique({
     where: { slug },
     include: { settings: true, subscription: true },
@@ -73,9 +83,11 @@ export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug
   }
 
   const { settings } = therapist;
-  // The page speaks the therapist's language to every visitor: it is their
-  // practice's front door, not the viewer's account.
-  const locale = toLocale(therapist.locale);
+  // The page opens in the therapist's language — it is their practice's front
+  // door — and a visitor who reads another one switches with the language
+  // button. What the therapist wrote (headline, description, place names) stays
+  // as written; the mail the client then gets is in the therapist's language.
+  const locale = visitorLocale(lang, toLocale(therapist.locale));
   const m = getMessages(locale);
 
   // Cancelled and run out: the practice has said it is closing, so the door
@@ -115,6 +127,7 @@ export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug
           : undefined
       }
     >
+      <LanguageSwitcher current={locale} label={m.book.language} />
       <div className="flex flex-col items-center gap-1 text-center">
         {settings.brandLogoUrl && (
           // eslint-disable-next-line @next/next/no-img-element -- arbitrary therapist-provided external URL
@@ -129,7 +142,7 @@ export async function BookingPage({ slug, placeSlug }: { slug: string; placeSlug
         </h1>
         <p className="text-muted-foreground text-sm">
           {therapist.professionType && m.labels.profession[therapist.professionType]} ·{" "}
-          {m.common.minutes(settings.defaultDurationMinutes)}
+          {m.common.duration(settings.defaultDurationMinutes)}
         </p>
         {settings.bookingPageDescription && (
           <p className="text-muted-foreground mt-2 text-sm">{settings.bookingPageDescription}</p>

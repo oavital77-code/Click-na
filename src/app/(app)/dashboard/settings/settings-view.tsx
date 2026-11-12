@@ -32,7 +32,7 @@ import {
 import { LocationsCard, type PlaceVideo } from "./locations-card";
 import type { Location } from "@/lib/location-schema";
 import { useI18n } from "@/i18n/client";
-import { LOCALES, type Locale } from "@/i18n/config";
+import { THERAPIST_LOCALES as LOCALES, type Locale } from "@/i18n/config";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
 import { ResetSchedule } from "@/components/reset-schedule";
 

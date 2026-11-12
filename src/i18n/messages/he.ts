@@ -63,7 +63,7 @@ export const he: Messages = {
       "ינואר", "פברואר", "מרץ", "אפריל", "מאי", "יוני",
       "יולי", "אוגוסט", "ספטמבר", "אוקטובר", "נובמבר", "דצמבר",
     ],
-    language: { en: "English", he: "עברית" },
+    language: { en: "English", he: "עברית", ru: "Русский", ar: "العربية" },
     tier: { free: "חינם", plus: "Cleana+", basic: "בסיסי", pro: "מקצועי", business: "עסקי" },
   },
 
@@ -956,6 +956,7 @@ export const he: Messages = {
     onlineBooking: "קביעת תור אונליין",
     privacyNotice: "הפרטים ישמשו רק לתיאום התור הזה: אישור, תזכורת והודעה על שינוי.",
     privacyLink: "מדיניות הפרטיות",
+    language: "Language",
     legalNav: "מידע משפטי",
     terms: "תנאי שימוש",
     accessibility: "הצהרת נגישות",

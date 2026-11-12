@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { LOCALES } from "@/i18n/config";
+import { THERAPIST_LOCALES } from "@/i18n/config";
 
 /**
  * A URL a therapist types in and the app later renders as a link or an image
@@ -21,7 +21,7 @@ export const profileSchema = z.object({
   fullName: z.string().trim().min(2, "validation.nameTooShort").max(255),
   phone: z.string().trim().min(7, "validation.phoneInvalid").max(50),
   professionType: z.enum(PROFESSION_TYPES),
-  locale: z.enum(LOCALES),
+  locale: z.enum(THERAPIST_LOCALES),
   slug: z
     .string()
     .trim()

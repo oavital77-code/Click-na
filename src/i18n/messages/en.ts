@@ -69,7 +69,7 @@ export const en = {
       "January", "February", "March", "April", "May", "June",
       "July", "August", "September", "October", "November", "December",
     ],
-    language: { en: "English", he: "עברית" },
+    language: { en: "English", he: "עברית", ru: "Русский", ar: "العربية" },
     tier: { free: "Free", plus: "Cleana+", basic: "Basic", pro: "Pro", business: "Business" },
   },
 
@@ -968,6 +968,7 @@ export const en = {
     onlineBooking: "Online booking",
     privacyNotice: "Your details are used only to arrange this appointment: the confirmation, a reminder and word of any change.",
     privacyLink: "Privacy policy",
+    language: "Language",
     legalNav: "Legal",
     terms: "Terms of use",
     accessibility: "Accessibility",
