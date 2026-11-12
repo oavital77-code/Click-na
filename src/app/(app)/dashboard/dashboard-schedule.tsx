@@ -32,6 +32,8 @@ type SessionRow = {
   blockedNote: string | null;
   /** The Cleana room this open slot came from. The therapist's eyes only. */
   cleanaRoom?: string | null;
+  /** Its room at Cleana was cancelled under a booked client. */
+  noRoom?: boolean;
   locationId: string;
   locationColor: string;
 };
@@ -43,6 +45,7 @@ type RawSession = {
   status: string;
   blockedNote?: string | null;
   cleanaRoom?: string | null;
+  cleanaRoomCanceledAt?: string | null;
   booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null;
   location: { id: string; name: string; color: string };
 };
@@ -158,6 +161,7 @@ export function DashboardSchedule({
             clientPhone: s.booking?.clientPhoneSnapshot ?? null,
             blockedNote: s.blockedNote ?? null,
             cleanaRoom: s.cleanaRoom ?? null,
+            noRoom: !!s.cleanaRoomCanceledAt,
             locationId: s.location.id,
             locationColor: s.location.color,
           }))
@@ -689,6 +693,7 @@ export function SlotCell({
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
   const statusLabel = s.status[session.status as keyof typeof s.status] ?? session.status;
   const chipLabel =
+    (session.noRoom && session.clientName ? `⚠ ${m.cleanaLink.noRoom} · ${session.clientName}` : null) ??
     session.clientName ??
     session.blockedNote ??
     (session.status === "open" && session.cleanaRoom ? m.cleanaLink.slotLabel(statusLabel, session.cleanaRoom) : statusLabel);

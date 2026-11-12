@@ -1202,6 +1202,15 @@ export const he: Messages = {
     notConnected: "לא מחובר. מתחברים מהכרטיס האישי ב-Cleana.",
     slotLabel: (status, room) => `${status} · בקליניקה ${room}`,
     slotSub: (room) => `נפתח מ-Cleana · בקליניקה ${room}`,
+    noRoom: "אין חדר",
+    noRoomEmail: {
+      subject: (n) => (n === 1 ? "לתור אחד כבר אין חדר" : `ל-${n} תורים כבר אין חדר`),
+      title: "החדר בוטל ב-Cleana",
+      lead: (room) => `החדר ${room} ב-Cleana בוטל, אבל יש בו לקוחות שקבעו כאן:`,
+      action: "התורים לא בוטלו. כדאי ליצור קשר עם כל לקוח/ה כדי להזיז או לבטל, או לקבוע חדר מחדש ב-Cleana.",
+      button: "ליומן שלי",
+    },
+    heldByClient: "לקוח/ה באמצע קביעה",
     disconnect: "ניתוק",
   },
 };

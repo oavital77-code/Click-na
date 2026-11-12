@@ -89,6 +89,8 @@ enum NotificationType {
   trial_reminder
   // Where their application for card payments stands.
   payment_setup
+  // A room booked at Cleana was cancelled under a client's appointment here.
+  room_canceled
 }
 
 enum NotificationChannel {
@@ -448,6 +450,10 @@ model Session {
   cleanaBookingId     String?       @map("cleana_booking_id") @db.Uuid
   /// The room at Cleana ("Room 3"). Shown to the therapist only, never to a client.
   cleanaRoom          String?       @map("cleana_room") @db.VarChar(80)
+  /// The room at Cleana was cancelled while a client was booked here. The
+  /// appointment stays (the therapist decides what to tell the client), is
+  /// shown as "no room", and never reopens to new clients.
+  cleanaRoomCanceledAt DateTime?    @map("cleana_room_canceled_at") @db.Timestamptz
   createdAt           DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt           DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 

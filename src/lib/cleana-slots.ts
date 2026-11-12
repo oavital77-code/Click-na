@@ -2,6 +2,10 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { LOCATION_COLORS, slugForName } from "@/lib/locations";
 import { isExclusionViolation, isUniqueViolation } from "@/lib/prisma-errors";
+import { sendEmail } from "@/lib/email";
+import { roomCanceledEmail } from "@/lib/email-templates";
+import { appUrl } from "@/lib/public-url";
+import { getMessages, toLocale } from "@/i18n";
 
 /**
  * A room the therapist booked at Cleana opens matching slots here (the link is
@@ -214,4 +218,118 @@ export async function openCleanaSlots(
   }
 
   return result;
+}
+
+/**
+ * The slots of a Cleana booking that a client holds or has booked — what the
+ * therapist is warned about before cancelling the room there. Times only:
+ * Cleana never learns who the clients are.
+ */
+export async function bookedCleanaSlots(therapistId: string, bookingId: string, now: Date = new Date()) {
+  const rows = await prisma.session.findMany({
+    where: {
+      therapistId,
+      cleanaBookingId: bookingId,
+      OR: [{ status: "booked" }, { status: "held", holdExpiresAt: { gte: now } }],
+    },
+    select: { startsAt: true },
+    orderBy: { startsAt: "asc" },
+  });
+  return rows.map((r) => r.startsAt.toISOString());
+}
+
+export type CloseSlotsResult = { closed: number; noRoom: string[] };
+
+/**
+ * The room at Cleana was cancelled (or moved). Its empty slots close; an
+ * appointment a client already made is kept but marked "no room", never
+ * reopens, and the therapist gets an email to sort it out with the client.
+ * Safe to repeat: a second call finds nothing left to close and no one new
+ * to mark, so it sends nothing.
+ */
+export async function closeCleanaSlots(
+  therapistId: string,
+  bookingId: string,
+  now: Date = new Date()
+): Promise<CloseSlotsResult> {
+  const { closed, flagged } = await prisma.$transaction(async (tx) => {
+    const closedRows = await tx.session.updateMany({
+      where: {
+        therapistId,
+        cleanaBookingId: bookingId,
+        OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: now } }],
+      },
+      // Unlinked, so the same hours can be opened again if the room is booked again.
+      data: { status: "canceled", cleanaBookingId: null, holdToken: null, holdExpiresAt: null },
+    });
+    const toFlag = await tx.session.findMany({
+      where: {
+        therapistId,
+        cleanaBookingId: bookingId,
+        cleanaRoomCanceledAt: null,
+        status: { in: ["booked", "held"] },
+      },
+      select: { id: true },
+    });
+    if (toFlag.length > 0) {
+      await tx.session.updateMany({
+        where: { id: { in: toFlag.map((r) => r.id) } },
+        data: { cleanaRoomCanceledAt: now },
+      });
+    }
+    return { closed: closedRows.count, flagged: toFlag.map((r) => r.id) };
+  });
+
+  const noRoom = await prisma.session.findMany({
+    where: { therapistId, cleanaBookingId: bookingId, cleanaRoomCanceledAt: { not: null }, status: { in: ["booked", "held"] } },
+    select: { startsAt: true },
+    orderBy: { startsAt: "asc" },
+  });
+
+  if (flagged.length > 0) await sendRoomCanceledEmail(therapistId, flagged);
+
+  return { closed, noRoom: noRoom.map((r) => r.startsAt.toISOString()) };
+}
+
+async function sendRoomCanceledEmail(therapistId: string, sessionIds: string[]) {
+  try {
+    const therapist = await prisma.therapist.findUnique({ where: { id: therapistId } });
+    if (!therapist) return;
+    const sessions = await prisma.session.findMany({
+      where: { id: { in: sessionIds } },
+      select: { startsAt: true, cleanaRoom: true, booking: { select: { id: true, clientNameSnapshot: true } } },
+      orderBy: { startsAt: "asc" },
+    });
+    const locale = toLocale(therapist.locale);
+    const { subject, html } = roomCanceledEmail({
+      locale,
+      timezone: therapist.timezone,
+      room: sessions[0]?.cleanaRoom ?? "",
+      appointments: sessions.map((s) => ({
+        startsAt: s.startsAt,
+        clientName: s.booking?.clientNameSnapshot ?? getMessages(locale).cleanaLink.heldByClient,
+      })),
+      calendarUrl: `${appUrl()}/dashboard`,
+    });
+    const notification = await prisma.notification.create({
+      data: {
+        therapistId,
+        bookingId: sessions.length === 1 ? (sessions[0].booking?.id ?? null) : null,
+        type: "room_canceled",
+        channel: "email",
+        recipient: therapist.email,
+        status: "pending",
+      },
+    });
+    const result = await sendEmail({ to: therapist.email, subject, html });
+    await prisma.notification.update({
+      where: { id: notification.id },
+      data: result.ok
+        ? { status: "sent", sentAt: new Date(), attempts: { increment: 1 } }
+        : { status: "failed", errorMessage: result.error, attempts: { increment: 1 } },
+    });
+  } catch (error) {
+    // The calendar already shows "no room"; a failed email must not fail the close.
+    console.error("[cleana-slots] room-canceled email failed", { therapistId, error });
+  }
 }

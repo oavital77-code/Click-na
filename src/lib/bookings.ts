@@ -224,15 +224,23 @@ export type CancelResult =
  * booking per session) nor deleted (the booking points at it).
  */
 async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
+  const before = await tx.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    select: { cleanaBookingId: true, cleanaRoom: true, cleanaRoomCanceledAt: true },
+  });
   const old = await tx.session.update({
     where: { id: sessionId },
-    data: { status: "canceled", holdToken: null, holdExpiresAt: null },
+    // A slot opened from a Cleana room hands its link to the slot that replaces
+    // it (one live slot per room hour), so a later cancellation at Cleana finds it.
+    data: { status: "canceled", holdToken: null, holdExpiresAt: null, cleanaBookingId: null },
     include: { location: { select: { archivedAt: true } }, generatedFromRule: { select: { isActive: true } } },
   });
   // The hour comes back only where the therapist still offers it: not at a
-  // place since archived, not from a weekly rule since switched off.
+  // place since archived, not from a weekly rule since switched off, and not
+  // in a room at Cleana that has since been cancelled.
   if (old.location.archivedAt !== null) return;
   if (old.generatedFromRule && !old.generatedFromRule.isActive) return;
+  if (before.cleanaRoomCanceledAt) return;
   await tx.session.create({
     data: {
       therapistId: old.therapistId,
@@ -240,6 +248,8 @@ async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
       endsAt: old.endsAt,
       locationId: old.locationId,
       generatedFromRuleId: old.generatedFromRuleId,
+      cleanaBookingId: before.cleanaBookingId,
+      cleanaRoom: before.cleanaRoom,
       status: "open",
     },
   });
@@ -415,7 +425,15 @@ export async function rescheduleBookingByClient(
         throw new SlotUnavailableError();
       }
 
-      await tx.session.update({ where: { id: booking.sessionId }, data: { status: "open" } });
+      // The hour left behind opens again — unless its room at Cleana was cancelled.
+      await tx.session.updateMany({
+        where: { id: booking.sessionId, cleanaRoomCanceledAt: null },
+        data: { status: "open" },
+      });
+      await tx.session.updateMany({
+        where: { id: booking.sessionId, cleanaRoomCanceledAt: { not: null } },
+        data: { status: "canceled" },
+      });
       await tx.booking.update({ where: { id: booking.id }, data: { sessionId: newSessionId } });
     });
   } catch (error) {

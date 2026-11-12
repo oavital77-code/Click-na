@@ -1220,6 +1220,15 @@ export const en = {
     notConnected: "Not connected. Connect from your profile in Cleana.",
     slotLabel: (status: string, room: string) => `${status} · Baclinica ${room}`,
     slotSub: (room: string) => `Opened from Cleana · Baclinica ${room}`,
+    noRoom: "No room",
+    noRoomEmail: {
+      subject: (n: number) => (n === 1 ? "An appointment no longer has a room" : `${n} appointments no longer have a room`),
+      title: "The room was cancelled at Cleana",
+      lead: (room: string) => `${room} at Cleana was cancelled, but clients are booked in it here:`,
+      action: "The appointments were not cancelled. Contact each client to move or cancel, or book a room again at Cleana.",
+      button: "Open my calendar",
+    },
+    heldByClient: "A client completing a booking",
     disconnect: "Disconnect",
   },
 };

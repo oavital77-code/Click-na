@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { therapistForCleanaToken } from "@/lib/cleana-link";
-import { openCleanaSlots, openSlotsSchema } from "@/lib/cleana-slots";
+import { bookedCleanaSlots, openCleanaSlots, openSlotsSchema } from "@/lib/cleana-slots";
+import { z } from "zod";
 import { writeBlocked } from "@/lib/require-access";
 import { appUrl } from "@/lib/public-url";
 
@@ -23,6 +24,23 @@ export async function POST(request: NextRequest) {
   const result = await openCleanaSlots(therapistId, parsed.data);
   return NextResponse.json(
     { ...result, calendarUrl: `${appUrl()}/dashboard` },
+    { headers: { "cache-control": "no-store" } }
+  );
+}
+
+/**
+ * Before a room is cancelled at Cleana: which of its slots a client has
+ * booked here. Times only, never who — the warning there needs no more.
+ */
+export async function GET(request: NextRequest) {
+  const therapistId = await therapistForCleanaToken(request.headers.get("authorization"));
+  if (!therapistId) return NextResponse.json({ error: "invalid_token" }, { status: 401 });
+
+  const bookingId = z.string().uuid().safeParse(request.nextUrl.searchParams.get("bookingId"));
+  if (!bookingId.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
+
+  return NextResponse.json(
+    { booked: await bookedCleanaSlots(therapistId, bookingId.data) },
     { headers: { "cache-control": "no-store" } }
   );
 }
