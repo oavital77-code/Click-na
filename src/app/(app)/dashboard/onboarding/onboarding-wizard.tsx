@@ -42,9 +42,11 @@ type Props = {
   initialFullName: string;
   initialPhone: string;
   initialSlug: string;
+  /** Arrived from Cleana's consent page: go back there once set up. */
+  returnTo?: string | null;
 };
 
-export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone, initialSlug }: Props) {
+export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone, initialSlug, returnTo }: Props) {
   const router = useRouter();
   const { m, issue } = useI18n();
   const [step, setStep] = useState(1);
@@ -159,7 +161,9 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
         }
       }
       // Working online: straight on to connecting the way they chose, in Add-ons.
-      router.push(worksOnline && videoMethod ? `/dashboard/addons?video=${videoMethod}#video` : "/dashboard");
+      router.push(
+        returnTo ?? (worksOnline && videoMethod ? `/dashboard/addons?video=${videoMethod}#video` : "/dashboard")
+      );
       router.refresh();
     } catch {
       setSubmitError(m.common.networkError);

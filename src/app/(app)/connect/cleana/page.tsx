@@ -19,7 +19,11 @@ export default async function ConnectCleanaPage({ searchParams }: PageProps<"/co
     const back = `/connect/cleana${validState(state) ? `?state=${state}` : ""}`;
     redirect(`/login?redirect_url=${encodeURIComponent(back)}`);
   }
-  if (!therapist.onboardingCompleted) redirect("/dashboard/onboarding");
+  if (!therapist.onboardingCompleted) {
+    // New to Cleana+: set up first, then straight back here to approve.
+    const next = validState(state) ? `?next=${encodeURIComponent(`/connect/cleana?state=${state}`)}` : "";
+    redirect(`/dashboard/onboarding${next}`);
+  }
 
   const m = getMessages(toLocale(therapist.locale)).cleanaLink;
   const problem = !cleanaLinkConfigured() ? m.notConfigured : !validState(state) ? m.invalidRequest : null;
