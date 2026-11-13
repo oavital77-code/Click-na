@@ -214,10 +214,15 @@ export function TimeGrid<T extends GridItem>({
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
-    // Back to the layout React draws; it now draws the snapped slot.
-    e.currentTarget.style.transform = "";
-    e.currentTarget.style.top = "";
-    e.currentTarget.style.height = "";
+    // Put the slot where it lands, explicitly. Clearing the styles and leaving it to React is not enough:
+    // React re-applies only the values that changed, so a slot stretched from its bottom (same top) was
+    // left with no top at all and fell to the foot of the day.
+    const landed = d.moved && live ? live : d.from;
+    const box = place(landed.start, landed.end, startHour, hourHeight);
+    const el = e.currentTarget;
+    el.style.transform = "";
+    el.style.top = `${box.top + 1}px`;
+    el.style.height = `${box.height - 2}px`;
     if (d.moved && live && pending) setPending({ dateKey: pending.dateKey, ...live });
     setLive(null);
   }
