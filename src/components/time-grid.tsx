@@ -15,6 +15,8 @@ export type EmptySlotOptions = {
   bufferMinutes: number;
   /** What a screen reader hears for "open a slot on this day". */
   label: (dateKey: string) => string;
+  /** Said on the mouse preview where a whole session does not fit. */
+  noRoomShort: string;
   /** The popover for a new slot at `time`; `fits` is false when a whole session does not fit there. */
   content: (args: { dateKey: string; time: string; fits: boolean; close: () => void }) => ReactNode;
 };
@@ -56,6 +58,8 @@ export function TimeGrid<T extends GridItem>({
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [pending, setPending] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
+  // With a mouse: where a click would open a slot, shown before the click.
+  const [hover, setHover] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
   const [nowMinutes, setNowMinutes] = useState<number | null>(null);
 
   // Where "now" is, minute by minute, on today's column.
@@ -102,6 +106,19 @@ export function TimeGrid<T extends GridItem>({
     return (byDay.get(dateKey) ?? []).map(({ item, start, end }) => ({ id: item.id, start, end }));
   }
 
+  function proposalAt(dateKey: string, e: MouseEvent<HTMLButtonElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const tapped = startHour * 60 + ((e.clientY - rect.top) / hourHeight) * 60;
+    return { dateKey, ...proposeStart(dayItems(dateKey), tapped, empty!.durationMinutes, empty!.bufferMinutes) };
+  }
+
+  function onEmptyHover(dateKey: string, e: MouseEvent<HTMLButtonElement>) {
+    // Mouse only: a finger has no hover, and its emulated move would flash a preview before the tap.
+    if (!empty || (e.nativeEvent as PointerEvent).pointerType === "touch") return;
+    const next = proposalAt(dateKey, e);
+    setHover((prev) => (prev && prev.dateKey === next.dateKey && prev.start === next.start && prev.fits === next.fits ? prev : next));
+  }
+
   function onEmptyClick(dateKey: string, e: MouseEvent<HTMLButtonElement>) {
     if (!empty) return;
     const list = dayItems(dateKey);
@@ -112,9 +129,8 @@ export function TimeGrid<T extends GridItem>({
       setPending({ dateKey, start: start ?? from, fits: start !== null });
       return;
     }
-    const rect = e.currentTarget.getBoundingClientRect();
-    const tapped = startHour * 60 + ((e.clientY - rect.top) / hourHeight) * 60;
-    setPending({ dateKey, ...proposeStart(list, tapped, empty.durationMinutes, empty.bufferMinutes) });
+    setHover(null);
+    setPending(proposalAt(dateKey, e));
   }
 
   return (
@@ -174,6 +190,8 @@ export function TimeGrid<T extends GridItem>({
                       type="button"
                       aria-label={empty.label(dateKey)}
                       onClick={(e) => onEmptyClick(dateKey, e)}
+                      onPointerMove={(e) => onEmptyHover(dateKey, e)}
+                      onPointerLeave={() => setHover(null)}
                       className="focus-visible:ring-primary absolute inset-0 cursor-copy focus-visible:ring-2 focus-visible:outline-none"
                     />
                   )}
@@ -194,6 +212,26 @@ export function TimeGrid<T extends GridItem>({
                       style={{ top: ((nowMinutes - startHour * 60) / 60) * hourHeight }}
                     >
                       <span className="bg-primary absolute -top-1 -start-1 size-2.5 rounded-full" />
+                    </div>
+                  )}
+
+                  {/* The slot a click here would open: lit up under the mouse, before any click. */}
+                  {hover?.dateKey === dateKey && !ghost && empty && (
+                    <div
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-x-1 z-10 flex items-center justify-center rounded-[10px] border-2 border-dashed text-xs font-bold",
+                        hover.fits ? "border-primary/70 bg-primary/10 text-primary" : "border-muted-foreground/40 bg-muted/60 text-muted-foreground"
+                      )}
+                      style={(() => {
+                        const box = place(hover.start, hover.start + empty.durationMinutes, startHour, hourHeight);
+                        return { top: box.top + 1, height: box.height - 2 };
+                      })()}
+                    >
+                      <span dir="ltr">
+                        {hover.fits ? `+ ${toTime(hover.start)}–${toTime(hover.start + empty.durationMinutes)}` : toTime(hover.start)}
+                      </span>
+                      {!hover.fits && <span className="ms-1">· {empty.noRoomShort}</span>}
                     </div>
                   )}
 

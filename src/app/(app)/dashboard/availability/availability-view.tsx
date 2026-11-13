@@ -344,6 +344,7 @@ export function AvailabilityView({
                 empty={{
                   durationMinutes: defaultDurationMinutes,
                   bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
+                  noRoomShort: m.dashboard.schedule.noRoomShort,
                   label: (dateKey) => m.dashboard.schedule.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
                   content: ({ dateKey, time, fits, close }) => (
                     <NewSlotForm

@@ -336,6 +336,7 @@ export function DashboardSchedule({
   const emptySlot = {
     durationMinutes: defaultDurationMinutes,
     bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
+    noRoomShort: m.dashboard.schedule.noRoomShort,
     label: (dateKey: string) => s.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
     content: ({ dateKey, time, fits, close }: { dateKey: string; time: string; fits: boolean; close: () => void }) => (
       <NewSlotForm

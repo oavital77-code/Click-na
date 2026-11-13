@@ -850,6 +850,7 @@ export const he: Messages = {
       openSlotOnDay: (day: string) => `פתיחת שעה ב-${day}`,
       noRoom: "אין כאן מקום לטיפול שלם לפני התור הבא. אפשר לבחור זמן אחר.",
       blockHere: "או לחסום את הזמן הזה (לא יוצע ללקוחות):",
+      noRoomShort: "אין מקום לטיפול שלם",
       noSlotHere: "אין כאן שעה פתוחה",
       openSlotHint: "שעה פתוחה, עוד לא נקבע בה תור",
       blockedSlotHint: "אפשר להוסיף הערה או לפתוח את השעה מחדש",
