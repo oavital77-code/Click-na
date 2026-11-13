@@ -16,6 +16,8 @@ export type ItemInfo = {
   compact: boolean;
   /** It has started already: an open slot then can no longer be booked. */
   past: boolean;
+  /** Milliseconds from now until it starts; null until the page knows the time. */
+  msUntilStart: number | null;
 };
 
 export type EmptySlotOptions = {
@@ -74,6 +76,7 @@ export function TimeGrid<T extends GridItem>({
   // With a mouse: where a click would open a slot, shown before the click.
   const [hover, setHover] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
   const [nowMinutes, setNowMinutes] = useState<number | null>(null);
+  const [nowMs, setNowMs] = useState<number | null>(null);
   // Dragging the new slot: where it is now, on the half hour, while the finger or mouse is down.
   const [live, setLive] = useState<{ start: number; end: number; fits: boolean } | null>(null);
   const ghostRef = useRef<HTMLButtonElement>(null);
@@ -100,7 +103,11 @@ export function TimeGrid<T extends GridItem>({
 
   // Where "now" is, minute by minute, on today's column.
   useEffect(() => {
-    const tick = () => setNowMinutes(toMinutes(formatInTimeZone(new Date(), timezone, "HH:mm")));
+    const tick = () => {
+      const now = new Date();
+      setNowMinutes(toMinutes(formatInTimeZone(now, timezone, "HH:mm")));
+      setNowMs(now.getTime());
+    };
     tick();
     const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
@@ -306,6 +313,7 @@ export function TimeGrid<T extends GridItem>({
                           end: toTime(Math.min(end, 24 * 60 - 1)),
                           compact: box.height < 36,
                           past: dateKey < today || (dateKey === today && nowMinutes !== null && start <= nowMinutes),
+                          msUntilStart: nowMs === null ? null : new Date(item.startsAt).getTime() - nowMs,
                         })}
                       </div>
                     );

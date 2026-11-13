@@ -871,6 +871,10 @@ export const en = {
       dragHint: "Drag ↕",
       noSlotHere: "No open slot here",
       openSlotHint: "An open slot, not booked yet",
+      tooSoon: "Open · not on booking page",
+      tooSoonHint: (hours: number) =>
+        `Clients don't see this slot on your booking page: it starts in less than ${hours} hours, the minimum notice you set. You can book a client into it yourself, or lower the minimum in Settings.`,
+      tooSoonSettings: "Settings",
       blockedSlotHint: "Add a label, or reopen it",
       deleteQuestion: "Delete this slot?",
       yesDelete: "Yes, delete",

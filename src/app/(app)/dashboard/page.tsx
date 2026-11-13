@@ -257,6 +257,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
             timezone={tz}
             today={todayStr}
             defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 60}
+            minNoticeHours={therapist.settings?.minNoticeHours ?? 0}
             gridStepMinutes={
               (therapist.settings?.defaultDurationMinutes ?? 60) +
               (therapist.settings?.bufferBeforeMinutes ?? 0) +

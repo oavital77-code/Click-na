@@ -62,6 +62,8 @@ type Props = {
   defaultDurationMinutes: number;
   /** Session plus the breaks around it: how far apart generated slots start. Rows follow it. */
   gridStepMinutes?: number;
+  /** The practice's minimum notice: open time sooner than this is not on the booking page. */
+  minNoticeHours?: number;
   locations: PlaceOption[];
   sessions: SessionRow[];
 };
@@ -94,6 +96,7 @@ export function DashboardSchedule({
   today,
   defaultDurationMinutes,
   gridStepMinutes,
+  minNoticeHours = 0,
   locations,
   sessions: initialSessions,
 }: Props) {
@@ -382,6 +385,7 @@ export function DashboardSchedule({
       onDeleteSlot={handleDeleteSlot}
       showPlace={manyPlaces}
       timezone={timezone}
+      minNoticeHours={minNoticeHours}
     />
   );
   const dayHeader = (dateKey: string) => {
@@ -719,9 +723,12 @@ export function SlotCell({
   onDeleteSlot,
   showPlace,
   timezone = "Asia/Jerusalem",
+  minNoticeHours = 0,
 }: {
   session: SessionRow;
   info: ItemInfo;
+  /** Clients are not offered a slot that starts sooner than this; such a slot says so. */
+  minNoticeHours?: number;
   /** The therapist's timezone: which calendar day the slot is on, for changing its time. */
   timezone?: string;
   onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
@@ -753,12 +760,17 @@ export function SlotCell({
   );
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
+  // Open, but inside the minimum notice: the booking page leaves it out. Said
+  // here, or the therapist opens an hour for this evening and wonders where it went.
+  const tooSoon =
+    session.status === "open" && !info.past && info.msUntilStart !== null && info.msUntilStart < minNoticeHours * 60 * 60 * 1000;
   const statusLabel = s.status[session.status as keyof typeof s.status] ?? session.status;
   const chipLabel =
     (session.noRoom && session.clientName ? `⚠ ${m.cleanaLink.noRoom} · ${session.clientName}` : null) ??
     session.clientName ??
     session.blockedNote ??
-    (session.status === "open" && session.cleanaRoom ? m.cleanaLink.slotLabel(statusLabel, session.cleanaRoom) : statusLabel);
+    (session.status === "open" && session.cleanaRoom ? m.cleanaLink.slotLabel(statusLabel, session.cleanaRoom) : null) ??
+    (tooSoon ? s.tooSoon : statusLabel);
   const hoverDetails = isBookedOrHeld
     ? [session.clientName, session.clientPhone, `${info.start}–${info.end}`].filter(Boolean).join(" · ")
     : undefined;
@@ -823,7 +835,7 @@ export function SlotCell({
           }
         }}
         trigger={
-          <button type="button" className={blockClass("open")}>
+          <button type="button" className={cn(blockClass("open"), tooSoon && "opacity-60")}>
             {label}
           </button>
         }
@@ -834,6 +846,14 @@ export function SlotCell({
         <p className="text-muted-foreground mb-2 text-xs">
           {fromCleana ? m.cleanaLink.slotSub(session.cleanaRoom!) : s.openSlotHint}
         </p>
+        {tooSoon && (
+          <p className="text-foreground mb-2 text-xs font-medium">
+            {s.tooSoonHint(minNoticeHours)}{" "}
+            <Link href="/dashboard/settings" className="text-primary underline underline-offset-2">
+              {s.tooSoonSettings}
+            </Link>
+          </p>
+        )}
         {mode === "menu" && (
           <div className="flex flex-col gap-1.5">
             <Button type="button" size="sm" className="w-full" onClick={() => setMode("book")}>

@@ -69,6 +69,7 @@ export default async function AvailabilityPage() {
         timezone={therapist.timezone}
         initialWeekStart={weekStart}
         defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 60}
+        minNoticeHours={therapist.settings?.minNoticeHours ?? 0}
         gridStepMinutes={
           (therapist.settings?.defaultDurationMinutes ?? 60) +
           (therapist.settings?.bufferBeforeMinutes ?? 0) +

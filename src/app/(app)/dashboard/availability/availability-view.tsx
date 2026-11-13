@@ -38,6 +38,8 @@ type Props = {
   timezone: string;
   initialWeekStart: string;
   defaultDurationMinutes: number;
+  /** The practice's minimum notice: open time sooner than this is not on the booking page. */
+  minNoticeHours?: number;
   /** Session plus the breaks around it: how far apart generated slots start. Rows follow it. */
   gridStepMinutes?: number;
   locations: PlaceOption[];
@@ -50,6 +52,7 @@ export function AvailabilityView({
   timezone,
   initialWeekStart,
   defaultDurationMinutes,
+  minNoticeHours = 0,
   gridStepMinutes,
   locations,
   initialSessions,
@@ -355,6 +358,7 @@ export function AvailabilityView({
                     onDeleteSlot={deleteSlot}
                     showPlace={manyPlaces}
                     timezone={timezone}
+                    minNoticeHours={minNoticeHours}
                   />
                 )}
                 empty={{
