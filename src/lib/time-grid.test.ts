@@ -30,8 +30,9 @@ describe("where a tap on empty time opens a slot", () => {
     expect(proposeStart(day, h(10, 45), 45, 10)).toEqual({ start: h(10, 50), fits: true });
   });
 
-  it("snaps to the quarter hour on a free stretch", () => {
-    expect(proposeStart(day, h(14, 22), 45, 10)).toEqual({ start: h(14, 15), fits: true });
+  it("snaps to the half hour on a free stretch", () => {
+    expect(proposeStart(day, h(14, 22), 45, 10)).toEqual({ start: h(14, 0), fits: true });
+    expect(proposeStart(day, h(14, 52), 60, 0)).toEqual({ start: h(14, 30), fits: true });
   });
 
   it("says when a whole session does not fit before the next one", () => {

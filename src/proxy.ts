@@ -2,6 +2,22 @@ import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server
 import { clerkMiddleware } from "@clerk/nextjs/server";
 import { createNonce, isPublicPath, publicCsp } from "@/lib/csp";
 
+/**
+ * The one foreign origin a form here may end up on: approving the link to
+ * Cleana (/connect/cleana) posts to our own route, which redirects the browser
+ * to Cleana's fixed return URL. Browsers apply form-action to the redirect too,
+ * so without this the approve button silently does nothing. Read from the same
+ * variable the route uses — never from the request — and reduced to an origin.
+ */
+function cleanaReturnOrigin(): string[] {
+  try {
+    const url = new URL(process.env.CLEANA_RETURN_URL ?? "");
+    return url.protocol === "https:" || url.hostname === "localhost" ? [url.origin] : [];
+  } catch {
+    return [];
+  }
+}
+
 // Only enables auth() / auth.protect() for server components and route handlers.
 // Actual protection happens per-route (e.g. src/app/dashboard/layout.tsx) —
 // path-matching-based protection here is deprecated by Clerk in favor of
@@ -42,6 +58,9 @@ const withClerk = clerkMiddleware({
       // "self", not "none": /dashboard/link previews the booking page in an
       // iframe on this origin. Third-party framing stays blocked.
       "frame-ancestors": ["self"],
+
+      // Merged with Clerk's 'self'. See cleanaReturnOrigin above.
+      "form-action": cleanaReturnOrigin(),
     },
   },
 });

@@ -15,12 +15,35 @@ export const PROFESSION_TYPES = [
 export const LOCATION_TYPES = ["clinic", "online", "client_home", "hybrid"] as const;
 
 // Spec 8.3 / 7.1 step 3.
-export const DURATION_OPTIONS = [30, 45, 50, 60, 90] as const;
-/** The rest between two sessions. 10 by default: a 50-minute session then starts on the hour. */
-export const BREAK_OPTIONS = [0, 5, 10, 15, 20, 30] as const;
-export const DEFAULT_BREAK_MINUTES = 10;
+// Everything here runs on the half hour: a session is half an hour, an hour,
+// an hour and a half or two; the rest between two is none or half an hour;
+// and a slot starts on :00 or :30. No quarters, no 50-minute hours.
+export const DURATION_OPTIONS = [30, 60, 90, 120] as const;
+export const BREAK_OPTIONS = [0, 30] as const;
+export const DEFAULT_BREAK_MINUTES = 0;
+/** The step of every start time, in minutes. */
+export const TIME_STEP_MINUTES = 30;
 
-const timeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "validation.timeInvalid");
+// What could be chosen before the move to half hours. Still accepted where an
+// existing account re-saves what it already has, never offered to choose.
+const LEGACY_DURATIONS = [45, 50];
+const LEGACY_BREAKS = [5, 10, 15, 20];
+
+export function isAllowedDuration(minutes: number) {
+  return (DURATION_OPTIONS as readonly number[]).includes(minutes) || LEGACY_DURATIONS.includes(minutes);
+}
+export function isAllowedBreak(minutes: number) {
+  return (BREAK_OPTIONS as readonly number[]).includes(minutes) || LEGACY_BREAKS.includes(minutes);
+}
+/** The choices to show: the current ones, plus the account's own value if it predates them. */
+export function optionsWith<T extends number>(options: readonly T[], current: number): number[] {
+  return (options as readonly number[]).includes(current) ? [...options] : [...options, current].sort((a, b) => a - b);
+}
+
+/** "HH:MM" on the half hour. */
+export const halfHourTimeSchema = z.string().regex(/^([01]\d|2[0-3]):(00|30)$/, "validation.timeOnHalfHour");
+
+const timeSchema = halfHourTimeSchema;
 
 export const onboardingSchema = z
   .object({

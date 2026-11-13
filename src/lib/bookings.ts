@@ -224,15 +224,23 @@ export type CancelResult =
  * booking per session) nor deleted (the booking points at it).
  */
 async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
+  const before = await tx.session.findUniqueOrThrow({
+    where: { id: sessionId },
+    select: { cleanaBookingId: true, cleanaRoom: true, cleanaRoomCanceledAt: true },
+  });
   const old = await tx.session.update({
     where: { id: sessionId },
-    data: { status: "canceled", holdToken: null, holdExpiresAt: null },
+    // A slot opened from a Cleana room hands its link to the slot that replaces
+    // it (one live slot per room hour), so a later cancellation at Cleana finds it.
+    data: { status: "canceled", holdToken: null, holdExpiresAt: null, cleanaBookingId: null },
     include: { location: { select: { archivedAt: true } }, generatedFromRule: { select: { isActive: true } } },
   });
   // The hour comes back only where the therapist still offers it: not at a
-  // place since archived, not from a weekly rule since switched off.
+  // place since archived, not from a weekly rule since switched off, and not
+  // in a room at Cleana that has since been cancelled.
   if (old.location.archivedAt !== null) return;
   if (old.generatedFromRule && !old.generatedFromRule.isActive) return;
+  if (before.cleanaRoomCanceledAt) return;
   await tx.session.create({
     data: {
       therapistId: old.therapistId,
@@ -240,6 +248,8 @@ async function releaseSlot(tx: Prisma.TransactionClient, sessionId: string) {
       endsAt: old.endsAt,
       locationId: old.locationId,
       generatedFromRuleId: old.generatedFromRuleId,
+      cleanaBookingId: before.cleanaBookingId,
+      cleanaRoom: before.cleanaRoom,
       status: "open",
     },
   });
@@ -415,7 +425,17 @@ export async function rescheduleBookingByClient(
         throw new SlotUnavailableError();
       }
 
-      await tx.session.update({ where: { id: booking.sessionId }, data: { status: "open" } });
+      // The hour left behind opens again — unless its room at Cleana was cancelled.
+      await tx.session.updateMany({
+        where: { id: booking.sessionId, cleanaRoomCanceledAt: null },
+        data: { status: "open" },
+      });
+      await tx.session.updateMany({
+        where: { id: booking.sessionId, cleanaRoomCanceledAt: { not: null } },
+        // Unlinked from the room booking: a canceled row that kept the link would
+        // make the same hour look "already open" if that room is opened again.
+        data: { status: "canceled", cleanaBookingId: null },
+      });
       await tx.booking.update({ where: { id: booking.id }, data: { sessionId: newSessionId } });
     });
   } catch (error) {
@@ -427,4 +447,121 @@ export async function rescheduleBookingByClient(
   }
 
   return { ok: true, bookingId: booking.id, startsAt: newSession.startsAt, endsAt: newSession.endsAt };
+}
+
+export type TherapistBookingInput =
+  /** A client already on the therapist's list. */
+  | { clientId: string; note?: string }
+  /** Somebody new: a name is enough; phone and email are whatever the therapist has. */
+  | { fullName: string; phone?: string | null; email?: string | null; note?: string };
+
+export type TherapistBookingResult =
+  | { ok: true; booking: Booking }
+  | { ok: false; error: "not_found" | "client_not_found" | "SLOT_ALREADY_BOOKED" };
+
+/**
+ * The therapist puts a client into one of their own open slots by hand — a
+ * booking made on the phone, a regular who never uses the link. No minimum
+ * notice and no hold: those protect the therapist from strangers, not from
+ * themselves. The booking is confirmed at once.
+ *
+ * Both ids are checked against the therapist from the session: neither the
+ * slot nor the client can be someone else's.
+ */
+export async function bookSlotByTherapist(
+  therapistId: string,
+  sessionId: string,
+  input: TherapistBookingInput
+): Promise<TherapistBookingResult> {
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const claimed = await tx.session.updateMany({
+        where: {
+          id: sessionId,
+          therapistId,
+          OR: [{ status: "open" }, { status: "held", holdExpiresAt: { lt: new Date() } }],
+        },
+        data: { status: "booked", holdToken: null, holdExpiresAt: null },
+      });
+      if (claimed.count === 0) {
+        const exists = await tx.session.count({ where: { id: sessionId, therapistId } });
+        throw new TherapistBookingError(exists ? "SLOT_ALREADY_BOOKED" : "not_found");
+      }
+
+      let client;
+      if ("clientId" in input) {
+        client = await tx.client.findFirst({ where: { id: input.clientId, therapistId } });
+        if (!client) throw new TherapistBookingError("client_not_found");
+      } else {
+        const email = input.email?.trim().toLowerCase() || null;
+        const phone = input.phone?.trim() || null;
+        // Same email, same person: the list keeps one row per client.
+        client = email ? await tx.client.findFirst({ where: { therapistId, email } }) : null;
+        client ??= await tx.client.create({
+          data: { therapistId, fullName: input.fullName.trim(), email, phone },
+        });
+      }
+      await tx.client.update({ where: { id: client.id }, data: { totalBookings: { increment: 1 } } });
+
+      const booking = await tx.booking.create({
+        data: {
+          therapistId,
+          sessionId,
+          clientId: client.id,
+          clientNameSnapshot: client.fullName,
+          clientEmailSnapshot: client.email,
+          clientPhoneSnapshot: client.phone,
+          clientNote: input.note?.trim() || null,
+          manageToken: randomBytes(32).toString("hex"),
+          status: "confirmed",
+        },
+      });
+      return { ok: true as const, booking };
+    });
+  } catch (error) {
+    if (error instanceof TherapistBookingError) return { ok: false, error: error.code };
+    if (isExclusionViolation(error)) return { ok: false, error: "SLOT_ALREADY_BOOKED" };
+    throw error;
+  }
+}
+
+class TherapistBookingError extends Error {
+  constructor(readonly code: "not_found" | "client_not_found" | "SLOT_ALREADY_BOOKED") {
+    super(code);
+  }
+}
+
+export type MoveSlotResult =
+  | { ok: true; session: Session }
+  | { ok: false; error: "not_found" | "not_movable" | "from_cleana" | "in_past" | "overlaps_existing" };
+
+/**
+ * Changes when an empty slot (open or blocked) takes place. A booked slot is
+ * moved through the client's reschedule, which tells the client; a slot that
+ * came from a room at Cleana keeps the room's hours, which are changed there.
+ */
+export async function moveSlot(
+  therapistId: string,
+  sessionId: string,
+  startsAt: Date,
+  endsAt: Date,
+  now: Date = new Date()
+): Promise<MoveSlotResult> {
+  const session = await prisma.session.findFirst({ where: { id: sessionId, therapistId } });
+  if (!session) return { ok: false, error: "not_found" };
+  if (session.status !== "open" && session.status !== "blocked") return { ok: false, error: "not_movable" };
+  if (session.cleanaBookingId) return { ok: false, error: "from_cleana" };
+  if (startsAt <= now) return { ok: false, error: "in_past" };
+  try {
+    // Conditional on the status read above: a client booking it meanwhile wins.
+    const moved = await prisma.session.updateMany({
+      where: { id: sessionId, therapistId, status: session.status },
+      data: { startsAt, endsAt },
+    });
+    if (moved.count === 0) return { ok: false, error: "not_movable" };
+  } catch (error) {
+    if (isExclusionViolation(error, "sessions_no_overlap")) return { ok: false, error: "overlaps_existing" };
+    throw error;
+  }
+  return { ok: true, session: await prisma.session.findUniqueOrThrow({ where: { id: sessionId } }) };
 }

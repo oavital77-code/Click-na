@@ -6,6 +6,8 @@ import { getMessages } from "@/i18n";
 import { DashboardNav } from "./dashboard-nav";
 import { AccessBanner } from "@/components/access-banner";
 import { accessState } from "@/lib/access";
+import { showWhatsNew } from "@/lib/whats-new";
+import { WhatsNew } from "./whats-new";
 
 export default async function DashboardLayout({
   children,
@@ -45,6 +47,7 @@ export default async function DashboardLayout({
           {therapist?.subscription && <AccessBanner state={accessState(therapist.subscription)} />}
           {children}
         </div>
+        {therapist && showWhatsNew(therapist) && <WhatsNew />}
       </div>
     </I18nProvider>
   );

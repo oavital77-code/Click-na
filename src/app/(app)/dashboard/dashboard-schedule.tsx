@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { addDaysUtc, addMonthsUtc, startOfMonthUtc, startOfWeekUtc, zonedDateTimeToUtc } from "@/lib/availability";
+import { BookClientForm, MoveSlotForm, SLOTS_CHANGED_EVENT } from "./slot-actions";
+import { CleanaMark } from "@/components/brand-mark";
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { Messages } from "@/i18n";
@@ -30,6 +32,10 @@ type SessionRow = {
   clientName: string | null;
   clientPhone?: string | null;
   blockedNote: string | null;
+  /** The Cleana room this open slot came from. The therapist's eyes only. */
+  cleanaRoom?: string | null;
+  /** Its room at Cleana was cancelled under a booked client. */
+  noRoom?: boolean;
   locationId: string;
   locationColor: string;
 };
@@ -40,6 +46,8 @@ type RawSession = {
   endsAt: string;
   status: string;
   blockedNote?: string | null;
+  cleanaRoom?: string | null;
+  cleanaRoomCanceledAt?: string | null;
   booking: { clientNameSnapshot: string; clientPhoneSnapshot?: string | null } | null;
   location: { id: string; name: string; color: string };
 };
@@ -119,6 +127,14 @@ export function DashboardSchedule({
     return () => window.removeEventListener(ADD_SLOT_EVENT, open);
   }, []);
 
+  // A slot was booked or moved from its popover: load the range again.
+  const [reloadTick, setReloadTick] = useState(0);
+  useEffect(() => {
+    const bump = () => setReloadTick((n) => n + 1);
+    window.addEventListener(SLOTS_CHANGED_EVENT, bump);
+    return () => window.removeEventListener(SLOTS_CHANGED_EVENT, bump);
+  }, []);
+
   const range = useMemo(() => {
     if (granularity === "day") return { from: anchorDate, to: addDaysUtc(anchorDate, 1) };
     if (granularity === "month") {
@@ -154,6 +170,8 @@ export function DashboardSchedule({
             clientName: s.booking?.clientNameSnapshot ?? null,
             clientPhone: s.booking?.clientPhoneSnapshot ?? null,
             blockedNote: s.blockedNote ?? null,
+            cleanaRoom: s.cleanaRoom ?? null,
+            noRoom: !!s.cleanaRoomCanceledAt,
             locationId: s.location.id,
             locationColor: s.location.color,
           }))
@@ -168,7 +186,7 @@ export function DashboardSchedule({
     return () => {
       cancelled = true;
     };
-  }, [range.from, range.to, timezone, s.loadError]);
+  }, [range.from, range.to, timezone, s.loadError, reloadTick]);
 
   const bookedOrOpen = useMemo(
     () => [...sessions].filter((s) => s.status === "booked" || s.status === "open").sort((a, b) => a.startsAt.localeCompare(b.startsAt)),
@@ -359,6 +377,7 @@ export function DashboardSchedule({
       onReopenSlot={handleReopenSlot}
       onDeleteSlot={handleDeleteSlot}
       showPlace={manyPlaces}
+      timezone={timezone}
     />
   );
   const dayHeader = (dateKey: string) => {
@@ -668,9 +687,12 @@ export function SlotCell({
   onReopenSlot,
   onDeleteSlot,
   showPlace,
+  timezone = "Asia/Jerusalem",
 }: {
   session: SessionRow;
   info: ItemInfo;
+  /** The therapist's timezone: which calendar day the slot is on, for changing its time. */
+  timezone?: string;
   onBlockSlot: (sessionId: string, note: string) => Promise<ActionResult>;
   onReopenSlot: (sessionId: string) => Promise<ActionResult>;
   onDeleteSlot: (sessionId: string) => Promise<ActionResult>;
@@ -681,16 +703,47 @@ export function SlotCell({
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const time = info.start;
+  // What the popover is showing: the list of actions, or one of them.
+  const [mode, setMode] = useState<"menu" | "book" | "move" | "block">("menu");
+  const time = `${info.start}–${info.end}`;
+  const dateKey = new Intl.DateTimeFormat("en-CA", { timeZone: timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+    new Date(session.startsAt)
+  );
+  const fromCleana = !!session.cleanaRoom;
+  const close = () => {
+    setOpen(false);
+    setMode("menu");
+    setError(null);
+  };
+  const backButton = (
+    <Button type="button" variant="ghost" size="sm" className="mt-1 w-full" onClick={() => setMode("menu")}>
+      {s.back}
+    </Button>
+  );
 
   const isBookedOrHeld = session.status === "booked" || session.status === "held";
+  const statusLabel = s.status[session.status as keyof typeof s.status] ?? session.status;
   const chipLabel =
-    session.clientName ?? session.blockedNote ?? s.status[session.status as keyof typeof s.status] ?? session.status;
+    (session.noRoom && session.clientName ? `⚠ ${m.cleanaLink.noRoom} · ${session.clientName}` : null) ??
+    session.clientName ??
+    session.blockedNote ??
+    (session.status === "open" && session.cleanaRoom ? m.cleanaLink.slotLabel(statusLabel, session.cleanaRoom) : statusLabel);
   const hoverDetails = isBookedOrHeld
     ? [session.clientName, session.clientPhone, `${info.start}–${info.end}`].filter(Boolean).join(" · ")
     : undefined;
   const label = (
-    <BlockLabel title={chipLabel} info={info} place={showPlace ? <LocationDot color={session.locationColor} /> : undefined} />
+    <BlockLabel
+      title={chipLabel}
+      info={info}
+      place={
+        fromCleana || showPlace ? (
+          <>
+            {fromCleana && <CleanaMark />}
+            {showPlace && <LocationDot color={session.locationColor} />}
+          </>
+        ) : undefined
+      }
+    />
   );
 
   // Open (unbooked) slot: click offers to block it, optionally with a label.
@@ -700,7 +753,10 @@ export function SlotCell({
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setError(null);
+          if (!next) {
+            setError(null);
+            setMode("menu");
+          }
         }}
         trigger={
           <button type="button" className={blockClass("open")}>
@@ -708,34 +764,73 @@ export function SlotCell({
           </button>
         }
       >
-        <p className="num text-sm font-medium">{time} · {s.status.open}</p>
-        <p className="text-muted-foreground mb-2 text-xs">{s.openSlotHint}</p>
-        <NoteBlockForm
-          initialNote=""
-          busy={busy}
-          error={error}
-          submitLabel={s.block}
-          busyLabel={s.blocking}
-          onSubmit={async (note) => {
-            setBusy(true);
-            setError(null);
-            const result = await onBlockSlot(session.id, note);
-            setBusy(false);
-            if (result.ok) setOpen(false);
-            else setError(result.error);
-          }}
-        />
-        <DeleteSlotButton
-          busy={busy}
-          onDelete={async () => {
-            setBusy(true);
-            setError(null);
-            const result = await onDeleteSlot(session.id);
-            setBusy(false);
-            if (result.ok) setOpen(false);
-            else setError(result.error);
-          }}
-        />
+        <p className="text-sm font-medium">
+          <span dir="ltr" className="num">{time}</span> · {s.status.open}
+        </p>
+        <p className="text-muted-foreground mb-2 text-xs">
+          {fromCleana ? m.cleanaLink.slotSub(session.cleanaRoom!) : s.openSlotHint}
+        </p>
+        {mode === "menu" && (
+          <div className="flex flex-col gap-1.5">
+            <Button type="button" size="sm" className="w-full" onClick={() => setMode("book")}>
+              {s.bookClient}
+            </Button>
+            {fromCleana ? (
+              <p className="text-muted-foreground text-xs">{s.fromCleanaHint}</p>
+            ) : (
+              <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setMode("move")}>
+                {s.changeTime}
+              </Button>
+            )}
+            <Button type="button" variant="outline" size="sm" className="w-full" onClick={() => setMode("block")}>
+              {s.blockTitle}
+            </Button>
+            <DeleteSlotButton
+              busy={busy}
+              onDelete={async () => {
+                setBusy(true);
+                setError(null);
+                const result = await onDeleteSlot(session.id);
+                setBusy(false);
+                if (result.ok) close();
+                else setError(result.error);
+              }}
+            />
+            {error && <p className="text-destructive text-xs">{error}</p>}
+          </div>
+        )}
+        {mode === "book" && (
+          <>
+            <BookClientForm sessionId={session.id} onDone={close} />
+            {backButton}
+          </>
+        )}
+        {mode === "move" && (
+          <>
+            <MoveSlotForm sessionId={session.id} date={dateKey} start={info.start} end={info.end} onDone={close} />
+            {backButton}
+          </>
+        )}
+        {mode === "block" && (
+          <>
+            <NoteBlockForm
+              initialNote=""
+              busy={busy}
+              error={error}
+              submitLabel={s.block}
+              busyLabel={s.blocking}
+              onSubmit={async (note) => {
+                setBusy(true);
+                setError(null);
+                const result = await onBlockSlot(session.id, note);
+                setBusy(false);
+                if (result.ok) close();
+                else setError(result.error);
+              }}
+            />
+            {backButton}
+          </>
+        )}
       </SlotPopover>
     );
   }
@@ -755,8 +850,16 @@ export function SlotCell({
           </button>
         }
       >
-        <p className="num text-sm font-medium">{time} · {s.status.blocked}</p>
+        <p className="text-sm font-medium">
+          <span dir="ltr" className="num">{time}</span> · {s.status.blocked}
+        </p>
         <p className="text-muted-foreground mb-2 text-xs">{s.blockedSlotHint}</p>
+        {mode === "move" && (
+          <div className="mb-2">
+            <MoveSlotForm sessionId={session.id} date={dateKey} start={info.start} end={info.end} onDone={close} />
+            {backButton}
+          </div>
+        )}
         <NoteBlockForm
           initialNote={session.blockedNote ?? ""}
           busy={busy}
@@ -789,6 +892,11 @@ export function SlotCell({
         >
           {s.reopen}
         </Button>
+        {!fromCleana && mode !== "move" && (
+          <Button type="button" variant="ghost" size="sm" className="mt-1 w-full" disabled={busy} onClick={() => setMode("move")}>
+            {s.changeTime}
+          </Button>
+        )}
         <DeleteSlotButton
           busy={busy}
           onDelete={async () => {
@@ -804,11 +912,40 @@ export function SlotCell({
     );
   }
 
-  // Booked/held: read-only; hover reveals a bit more detail.
+  // Held: a client is mid-booking; nothing to do but wait.
+  if (session.status !== "booked") {
+    return (
+      <div title={hoverDetails} className={blockClass(sessionStatusTone(session.status))}>
+        {label}
+      </div>
+    );
+  }
+
+  // Booked: who and when, and the way to the booking itself (cancel, payment, reminder).
   return (
-    <div title={hoverDetails} className={blockClass(sessionStatusTone(session.status))}>
-      {label}
-    </div>
+    <SlotPopover
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <button type="button" title={hoverDetails} className={blockClass(sessionStatusTone(session.status))}>
+          {label}
+        </button>
+      }
+    >
+      <p className="text-sm font-medium">
+        <span dir="ltr" className="num">{time}</span> · {s.status.booked}
+      </p>
+      <p className="mt-1 text-sm">{session.clientName}</p>
+      {session.clientPhone && (
+        <a href={`tel:${session.clientPhone}`} dir="ltr" className="num text-muted-foreground block text-sm underline">
+          {session.clientPhone}
+        </a>
+      )}
+      {session.noRoom && <p className="text-destructive mt-1 text-xs">⚠ {m.cleanaLink.noRoom} · {m.cleanaLink.noRoomNote}</p>}
+      <Button asChild variant="outline" size="sm" className="mt-2 w-full">
+        <a href="/dashboard/bookings">{s.manageBooking}</a>
+      </Button>
+    </SlotPopover>
   );
 }
 
@@ -884,7 +1021,7 @@ function SlotPopover({
       <Popover.Portal>
         <Popover.Content
           sideOffset={6}
-          className="bg-card border-border z-50 w-56 rounded-md border p-3 text-start shadow-lg"
+          className="bg-card border-border z-50 w-72 max-w-[calc(100vw-1.5rem)] rounded-md border p-3 text-start shadow-lg"
         >
           {children}
         </Popover.Content>

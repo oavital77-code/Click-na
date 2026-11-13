@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { TimeSelect } from "@/components/time-select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,9 +43,11 @@ type Props = {
   initialFullName: string;
   initialPhone: string;
   initialSlug: string;
+  /** Arrived from Cleana's consent page: go back there once set up. */
+  returnTo?: string | null;
 };
 
-export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone, initialSlug }: Props) {
+export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone, initialSlug, returnTo }: Props) {
   const router = useRouter();
   const { m, issue } = useI18n();
   const [step, setStep] = useState(1);
@@ -60,7 +63,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
   const [slugStatus, setSlugStatus] = useState<SlugCheckStatus>("idle");
   const [slugReason, setSlugReason] = useState<string | undefined>();
 
-  const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<number>(50);
+  const [defaultDurationMinutes, setDefaultDurationMinutes] = useState<number>(60);
   const [breakMinutes, setBreakMinutes] = useState<number>(DEFAULT_BREAK_MINUTES);
   const [locationType, setLocationType] = useState<(typeof LOCATION_TYPES)[number] | "">("");
   const [locationAddress, setLocationAddress] = useState("");
@@ -159,7 +162,9 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
         }
       }
       // Working online: straight on to connecting the way they chose, in Add-ons.
-      router.push(worksOnline && videoMethod ? `/dashboard/addons?video=${videoMethod}#video` : "/dashboard");
+      router.push(
+        returnTo ?? (worksOnline && videoMethod ? `/dashboard/addons?video=${videoMethod}#video` : "/dashboard")
+      );
       router.refresh();
     } catch {
       setSubmitError(m.common.networkError);
@@ -254,7 +259,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <SelectContent>
                   {DURATION_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {m.common.minutes(d)}
+                      {m.common.duration(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -269,7 +274,7 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
                 <SelectContent>
                   {BREAK_OPTIONS.map((d) => (
                     <SelectItem key={d} value={String(d)}>
-                      {d === 0 ? m.onboarding.noBreak : m.common.minutes(d)}
+                      {d === 0 ? m.onboarding.noBreak : m.common.duration(d)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -340,21 +345,11 @@ export function OnboardingWizard({ initialCoupon, initialFullName, initialPhone,
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="startTime">{m.onboarding.from}</Label>
-                <Input
-                  id="startTime"
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
+                <TimeSelect id="startTime" value={startTime} onChange={setStartTime} />
               </div>
               <div className="flex flex-1 flex-col gap-2">
                 <Label htmlFor="endTime">{m.onboarding.to}</Label>
-                <Input
-                  id="endTime"
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
+                <TimeSelect id="endTime" value={endTime} onChange={setEndTime} />
               </div>
             </div>
           </div>

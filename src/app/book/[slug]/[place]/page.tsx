@@ -9,7 +9,8 @@ export async function generateMetadata({ params }: PageProps<"/book/[slug]/[plac
   return bookingMetadata(slug, place);
 }
 
-export default async function Page({ params }: PageProps<"/book/[slug]/[place]">) {
+export default async function Page({ params, searchParams }: PageProps<"/book/[slug]/[place]">) {
+  const { lang } = await searchParams;
   const { slug, place } = await params;
-  return <BookingPage slug={slug} placeSlug={place} />;
+  return <BookingPage slug={slug} placeSlug={place} lang={lang} />;
 }

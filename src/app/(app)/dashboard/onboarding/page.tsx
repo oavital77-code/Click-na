@@ -6,10 +6,16 @@ import { getMessages, toLocale } from "@/i18n";
 import { couponPriceIls } from "@/lib/plan";
 import { OnboardingWizard } from "./onboarding-wizard";
 
-export default async function OnboardingPage() {
+const CLEANA_CONSENT_RETURN = /^\/connect\/cleana\?state=[A-Za-z0-9_-]{16,128}$/;
+
+export default async function OnboardingPage({ searchParams }: PageProps<"/dashboard/onboarding">) {
+  const { next } = await searchParams;
+  // Only the Cleana consent page may be returned to — anything else here would
+  // be an open redirect. See src/lib/cleana-link.ts.
+  const returnTo = typeof next === "string" && CLEANA_CONSENT_RETURN.test(next) ? next : null;
   const therapist = await getCurrentTherapist();
   if (!therapist) redirect("/dashboard");
-  if (therapist.onboardingCompleted) redirect("/dashboard");
+  if (therapist.onboardingCompleted) redirect(returnTo ?? "/dashboard");
 
   const m = getMessages(toLocale(therapist.locale));
   // The menu is hidden until setup is done (see the dashboard layout); the
@@ -32,6 +38,7 @@ export default async function OnboardingPage() {
         initialFullName={therapist.fullName === therapist.email.split("@")[0] ? "" : therapist.fullName}
         initialPhone={therapist.phone ?? ""}
         initialSlug={therapist.slug}
+        returnTo={returnTo}
       />
     </main>
   );

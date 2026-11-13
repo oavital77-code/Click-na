@@ -589,3 +589,30 @@ export function loginAlertEmail(input: LoginAlertEmailInput) {
     `),
   };
 }
+
+export type RoomCanceledEmailInput = Localized & {
+  timezone: string;
+  room: string;
+  /** The appointments left without a room: when, and with whom (the therapist's own clients). */
+  appointments: { startsAt: Date; clientName: string }[];
+  calendarUrl: string;
+};
+
+/** To the therapist: a room at Cleana was cancelled under appointments here. */
+export function roomCanceledEmail(input: RoomCanceledEmailInput) {
+  const m = getMessages(input.locale).cleanaLink.noRoomEmail;
+  return {
+    subject: m.subject(input.appointments.length),
+    html: wrap(input.locale, `
+      <h1 style="font-size:20px;margin:0 0 16px;">${esc(m.title)}</h1>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 12px;">${esc(m.lead(input.room))}</p>
+      <ul style="font-size:15px;line-height:1.8;padding-inline-start:20px;margin:0 0 16px;">
+        ${input.appointments
+          .map((a) => `<li>${esc(dateTime(a.startsAt, input.timezone, input.locale))} · ${esc(a.clientName)}</li>`)
+          .join("")}
+      </ul>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${esc(m.action)}</p>
+      <a href="${esc(input.calendarUrl)}" style="display:inline-block;background:#1f6feb;color:#fff;text-decoration:none;font-weight:bold;padding:10px 18px;border-radius:8px;">${esc(m.button)}</a>
+    `),
+  };
+}

@@ -174,8 +174,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       id: s.id,
       time: time(s.startsAt),
       kind,
-      title: kind === "booked" || kind === "held" ? (b?.clientNameSnapshot ?? t.badge.booked) : kind === "blocked" ? (s.blockedNote ?? t.blocked) : t.openSlot,
-      sub: kind === "open" ? t.openSub : [s.location.name, price].filter(Boolean).join(" · ") || null,
+      title: kind === "booked" || kind === "held" ? `${s.cleanaRoomCanceledAt ? `⚠ ${m.cleanaLink.noRoom} · ` : ""}${b?.clientNameSnapshot ?? t.badge.booked}` : kind === "blocked" ? (s.blockedNote ?? t.blocked) : t.openSlot,
+      sub: kind === "open" ? (s.cleanaRoom ? m.cleanaLink.slotSub(s.cleanaRoom) : t.openSub) : [s.location.name, price].filter(Boolean).join(" · ") || null,
       bookingId: kind === "booked" && b ? b.id : null,
       paid: b?.paymentStatus === "paid",
       done,
@@ -251,9 +251,9 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <DashboardSchedule
             timezone={tz}
             today={todayStr}
-            defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 50}
+            defaultDurationMinutes={therapist.settings?.defaultDurationMinutes ?? 60}
             gridStepMinutes={
-              (therapist.settings?.defaultDurationMinutes ?? 50) +
+              (therapist.settings?.defaultDurationMinutes ?? 60) +
               (therapist.settings?.bufferBeforeMinutes ?? 0) +
               (therapist.settings?.bufferAfterMinutes ?? 0)
             }
@@ -266,6 +266,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
               clientName: s.booking?.clientNameSnapshot ?? null,
               clientPhone: s.booking?.clientPhoneSnapshot ?? null,
               blockedNote: s.blockedNote,
+              cleanaRoom: s.cleanaRoom,
+              noRoom: s.cleanaRoomCanceledAt !== null,
               locationId: s.location.id,
               locationColor: s.location.color,
             }))}

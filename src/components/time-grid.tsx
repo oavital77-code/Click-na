@@ -268,13 +268,17 @@ export function TimeGrid<T extends GridItem>({
 
 /** The inside of a block: who or what, and from when to when. Short blocks say less. */
 export function BlockLabel({ title, info, place }: { title: ReactNode; info: ItemInfo; place?: ReactNode }) {
+  // Always from when to when: "10:00" alone does not say whether it is half an hour or two.
+  const range = (
+    <span dir="ltr" className="num shrink-0 text-xs font-normal whitespace-nowrap opacity-80">
+      {info.start}–{info.end}
+    </span>
+  );
   return info.compact ? (
     <span className="flex min-w-0 items-center gap-1 truncate text-xs leading-tight">
       {place}
       <span className="truncate">{title}</span>
-      <span dir="ltr" className="num shrink-0 font-normal opacity-80">
-        {info.start}
-      </span>
+      {range}
     </span>
   ) : (
     <span className="flex min-w-0 flex-col items-start gap-0.5 leading-tight">
@@ -282,11 +286,7 @@ export function BlockLabel({ title, info, place }: { title: ReactNode; info: Ite
         {place}
         <span className="truncate">{title}</span>
       </span>
-      {/* A narrow block (three days on a phone) says when it starts; a wide one, from when to when. */}
-      <span dir="ltr" className="num text-xs font-normal whitespace-nowrap opacity-80">
-        {info.start}
-        <span className="hidden @[7.5rem]:inline">–{info.end}</span>
-      </span>
+      {range}
     </span>
   );
 }

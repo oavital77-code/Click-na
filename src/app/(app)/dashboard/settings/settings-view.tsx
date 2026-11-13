@@ -23,14 +23,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
+  BREAK_OPTIONS,
   DURATION_OPTIONS,
+  optionsWith,
   PROFESSION_TYPES,
   type OnboardingInput,
 } from "@/lib/onboarding-schema";
 import { LocationsCard, type PlaceVideo } from "./locations-card";
 import type { Location } from "@/lib/location-schema";
 import { useI18n } from "@/i18n/client";
-import { LOCALES, type Locale } from "@/i18n/config";
+import { THERAPIST_LOCALES as LOCALES, type Locale } from "@/i18n/config";
 import { profileSchema, settingsSchema } from "@/lib/settings-schema";
 import { ResetSchedule } from "@/components/reset-schedule";
 
@@ -307,9 +309,9 @@ export function SettingsView({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {DURATION_OPTIONS.map((d) => (
+                {optionsWith(DURATION_OPTIONS, settings.defaultDurationMinutes).map((d) => (
                   <SelectItem key={d} value={String(d)}>
-                    {m.common.minutes(d)}
+                    {m.common.duration(d)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -318,23 +320,39 @@ export function SettingsView({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label htmlFor="bufferBefore">{m.settings.bufferBefore}</Label>
-              <Input
-                id="bufferBefore"
-                type="number"
-                min={0}
-                value={settings.bufferBeforeMinutes}
-                onChange={(e) => updateSettings("bufferBeforeMinutes", Number(e.target.value))}
-              />
+              <Select
+                value={String(settings.bufferBeforeMinutes)}
+                onValueChange={(v) => updateSettings("bufferBeforeMinutes", Number(v))}
+              >
+                <SelectTrigger id="bufferBefore">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {optionsWith(BREAK_OPTIONS, settings.bufferBeforeMinutes).map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      {d === 0 ? m.onboarding.noBreak : m.common.duration(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="bufferAfter">{m.settings.bufferAfter}</Label>
-              <Input
-                id="bufferAfter"
-                type="number"
-                min={0}
-                value={settings.bufferAfterMinutes}
-                onChange={(e) => updateSettings("bufferAfterMinutes", Number(e.target.value))}
-              />
+              <Select
+                value={String(settings.bufferAfterMinutes)}
+                onValueChange={(v) => updateSettings("bufferAfterMinutes", Number(v))}
+              >
+                <SelectTrigger id="bufferAfter">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {optionsWith(BREAK_OPTIONS, settings.bufferAfterMinutes).map((d) => (
+                    <SelectItem key={d} value={String(d)}>
+                      {d === 0 ? m.onboarding.noBreak : m.common.duration(d)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

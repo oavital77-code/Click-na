@@ -82,6 +82,7 @@ export default async function BookingsPage() {
           locationId: b.session.location.id,
           locationName: b.session.location.name,
           locationColor: b.session.location.color,
+          noRoom: b.session.cleanaRoomCanceledAt !== null,
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
           hasScheduledReminder: hasReminder.has(b.id),
