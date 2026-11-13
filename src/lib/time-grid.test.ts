@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragTo, firstFreeStart, place, proposeStart, resizeTo, visibleRange } from "@/lib/time-grid";
+import { dragTo, firstFreeStart, place, proposeStart, resizeTo, splitSpan, visibleRange } from "@/lib/time-grid";
 
 const h = (hh: number, mm = 0) => hh * 60 + mm;
 // 45-minute sessions with a 10-minute break, as in the therapist's week.
@@ -85,5 +85,29 @@ describe("stretching or shrinking a new slot by an edge", () => {
   it("says when it is stretched over something already there", () => {
     // Up to 12:30 runs into the 12:00–13:00 lunch.
     expect(resizeTo(day, span, "start", -90, h(8), h(18))).toEqual({ start: h(12, 30), end: h(15), fits: false });
+  });
+});
+
+describe("a long stretch cut into sessions", () => {
+  it("makes one session an hour from 18:00 to 22:00", () => {
+    expect(splitSpan(h(18), h(22), 60)).toEqual([
+      { start: h(18), end: h(19) },
+      { start: h(19), end: h(20) },
+      { start: h(20), end: h(21) },
+      { start: h(21), end: h(22) },
+    ]);
+  });
+
+  it("keeps the break between sessions and drops a tail too short for one", () => {
+    // 50 minutes and a 10-minute break: 18:00, 19:00, 20:00; 21:00–21:30 is too short.
+    expect(splitSpan(h(18), h(21, 30), 50, 60)).toEqual([
+      { start: h(18), end: h(18, 50) },
+      { start: h(19), end: h(19, 50) },
+      { start: h(20), end: h(20, 50) },
+    ]);
+  });
+
+  it("gives nothing when not even one session fits", () => {
+    expect(splitSpan(h(18), h(18, 30), 60)).toEqual([]);
   });
 });

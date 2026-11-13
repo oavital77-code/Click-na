@@ -18,6 +18,7 @@ import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
 import type { Messages } from "@/i18n";
 import { BlockLabel, TimeGrid, blockClass, type ItemInfo } from "@/components/time-grid";
+import { splitSpan, toMinutes, toTime } from "@/lib/time-grid";
 import { ADD_SLOT_EVENT, AddSlotDialog } from "@/components/add-slot-dialog";
 import { MonthGrid } from "@/components/month-grid";
 import { sessionStatusTone, statusBadgeClass } from "@/lib/status-badge";
@@ -373,6 +374,8 @@ export function DashboardSchedule({
         onDone={close}
         compact={compact}
         endTime={endTime}
+        sessionMinutes={defaultDurationMinutes}
+        stepMinutes={gridStepMinutes}
       />
     ),
   };
@@ -479,6 +482,7 @@ export function DashboardSchedule({
           onClose={() => setAdding(false)}
           today={today}
           defaultDurationMinutes={defaultDurationMinutes}
+          stepMinutes={gridStepMinutes}
           locations={locations}
           defaultLocationId={placeFilter}
           onAdd={(input) => handleOpenSlot(input.date, input.startTime, input.locationId, input.block, input.endTime)}
@@ -610,9 +614,14 @@ export function NewSlotForm({
   onDone,
   compact = false,
   endTime,
+  sessionMinutes,
+  stepMinutes,
 }: {
   dateKey: string;
   time: string;
+  /** A session's length, and how far apart sessions start (it plus the break). */
+  sessionMinutes: number;
+  stepMinutes?: number;
   /** Where the slot ends, as stretched on the calendar. Absent: a session's length. */
   endTime?: string;
   fits: boolean;
@@ -637,6 +646,39 @@ export function NewSlotForm({
     if (result.ok) onDone();
     else setError(result.error);
   };
+  // Stretched past one session: ask whether it is one long session or several.
+  const span = endTime ? toMinutes(endTime) - toMinutes(time) : sessionMinutes;
+  const pieces = span > sessionMinutes ? splitSpan(toMinutes(time), toMinutes(endTime!), sessionMinutes, stepMinutes) : [];
+  const a = m.addSlot;
+  const actSeparately = async () => {
+    setBusy(true);
+    setError(null);
+    const where = locations.length > 1 ? placeId : null;
+    for (let i = 0; i < pieces.length; i++) {
+      const result = await onOpenSlot(dateKey, toTime(pieces[i].start), where, undefined, toTime(pieces[i].end));
+      if (!result.ok) {
+        setBusy(false);
+        setError(i === 0 ? result.error : `${a.splitPartial(i, pieces.length)} ${result.error}`);
+        return;
+      }
+    }
+    setBusy(false);
+    onDone();
+  };
+  const splitChoice = pieces.length > 0 && (
+    <div className="flex flex-col gap-2">
+      <div>
+        <p className="text-sm font-medium">{a.splitQuestion}</p>
+        <p className="text-muted-foreground text-xs">{a.splitHint(a.length(span))}</p>
+      </div>
+      <Button type="button" size={compact ? "default" : "sm"} className={cn("w-full", compact && "min-h-12")} disabled={busy} onClick={actSeparately}>
+        {busy ? s.opening : a.splitMany(pieces.length, a.length(sessionMinutes))}
+      </Button>
+      <Button type="button" variant="outline" size={compact ? "default" : "sm"} className={cn("w-full", compact && "min-h-12")} disabled={busy} onClick={() => act()}>
+        {a.splitOne(a.length(span))}
+      </Button>
+    </div>
+  );
   if (compact) {
     if (!fits) return <p className="text-muted-foreground text-sm">{s.noRoom}</p>;
     return (
@@ -645,10 +687,13 @@ export function NewSlotForm({
           <LocationSelect id={`place-${dateKey}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
         )}
         {error && <p className="text-destructive text-sm">{error}</p>}
-        <div className="grid grid-cols-2 gap-2">
-          <Button type="button" className="min-h-12" disabled={busy} onClick={() => act()}>
-            {busy ? s.opening : s.openSlot}
-          </Button>
+        {splitChoice || null}
+        <div className={cn("grid gap-2", splitChoice ? "grid-cols-1" : "grid-cols-2")}>
+          {!splitChoice && (
+            <Button type="button" className="min-h-12" disabled={busy} onClick={() => act()}>
+              {busy ? s.opening : s.openSlot}
+            </Button>
+          )}
           <Button type="button" variant="outline" className="min-h-12" disabled={busy} onClick={() => act({ note })}>
             {busy ? s.blocking : s.block}
           </Button>
@@ -676,15 +721,17 @@ export function NewSlotForm({
             <LocationSelect id={`place-${dateKey}-${time}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
           </div>
           {error && <p className="text-destructive mb-2 text-xs">{error}</p>}
-          <Button
-            type="button"
-            size="sm"
-            className="w-full"
-            disabled={busy}
-            onClick={() => act()}
-          >
-            {busy ? s.opening : s.openSlot}
-          </Button>
+          {splitChoice || (
+            <Button
+              type="button"
+              size="sm"
+              className="w-full"
+              disabled={busy}
+              onClick={() => act()}
+            >
+              {busy ? s.opening : s.openSlot}
+            </Button>
+          )}
           {/* Or the opposite: time the therapist is busy, set aside with a word on why. */}
           <div className="border-border mt-3 flex flex-col gap-2 border-t pt-3">
             <p className="text-muted-foreground text-xs">{s.blockHere}</p>

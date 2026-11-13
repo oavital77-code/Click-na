@@ -123,3 +123,15 @@ export function resizeTo(
   }
   return { start, end, fits: !dayItems.some((item) => item.start < end && item.end > start) };
 }
+
+/**
+ * A stretch of time cut into sessions: one every `step` minutes (a session and
+ * the break after it), as many as fit whole. 18:00–22:00 in one-hour sessions
+ * is four of them; what is left at the end, too short for a session, is left out.
+ */
+export function splitSpan(start: number, end: number, duration: number, step = duration): { start: number; end: number }[] {
+  const every = Math.max(step, duration, 1);
+  const pieces: { start: number; end: number }[] = [];
+  for (let at = start; at + duration <= end; at += every) pieces.push({ start: at, end: at + duration });
+  return pieces;
+}

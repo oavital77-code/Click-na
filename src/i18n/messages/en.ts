@@ -704,6 +704,17 @@ export const en = {
     fillAll: "Fill in the date, the start and the end.",
     endAfterStart: "The end must be after the start.",
     button: "+ Add a slot",
+    splitQuestion: "One session, or several?",
+    splitHint: (span: string) => `This stretch (${span}) is longer than one session.`,
+    splitMany: (n: number, each: string) => (n === 1 ? `One session of ${each}` : `${n} separate sessions of ${each}`),
+    splitOne: (span: string) => `One long session of ${span}`,
+    splitPartial: (done: number, of: number) => `${done} of ${of} were opened.`,
+    addedMany: (n: number, from: string, to: string) => `Added ${n} sessions, ${from}–${to}. Add more, or press "Done".`,
+    length: (n: number) => {
+      if (n % 30 !== 0) return `${n} minutes`;
+      const h = n / 60;
+      return h === 0.5 ? "half an hour" : h === 1 ? "1 hour" : `${h} hours`;
+    },
   },
   meetingLink: {
     paste: "Paste",

@@ -380,6 +380,8 @@ export function AvailabilityView({
                       onDone={close}
                       compact={compact}
                       endTime={endTime}
+                      sessionMinutes={defaultDurationMinutes}
+                      stepMinutes={gridStepMinutes}
                     />
                   ),
                 }}
@@ -395,6 +397,7 @@ export function AvailabilityView({
         onClose={() => setAdding(false)}
         today={today}
         defaultDurationMinutes={defaultDurationMinutes}
+        stepMinutes={gridStepMinutes}
         locations={locations}
         defaultLocationId={placeFilter}
         onAdd={(input) => openSlotAt(input.date, input.startTime, input.locationId, input.block, input.endTime)}

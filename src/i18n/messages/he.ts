@@ -692,6 +692,21 @@ export const he: Messages = {
     fillAll: "צריך למלא תאריך, שעת התחלה ושעת סיום.",
     endAfterStart: "שעת הסיום צריכה להיות אחרי שעת ההתחלה.",
     button: "+ הוספת שעה",
+    // A stretch longer than one session: the therapist says what it is.
+    splitQuestion: "טיפול אחד, או כמה נפרדים?",
+    splitHint: (span: string) => `הזמן הזה (${span}) ארוך מטיפול אחד.`,
+    splitMany: (n: number, each: string) => (n === 1 ? `טיפול אחד של ${each}` : `${n} טיפולים נפרדים של ${each}`),
+    splitOne: (span: string) => `טיפול אחד ארוך של ${span}`,
+    splitPartial: (done: number, of: number) => `נפתחו ${done} מתוך ${of}.`,
+    addedMany: (n: number, from: string, to: string) => `נוספו ${n} טיפולים, \u2066${from}–${to}\u2069. אפשר להוסיף עוד, או ללחוץ "סיום".`,
+    length: (n: number) => {
+      const h = Math.floor(n / 60);
+      const half = n % 60 === 30;
+      if (n % 30 !== 0) return `${n} דקות`;
+      if (h === 0) return "חצי שעה";
+      const hours = h === 1 ? "שעה" : h === 2 ? "שעתיים" : `${h} שעות`;
+      return half ? `${hours} וחצי` : hours;
+    },
   },
   meetingLink: {
     paste: "הדבקה",
