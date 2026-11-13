@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dragTo, firstFreeStart, place, proposeStart, visibleRange } from "@/lib/time-grid";
+import { dragTo, firstFreeStart, place, proposeStart, resizeTo, visibleRange } from "@/lib/time-grid";
 
 const h = (hh: number, mm = 0) => hh * 60 + mm;
 // 45-minute sessions with a 10-minute break, as in the therapist's week.
@@ -63,5 +63,26 @@ describe("dragging a new slot", () => {
   it("says when it is dragged onto something already there", () => {
     expect(dragTo(day, h(13), -60, 50, h(8), h(18))).toEqual({ start: h(12), fits: false });
     expect(dragTo(day, h(13), 60, 50, h(8), h(18))).toEqual({ start: h(14), fits: true });
+  });
+});
+
+describe("stretching or shrinking a new slot by an edge", () => {
+  const span = { start: h(14), end: h(15) };
+
+  it("moves only the edge held, to the nearest half hour", () => {
+    expect(resizeTo(day, span, "end", 40, h(8), h(18))).toEqual({ start: h(14), end: h(15, 30), fits: true });
+    expect(resizeTo(day, span, "start", -50, h(8), h(18))).toEqual({ start: h(13), end: h(15), fits: true });
+    expect(resizeTo(day, span, "end", -20, h(8), h(18))).toEqual({ start: h(14), end: h(14, 30), fits: true });
+  });
+
+  it("never gets shorter than half an hour, nor leaves the day", () => {
+    expect(resizeTo(day, span, "end", -300, h(8), h(18))).toMatchObject({ start: h(14), end: h(14, 30) });
+    expect(resizeTo(day, span, "start", 300, h(8), h(18))).toMatchObject({ start: h(14, 30), end: h(15) });
+    expect(resizeTo(day, span, "end", 600, h(8), h(18))).toMatchObject({ end: h(18) });
+  });
+
+  it("says when it is stretched over something already there", () => {
+    // Up to 12:30 runs into the 12:00–13:00 lunch.
+    expect(resizeTo(day, span, "start", -90, h(8), h(18))).toEqual({ start: h(12, 30), end: h(15), fits: false });
   });
 });

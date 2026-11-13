@@ -96,3 +96,29 @@ export function dragTo(
   const end = start + durationMinutes;
   return { start, fits: !dayItems.some((item) => item.start < end && item.end > start) };
 }
+
+export type Span = { start: number; end: number; fits: boolean };
+
+/**
+ * Stretching or shrinking a new slot by one of its edges: that edge moves to
+ * the nearest half hour, the other stays. At least half an hour long, inside
+ * the visible day. It "fits" when nothing already on the day overlaps it.
+ */
+export function resizeTo(
+  dayItems: DayItem[],
+  span: { start: number; end: number },
+  edge: "start" | "end",
+  movedMinutes: number,
+  dayStart: number,
+  dayEnd: number
+): Span {
+  let { start, end } = span;
+  if (edge === "start") {
+    const raw = Math.round((span.start + movedMinutes) / STEP) * STEP;
+    start = Math.min(Math.max(raw, Math.ceil(dayStart / STEP) * STEP), span.end - STEP);
+  } else {
+    const raw = Math.round((span.end + movedMinutes) / STEP) * STEP;
+    end = Math.max(Math.min(raw, Math.floor(dayEnd / STEP) * STEP), span.start + STEP);
+  }
+  return { start, end, fits: !dayItems.some((item) => item.start < end && item.end > start) };
+}

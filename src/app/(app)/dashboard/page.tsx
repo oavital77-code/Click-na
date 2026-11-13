@@ -165,7 +165,11 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     };
   }
 
-  const today: TodayItem[] = todaySessions.map((s) => {
+  // An open slot whose time has come and gone was never booked and cannot be now: it leaves the list,
+  // and one quiet line says how many there were.
+  const todayList = todaySessions.filter((s) => !(s.status === "open" && s.startsAt <= now));
+  const pastOpenToday = todaySessions.length - todayList.length;
+  const today: TodayItem[] = todayList.map((s) => {
     const kind = s.status === "booked" || s.status === "held" || s.status === "blocked" ? s.status : "open";
     const b = s.booking;
     const done = kind === "booked" && s.endsAt <= now;
@@ -181,8 +185,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
       done,
     };
   });
-  const firstUpcoming = today.findIndex((_, i) => todaySessions[i].endsAt > now);
-  const nowIndex = today.length === 0 ? null : firstUpcoming === -1 ? today.length : firstUpcoming === 0 && todaySessions[0].startsAt > now ? 0 : firstUpcoming;
+  const firstUpcoming = today.findIndex((_, i) => todayList[i].endsAt > now);
+  const nowIndex = today.length === 0 ? null : firstUpcoming === -1 ? today.length : firstUpcoming === 0 && todayList[0].startsAt > now ? 0 : firstUpcoming;
 
   const weekDays = Array.from({ length: 7 }, (_, i) => {
     const key = addDaysUtc(weekStartStr, i);
@@ -193,7 +197,8 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
     };
   });
   const weekBooked = weekDays.reduce((n, d) => n + d.count, 0);
-  const weekOpen = weekSessions.filter((s) => s.status === "open").length;
+  // Open time still ahead: an hour that has passed can no longer be booked.
+  const weekOpen = weekSessions.filter((s) => s.status === "open" && s.startsAt > now).length;
   const unpaidSum = Number(unpaid._sum.paymentAmountIls ?? 0);
 
   const card = "border-border bg-card rounded-[28px] border";
@@ -245,7 +250,7 @@ export default async function DashboardPage({ searchParams }: PageProps<"/dashbo
           <h2 id="today-h" className="text-xl font-bold">
             {t.today}
           </h2>
-          <TodayList items={today} nowIndex={nowIndex} />
+          <TodayList items={today} nowIndex={nowIndex} pastOpen={pastOpenToday} />
         </section>
         <section id="calendar" data-tour="home-calendar" aria-label={t.calendarTitle} className="min-w-0 scroll-mt-20 lg:col-span-3">
           <DashboardSchedule

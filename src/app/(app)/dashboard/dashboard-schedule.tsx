@@ -358,7 +358,7 @@ export function DashboardSchedule({
     dragHint: m.dashboard.schedule.dragHint,
     closeLabel: m.common.cancel,
     label: (dateKey: string) => s.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
-    content: ({ dateKey, time, fits, close, compact }: { dateKey: string; time: string; fits: boolean; close: () => void; compact: boolean }) => (
+    content: ({ dateKey, time, endTime, fits, close, compact }: { dateKey: string; time: string; fits: boolean; endTime: string; close: () => void; compact: boolean }) => (
       <NewSlotForm
         key={dateKey}
         dateKey={dateKey}
@@ -369,6 +369,7 @@ export function DashboardSchedule({
         onOpenSlot={handleOpenSlot}
         onDone={close}
         compact={compact}
+        endTime={endTime}
       />
     ),
   };
@@ -604,13 +605,16 @@ export function NewSlotForm({
   onOpenSlot,
   onDone,
   compact = false,
+  endTime,
 }: {
   dateKey: string;
   time: string;
+  /** Where the slot ends, as stretched on the calendar. Absent: a session's length. */
+  endTime?: string;
   fits: boolean;
   locations: PlaceOption[];
   defaultLocationId: string | null;
-  onOpenSlot: (dateKey: string, time: string, locationId: string | null, block?: { note: string }) => Promise<ActionResult>;
+  onOpenSlot: (dateKey: string, time: string, locationId: string | null, block?: { note: string }, endTime?: string) => Promise<ActionResult>;
   onDone: () => void;
   /** The phone's bottom panel: the time is its heading already, and the two acts sit side by side. */
   compact?: boolean;
@@ -624,7 +628,7 @@ export function NewSlotForm({
   const act = async (block?: { note: string }) => {
     setBusy(true);
     setError(null);
-    const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null, block);
+    const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null, block, endTime);
     setBusy(false);
     if (result.ok) onDone();
     else setError(result.error);
@@ -659,7 +663,7 @@ export function NewSlotForm({
   return (
     <>
       <p className="num text-sm font-medium" dir="ltr">
-        {time}
+        {endTime ? `${time}–${endTime}` : time}
       </p>
       {fits ? (
         <>
@@ -673,14 +677,7 @@ export function NewSlotForm({
             size="sm"
             className="w-full"
             disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              setError(null);
-              const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null);
-              setBusy(false);
-              if (result.ok) onDone();
-              else setError(result.error);
-            }}
+            onClick={() => act()}
           >
             {busy ? s.opening : s.openSlot}
           </Button>
@@ -701,14 +698,7 @@ export function NewSlotForm({
               size="sm"
               className="w-full"
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                setError(null);
-                const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null, { note });
-                setBusy(false);
-                if (result.ok) onDone();
-                else setError(result.error);
-              }}
+              onClick={() => act({ note })}
             >
               {busy ? s.blocking : s.block}
             </Button>
@@ -786,6 +776,39 @@ export function SlotCell({
       }
     />
   );
+
+  // Open time that has passed: nobody booked it and nobody can now. Grey, and the only thing left is to delete it.
+  if (session.status === "open" && info.past) {
+    return (
+      <SlotPopover
+        open={open}
+        onOpenChange={(next) => {
+          setOpen(next);
+          if (!next) setError(null);
+        }}
+        trigger={
+          <button type="button" className={blockClass("neutral")}>
+            <BlockLabel title={s.status.past} info={info} place={showPlace ? <LocationDot color={session.locationColor} /> : undefined} />
+          </button>
+        }
+      >
+        <p className="num text-sm font-medium">{time} · {s.status.past}</p>
+        <p className="text-muted-foreground mb-1 text-xs">{s.pastSlotHint}</p>
+        {error && <p className="text-destructive text-xs">{error}</p>}
+        <DeleteSlotButton
+          busy={busy}
+          onDelete={async () => {
+            setBusy(true);
+            setError(null);
+            const result = await onDeleteSlot(session.id);
+            setBusy(false);
+            if (result.ok) setOpen(false);
+            else setError(result.error);
+          }}
+        />
+      </SlotPopover>
+    );
+  }
 
   // Open (unbooked) slot: click offers to block it, optionally with a label.
   if (session.status === "open") {

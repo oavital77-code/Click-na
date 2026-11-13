@@ -364,7 +364,7 @@ export function AvailabilityView({
                   dragHint: m.dashboard.schedule.dragHint,
                   closeLabel: m.common.cancel,
                   label: (dateKey) => m.dashboard.schedule.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
-                  content: ({ dateKey, time, fits, close, compact }) => (
+                  content: ({ dateKey, time, endTime, fits, close, compact }) => (
                     <NewSlotForm
                       key={dateKey}
                       dateKey={dateKey}
@@ -375,6 +375,7 @@ export function AvailabilityView({
                       onOpenSlot={openSlotAt}
                       onDone={close}
                       compact={compact}
+                      endTime={endTime}
                     />
                   ),
                 }}

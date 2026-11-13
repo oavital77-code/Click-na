@@ -6,11 +6,17 @@ import { X } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
-import { STEP, dragTo, firstFreeStart, place, proposeStart, toMinutes, toTime, visibleRange, type DayItem } from "@/lib/time-grid";
+import { STEP, dragTo, firstFreeStart, place, proposeStart, resizeTo, toMinutes, toTime, visibleRange, type DayItem } from "@/lib/time-grid";
 
 type GridItem = { id: string; startsAt: string; endsAt: string };
 
-export type ItemInfo = { start: string; end: string; compact: boolean };
+export type ItemInfo = {
+  start: string;
+  end: string;
+  compact: boolean;
+  /** It has started already: an open slot then can no longer be booked. */
+  past: boolean;
+};
 
 export type EmptySlotOptions = {
   durationMinutes: number;
@@ -24,7 +30,7 @@ export type EmptySlotOptions = {
   /** Close, on the phone's bottom panel. */
   closeLabel: string;
   /** The popover for a new slot at `time`; `fits` is false when a whole session does not fit there. */
-  content: (args: { dateKey: string; time: string; fits: boolean; close: () => void; compact: boolean }) => ReactNode;
+  content: (args: { dateKey: string; time: string; endTime: string; fits: boolean; close: () => void; compact: boolean }) => ReactNode;
 };
 
 /**
@@ -63,14 +69,16 @@ export function TimeGrid<T extends GridItem>({
   scrollToToday?: boolean;
 }) {
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const [pending, setPending] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
+  // The new slot: from and to, which the therapist can move and stretch before opening or blocking it.
+  const [pending, setPending] = useState<{ dateKey: string; start: number; end: number; fits: boolean } | null>(null);
   // With a mouse: where a click would open a slot, shown before the click.
   const [hover, setHover] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
   const [nowMinutes, setNowMinutes] = useState<number | null>(null);
   // Dragging the new slot: where it is now, on the half hour, while the finger or mouse is down.
-  const [live, setLive] = useState<{ start: number; fits: boolean } | null>(null);
+  const [live, setLive] = useState<{ start: number; end: number; fits: boolean } | null>(null);
   const ghostRef = useRef<HTMLButtonElement>(null);
-  const drag = useRef<{ id: number; y: number; from: number; moved: boolean } | null>(null);
+  // "move" drags the whole slot; "start" and "end" stretch it by its top or bottom bar.
+  const drag = useRef<{ id: number; y: number; mode: "move" | "start" | "end"; from: { start: number; end: number }; moved: boolean } | null>(null);
   // A phone has no hover: its slot menu is a panel at the bottom, not a bubble that would cover the slot.
   const [touchUi, setTouchUi] = useState(false);
   useEffect(() => {
@@ -137,7 +145,8 @@ export function TimeGrid<T extends GridItem>({
   function proposalAt(dateKey: string, e: MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.getBoundingClientRect();
     const tapped = startHour * 60 + ((e.clientY - rect.top) / hourHeight) * 60;
-    return { dateKey, ...proposeStart(dayItems(dateKey), tapped, empty!.durationMinutes, empty!.bufferMinutes) };
+    const proposal = proposeStart(dayItems(dateKey), tapped, empty!.durationMinutes, empty!.bufferMinutes);
+    return { dateKey, start: proposal.start, end: proposal.start + empty!.durationMinutes, fits: proposal.fits };
   }
 
   function onEmptyHover(dateKey: string, e: MouseEvent<HTMLButtonElement>) {
@@ -154,42 +163,70 @@ export function TimeGrid<T extends GridItem>({
     if (e.detail === 0) {
       const from = dateKey === today && nowMinutes !== null ? Math.max(nowMinutes, startHour * 60) : Math.max(9 * 60, startHour * 60);
       const start = firstFreeStart(list, from, empty.durationMinutes, empty.bufferMinutes);
-      setPending({ dateKey, start: start ?? from, fits: start !== null });
+      setPending({ dateKey, start: start ?? from, end: (start ?? from) + empty.durationMinutes, fits: start !== null });
       return;
     }
     setHover(null);
     setPending(proposalAt(dateKey, e));
   }
 
-  // The new slot follows the finger smoothly (a transform, no re-render per pixel) and lands on the half hour.
+  // The new slot follows the finger smoothly (styles set directly, no re-render per pixel) and lands on the half hour.
   function onGhostDown(e: ReactPointerEvent<HTMLButtonElement>) {
     if (!pending || (e.pointerType === "mouse" && e.button !== 0)) return;
+    const edge = (e.target as HTMLElement).closest<HTMLElement>("[data-edge]")?.dataset.edge;
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { id: e.pointerId, y: e.clientY, from: pending.start, moved: false };
+    drag.current = {
+      id: e.pointerId,
+      y: e.clientY,
+      mode: edge === "start" || edge === "end" ? edge : "move",
+      from: { start: pending.start, end: pending.end },
+      moved: false,
+    };
   }
   function onGhostMove(e: ReactPointerEvent<HTMLButtonElement>) {
     const d = drag.current;
-    if (!d || d.id !== e.pointerId || !pending || !empty) return;
+    if (!d || d.id !== e.pointerId || !pending) return;
     const dy = e.clientY - d.y;
     if (!d.moved && Math.abs(dy) < 4) return;
     d.moved = true;
-    e.currentTarget.style.transform = `translateY(${dy}px)`;
-    const next = dragTo(dayItems(pending.dateKey), d.from, (dy / hourHeight) * 60, empty.durationMinutes, startHour * 60, endHour * 60);
-    setLive((prev) => (prev && prev.start === next.start && prev.fits === next.fits ? prev : next));
+    const el = e.currentTarget;
+    const minutes = (dy / hourHeight) * 60;
+    const items = dayItems(pending.dateKey);
+    const box = place(d.from.start, d.from.end, startHour, hourHeight);
+    const minH = (STEP / 60) * hourHeight - 2;
+    let next: { start: number; end: number; fits: boolean };
+    if (d.mode === "move") {
+      el.style.transform = `translateY(${dy}px)`;
+      const moved = dragTo(items, d.from.start, minutes, d.from.end - d.from.start, startHour * 60, endHour * 60);
+      next = { start: moved.start, end: moved.start + (d.from.end - d.from.start), fits: moved.fits };
+    } else if (d.mode === "end") {
+      el.style.height = `${Math.max(minH, box.height - 2 + dy)}px`;
+      next = resizeTo(items, d.from, "end", minutes, startHour * 60, endHour * 60);
+    } else {
+      const grow = Math.min(dy, box.height - 2 - minH);
+      el.style.top = `${box.top + 1 + grow}px`;
+      el.style.height = `${box.height - 2 - grow}px`;
+      next = resizeTo(items, d.from, "start", minutes, startHour * 60, endHour * 60);
+    }
+    setLive((prev) => (prev && prev.start === next.start && prev.end === next.end && prev.fits === next.fits ? prev : next));
   }
   function onGhostUp(e: ReactPointerEvent<HTMLButtonElement>) {
     const d = drag.current;
     if (!d || d.id !== e.pointerId) return;
     drag.current = null;
+    // Back to the layout React draws; it now draws the snapped slot.
     e.currentTarget.style.transform = "";
+    e.currentTarget.style.top = "";
+    e.currentTarget.style.height = "";
     if (d.moved && live && pending) setPending({ dateKey: pending.dateKey, ...live });
     setLive(null);
   }
   function onGhostKey(e: KeyboardEvent<HTMLButtonElement>) {
-    if (!pending || !empty || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    if (!pending || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
     e.preventDefault();
-    const next = dragTo(dayItems(pending.dateKey), pending.start, e.key === "ArrowUp" ? -STEP : STEP, empty.durationMinutes, startHour * 60, endHour * 60);
-    setPending({ dateKey: pending.dateKey, ...next });
+    const length = pending.end - pending.start;
+    const next = dragTo(dayItems(pending.dateKey), pending.start, e.key === "ArrowUp" ? -STEP : STEP, length, startHour * 60, endHour * 60);
+    setPending({ dateKey: pending.dateKey, start: next.start, end: next.start + length, fits: next.fits });
   }
 
   return (
@@ -259,7 +296,12 @@ export function TimeGrid<T extends GridItem>({
                     const box = place(start, end, startHour, hourHeight);
                     return (
                       <div key={item.id} className="absolute inset-x-1" style={{ top: box.top + 1, height: box.height - 2 }}>
-                        {renderItem(item, { start: toTime(start), end: toTime(Math.min(end, 24 * 60 - 1)), compact: box.height < 36 })}
+                        {renderItem(item, {
+                          start: toTime(start),
+                          end: toTime(Math.min(end, 24 * 60 - 1)),
+                          compact: box.height < 36,
+                          past: dateKey < today || (dateKey === today && nowMinutes !== null && start <= nowMinutes),
+                        })}
                       </div>
                     );
                   })}
@@ -296,14 +338,35 @@ export function TimeGrid<T extends GridItem>({
 
                   {ghost && empty && (() => {
                     const shown = live ?? ghost;
-                    const box = place(ghost.start, ghost.start + empty.durationMinutes, startHour, hourHeight);
+                    const box = place(ghost.start, ghost.end, startHour, hourHeight);
                     const dragging = live !== null;
-                    const content = empty.content({ dateKey, time: toTime(shown.start), fits: shown.fits, close: () => setPending(null), compact: touchUi });
+                    const range = `${toTime(shown.start)}–${toTime(shown.end)}`;
+                    const content = empty.content({
+                      dateKey,
+                      time: toTime(shown.start),
+                      endTime: toTime(shown.end),
+                      fits: shown.fits,
+                      close: () => setPending(null),
+                      compact: touchUi,
+                    });
+                    // The bars that stretch the slot: drawn small, caught large, so a finger finds them.
+                    const edge = (which: "start" | "end") => (
+                      <span
+                        data-edge={which}
+                        aria-hidden
+                        className={cn(
+                          "absolute inset-x-0 flex h-6 cursor-ns-resize items-center justify-center",
+                          which === "start" ? "-top-3" : "-bottom-3"
+                        )}
+                      >
+                        <span className="bg-primary h-1.5 w-10 rounded-full" />
+                      </span>
+                    );
                     const frame = (
                       <button
                         ref={ghostRef}
                         type="button"
-                        aria-label={`${toTime(shown.start)}–${toTime(shown.start + empty.durationMinutes)}. ${empty.dragHint}`}
+                        aria-label={`${range}. ${empty.dragHint}`}
                         onPointerDown={onGhostDown}
                         onPointerMove={onGhostMove}
                         onPointerUp={onGhostUp}
@@ -317,19 +380,20 @@ export function TimeGrid<T extends GridItem>({
                         )}
                         style={{ top: box.top + 1, height: box.height - 2 }}
                       >
-                        <span aria-hidden className="bg-primary absolute -top-1 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full" />
-                        <span dir="ltr">
-                          {shown.fits ? `${toTime(shown.start)}–${toTime(shown.start + empty.durationMinutes)}` : toTime(shown.start)}
+                        {edge("start")}
+                        <span dir="ltr" className="pointer-events-none">
+                          {shown.fits ? range : toTime(shown.start)}
                         </span>
-                        {!shown.fits && <span className="ms-1">· {empty.noRoomShort}</span>}
-                        <span aria-hidden className="bg-primary absolute -bottom-1 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full" />
+                        {!shown.fits && <span className="pointer-events-none ms-1">· {empty.noRoomShort}</span>}
+                        {edge("end")}
                       </button>
                     );
+                    // A short label that never wraps: above the slot, or below it when the slot is at the top of the day.
                     const hint = !dragging && (
                       <div
                         aria-hidden
-                        className="bg-foreground text-background pointer-events-none absolute inset-x-1 z-20 rounded-lg px-2 py-1 text-center text-[11px] leading-tight"
-                        style={{ top: Math.max(0, box.top - 28) }}
+                        className="bg-foreground text-background pointer-events-none absolute left-1/2 z-30 -translate-x-1/2 rounded-full px-3 py-0.5 text-[11px] leading-5 font-medium whitespace-nowrap"
+                        style={box.top >= 30 ? { top: box.top - 28 } : { top: box.top + box.height + 8 }}
                       >
                         {empty.dragHint}
                       </div>
@@ -353,7 +417,7 @@ export function TimeGrid<T extends GridItem>({
                                 <div className="mx-auto flex max-w-md flex-col gap-2 text-start">
                                   <div className="flex items-center justify-between gap-3">
                                     <p className={cn("num text-xl font-extrabold", !shown.fits && "text-muted-foreground")} dir="ltr">
-                                      {toTime(shown.start)}–{toTime(shown.start + empty.durationMinutes)}
+                                      {range}
                                     </p>
                                     <button
                                       type="button"

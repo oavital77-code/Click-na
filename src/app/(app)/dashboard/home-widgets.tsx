@@ -284,7 +284,7 @@ const DOT: Record<TodayItem["kind"], string> = {
  * Today, in order, with a "now" line where the present falls between
  * sessions. A finished, unpaid booking can be marked paid right here.
  */
-export function TodayList({ items, nowIndex }: { items: TodayItem[]; nowIndex: number | null }) {
+export function TodayList({ items, nowIndex, pastOpen = 0 }: { items: TodayItem[]; nowIndex: number | null; pastOpen?: number }) {
   const { m } = useI18n();
   const t = m.dashboard.home;
   const [paid, setPaid] = useState<Record<string, boolean>>({});
@@ -316,12 +316,15 @@ export function TodayList({ items, nowIndex }: { items: TodayItem[]; nowIndex: n
     </li>
   );
 
+  const pastLine = pastOpen > 0 && <p className="text-muted-foreground text-sm">{t.pastOpenToday(pastOpen)}</p>;
+
   if (items.length === 0) {
-    return <p className="text-muted-foreground py-6 text-center text-sm">{t.emptyToday}</p>;
+    return pastLine ? <div className="py-4">{pastLine}</div> : <p className="text-muted-foreground py-6 text-center text-sm">{t.emptyToday}</p>;
   }
 
   return (
     <>
+      {pastLine}
       <ol className="flex flex-col gap-2">
         {items.map((item, i) => {
           const isPaid = item.paid || (item.bookingId ? paid[item.bookingId] : false);
