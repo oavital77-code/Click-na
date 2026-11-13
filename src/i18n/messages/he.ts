@@ -1204,6 +1204,7 @@ export const he: Messages = {
       subscription: "מנוי",
       trial_reminder: "חודש ניסיון",
       payment_setup: "סליקה",
+      room_canceled: "חדר בוטל ב-Cleana",
     },
     channel: { email: "מייל", whatsapp: "וואטסאפ", sms: "SMS" },
     scheduledFor: (when) => `תישלח ${when}`,
