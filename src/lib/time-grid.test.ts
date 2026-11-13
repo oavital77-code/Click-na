@@ -11,8 +11,9 @@ const day = [
 
 describe("a calendar drawn to scale", () => {
   it("shows a working day, widened to every session in view", () => {
-    expect(visibleRange([])).toEqual({ startHour: 8, endHour: 18 });
-    expect(visibleRange([{ start: h(7, 30), end: h(8, 15) }, { start: h(19), end: h(20, 10) }])).toEqual({ startHour: 7, endHour: 21 });
+    // Evenings included: a therapist opening 19:00 has to see 19:00.
+    expect(visibleRange([])).toEqual({ startHour: 7, endHour: 22 });
+    expect(visibleRange([{ start: h(6, 30), end: h(7, 15) }, { start: h(22), end: h(23, 10) }])).toEqual({ startHour: 6, endHour: 24 });
   });
 
   it("draws a session as long as it lasts", () => {

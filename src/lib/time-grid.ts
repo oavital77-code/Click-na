@@ -9,7 +9,8 @@
 export type DayItem = { id: string; start: number; end: number };
 
 /** The hours a week shows: a working day at least, widened to hold every session in view. */
-export function visibleRange(items: { start: number; end: number }[], minStartHour = 8, minEndHour = 18) {
+// 07:00–22:00 at least: evening sessions are common, and empty time has to be on screen to be opened.
+export function visibleRange(items: { start: number; end: number }[], minStartHour = 7, minEndHour = 22) {
   let startHour = minStartHour;
   let endHour = minEndHour;
   for (const item of items) {
