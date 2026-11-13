@@ -355,10 +355,12 @@ export function DashboardSchedule({
     durationMinutes: defaultDurationMinutes,
     bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
     noRoomShort: m.dashboard.schedule.noRoomShort,
+    dragHint: m.dashboard.schedule.dragHint,
+    closeLabel: m.common.cancel,
     label: (dateKey: string) => s.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
-    content: ({ dateKey, time, fits, close }: { dateKey: string; time: string; fits: boolean; close: () => void }) => (
+    content: ({ dateKey, time, fits, close, compact }: { dateKey: string; time: string; fits: boolean; close: () => void; compact: boolean }) => (
       <NewSlotForm
-        key={`${dateKey}T${time}`}
+        key={dateKey}
         dateKey={dateKey}
         time={time}
         fits={fits}
@@ -366,6 +368,7 @@ export function DashboardSchedule({
         defaultLocationId={placeFilter}
         onOpenSlot={handleOpenSlot}
         onDone={close}
+        compact={compact}
       />
     ),
   };
@@ -600,6 +603,7 @@ export function NewSlotForm({
   defaultLocationId,
   onOpenSlot,
   onDone,
+  compact = false,
 }: {
   dateKey: string;
   time: string;
@@ -608,6 +612,8 @@ export function NewSlotForm({
   defaultLocationId: string | null;
   onOpenSlot: (dateKey: string, time: string, locationId: string | null, block?: { note: string }) => Promise<ActionResult>;
   onDone: () => void;
+  /** The phone's bottom panel: the time is its heading already, and the two acts sit side by side. */
+  compact?: boolean;
 }) {
   const { m } = useI18n();
   const s = m.dashboard.schedule;
@@ -615,6 +621,41 @@ export function NewSlotForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [placeId, setPlaceId] = useState(defaultLocationId ?? locations[0]?.id ?? "");
+  const act = async (block?: { note: string }) => {
+    setBusy(true);
+    setError(null);
+    const result = await onOpenSlot(dateKey, time, locations.length > 1 ? placeId : null, block);
+    setBusy(false);
+    if (result.ok) onDone();
+    else setError(result.error);
+  };
+  if (compact) {
+    if (!fits) return <p className="text-muted-foreground text-sm">{s.noRoom}</p>;
+    return (
+      <div className="flex flex-col gap-2">
+        {locations.length > 1 && (
+          <LocationSelect id={`place-${dateKey}`} locations={locations} value={placeId} onChange={setPlaceId} label={m.locations.where} />
+        )}
+        {error && <p className="text-destructive text-sm">{error}</p>}
+        <div className="grid grid-cols-2 gap-2">
+          <Button type="button" className="min-h-12" disabled={busy} onClick={() => act()}>
+            {busy ? s.opening : s.openSlot}
+          </Button>
+          <Button type="button" variant="outline" className="min-h-12" disabled={busy} onClick={() => act({ note })}>
+            {busy ? s.blocking : s.block}
+          </Button>
+        </div>
+        <Input
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder={s.blockNotePlaceholder}
+          aria-label={s.blockNotePlaceholder}
+          maxLength={80}
+          className="h-11 text-sm"
+        />
+      </div>
+    );
+  }
   return (
     <>
       <p className="num text-sm font-medium" dir="ltr">

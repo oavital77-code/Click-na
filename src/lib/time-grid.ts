@@ -36,7 +36,7 @@ export function toTime(minutes: number): string {
 }
 
 /** Slots start on the half hour. */
-const STEP = 30;
+export const STEP = 30;
 
 export type Proposal = { start: number; fits: boolean };
 
@@ -76,4 +76,23 @@ export function firstFreeStart(
     if (proposal.fits) return proposal.start;
   }
   return null;
+}
+
+/**
+ * Where a dragged new slot lands: the start it was dragged from plus how far
+ * it moved, on the nearest half hour, kept inside the visible day. It "fits"
+ * when nothing already on the day overlaps a whole session there.
+ */
+export function dragTo(
+  dayItems: DayItem[],
+  from: number,
+  movedMinutes: number,
+  durationMinutes: number,
+  dayStart: number,
+  dayEnd: number
+): Proposal {
+  const raw = Math.round((from + movedMinutes) / STEP) * STEP;
+  const start = Math.min(Math.max(raw, Math.ceil(dayStart / STEP) * STEP), Math.floor((dayEnd - durationMinutes) / STEP) * STEP);
+  const end = start + durationMinutes;
+  return { start, fits: !dayItems.some((item) => item.start < end && item.end > start) };
 }

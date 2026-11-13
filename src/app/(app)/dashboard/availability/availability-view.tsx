@@ -361,10 +361,12 @@ export function AvailabilityView({
                   durationMinutes: defaultDurationMinutes,
                   bufferMinutes: Math.max(0, (gridStepMinutes ?? defaultDurationMinutes) - defaultDurationMinutes),
                   noRoomShort: m.dashboard.schedule.noRoomShort,
+                  dragHint: m.dashboard.schedule.dragHint,
+                  closeLabel: m.common.cancel,
                   label: (dateKey) => m.dashboard.schedule.openSlotOnDay(`${dateKey.slice(8, 10)}.${dateKey.slice(5, 7)}`),
-                  content: ({ dateKey, time, fits, close }) => (
+                  content: ({ dateKey, time, fits, close, compact }) => (
                     <NewSlotForm
-                      key={`${dateKey}T${time}`}
+                      key={dateKey}
                       dateKey={dateKey}
                       time={time}
                       fits={fits}
@@ -372,6 +374,7 @@ export function AvailabilityView({
                       defaultLocationId={placeFilter}
                       onOpenSlot={openSlotAt}
                       onDone={close}
+                      compact={compact}
                     />
                   ),
                 }}

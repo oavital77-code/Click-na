@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstFreeStart, place, proposeStart, visibleRange } from "@/lib/time-grid";
+import { dragTo, firstFreeStart, place, proposeStart, visibleRange } from "@/lib/time-grid";
 
 const h = (hh: number, mm = 0) => hh * 60 + mm;
 // 45-minute sessions with a 10-minute break, as in the therapist's week.
@@ -44,5 +44,24 @@ describe("where a tap on empty time opens a slot", () => {
   it("finds the first free start for the keyboard", () => {
     expect(firstFreeStart(day, h(9), 45, 10)).toBe(h(10, 50));
     expect(firstFreeStart([{ id: "x", start: 0, end: 24 * 60 }], 0, 45, 0)).toBeNull();
+  });
+});
+
+describe("dragging a new slot", () => {
+  it("lands on the nearest half hour from where it was dragged", () => {
+    // From 13:30, 40 minutes down: 14:10 rounds to 14:00; 50 minutes down rounds to 14:30.
+    expect(dragTo(day, h(13, 30), 40, 50, h(8), h(18)).start).toBe(h(14));
+    expect(dragTo(day, h(13, 30), 50, 50, h(8), h(18)).start).toBe(h(14, 30));
+    expect(dragTo(day, h(13, 30), -20, 50, h(8), h(18)).start).toBe(h(13));
+  });
+
+  it("stays inside the visible day", () => {
+    expect(dragTo(day, h(9), -600, 50, h(8), h(18)).start).toBe(h(8));
+    expect(dragTo(day, h(9), 900, 50, h(8), h(18)).start).toBe(h(17));
+  });
+
+  it("says when it is dragged onto something already there", () => {
+    expect(dragTo(day, h(13), -60, 50, h(8), h(18))).toEqual({ start: h(12), fits: false });
+    expect(dragTo(day, h(13), 60, 50, h(8), h(18))).toEqual({ start: h(14), fits: true });
   });
 });

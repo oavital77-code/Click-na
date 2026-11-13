@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import * as Popover from "@radix-ui/react-popover";
 import { formatInTimeZone } from "date-fns-tz";
 import { cn } from "@/lib/utils";
-import { firstFreeStart, place, proposeStart, toMinutes, toTime, visibleRange, type DayItem } from "@/lib/time-grid";
+import { STEP, dragTo, firstFreeStart, place, proposeStart, toMinutes, toTime, visibleRange, type DayItem } from "@/lib/time-grid";
 
 type GridItem = { id: string; startsAt: string; endsAt: string };
 
@@ -17,8 +19,12 @@ export type EmptySlotOptions = {
   label: (dateKey: string) => string;
   /** Said on the mouse preview where a whole session does not fit. */
   noRoomShort: string;
+  /** The little note above a new slot: it can be dragged. */
+  dragHint: string;
+  /** Close, on the phone's bottom panel. */
+  closeLabel: string;
   /** The popover for a new slot at `time`; `fits` is false when a whole session does not fit there. */
-  content: (args: { dateKey: string; time: string; fits: boolean; close: () => void }) => ReactNode;
+  content: (args: { dateKey: string; time: string; fits: boolean; close: () => void; compact: boolean }) => ReactNode;
 };
 
 /**
@@ -61,6 +67,28 @@ export function TimeGrid<T extends GridItem>({
   // With a mouse: where a click would open a slot, shown before the click.
   const [hover, setHover] = useState<{ dateKey: string; start: number; fits: boolean } | null>(null);
   const [nowMinutes, setNowMinutes] = useState<number | null>(null);
+  // Dragging the new slot: where it is now, on the half hour, while the finger or mouse is down.
+  const [live, setLive] = useState<{ start: number; fits: boolean } | null>(null);
+  const ghostRef = useRef<HTMLButtonElement>(null);
+  const drag = useRef<{ id: number; y: number; from: number; moved: boolean } | null>(null);
+  // A phone has no hover: its slot menu is a panel at the bottom, not a bubble that would cover the slot.
+  const [touchUi, setTouchUi] = useState(false);
+  useEffect(() => {
+    const query = window.matchMedia("(hover: none)");
+    const update = () => setTouchUi(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  // On a phone the panel covers the bottom of the screen: keep the new slot in view above it.
+  useEffect(() => {
+    const el = ghostRef.current;
+    if (!touchUi || !pending || !el) return;
+    // The panel takes the lower half of the screen: bring the slot to the upper third if it is not already there.
+    const top = el.getBoundingClientRect().top;
+    const want = window.innerHeight * 0.28;
+    if (top < 80 || top > window.innerHeight * 0.45) window.scrollBy({ top: top - want, behavior: "smooth" });
+  }, [touchUi, pending?.dateKey, pending?.start]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Where "now" is, minute by minute, on today's column.
   useEffect(() => {
@@ -131,6 +159,37 @@ export function TimeGrid<T extends GridItem>({
     }
     setHover(null);
     setPending(proposalAt(dateKey, e));
+  }
+
+  // The new slot follows the finger smoothly (a transform, no re-render per pixel) and lands on the half hour.
+  function onGhostDown(e: ReactPointerEvent<HTMLButtonElement>) {
+    if (!pending || (e.pointerType === "mouse" && e.button !== 0)) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    drag.current = { id: e.pointerId, y: e.clientY, from: pending.start, moved: false };
+  }
+  function onGhostMove(e: ReactPointerEvent<HTMLButtonElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId || !pending || !empty) return;
+    const dy = e.clientY - d.y;
+    if (!d.moved && Math.abs(dy) < 4) return;
+    d.moved = true;
+    e.currentTarget.style.transform = `translateY(${dy}px)`;
+    const next = dragTo(dayItems(pending.dateKey), d.from, (dy / hourHeight) * 60, empty.durationMinutes, startHour * 60, endHour * 60);
+    setLive((prev) => (prev && prev.start === next.start && prev.fits === next.fits ? prev : next));
+  }
+  function onGhostUp(e: ReactPointerEvent<HTMLButtonElement>) {
+    const d = drag.current;
+    if (!d || d.id !== e.pointerId) return;
+    drag.current = null;
+    e.currentTarget.style.transform = "";
+    if (d.moved && live && pending) setPending({ dateKey: pending.dateKey, ...live });
+    setLive(null);
+  }
+  function onGhostKey(e: KeyboardEvent<HTMLButtonElement>) {
+    if (!pending || !empty || (e.key !== "ArrowUp" && e.key !== "ArrowDown")) return;
+    e.preventDefault();
+    const next = dragTo(dayItems(pending.dateKey), pending.start, e.key === "ArrowUp" ? -STEP : STEP, empty.durationMinutes, startHour * 60, endHour * 60);
+    setPending({ dateKey: pending.dateKey, ...next });
   }
 
   return (
@@ -235,27 +294,104 @@ export function TimeGrid<T extends GridItem>({
                     </div>
                   )}
 
-                  {ghost && empty && (
-                    <Popover.Root open onOpenChange={(open) => !open && setPending(null)}>
-                      <Popover.Trigger asChild>
-                        <button
-                          type="button"
-                          className="border-primary text-primary bg-card/80 absolute inset-x-1 z-20 flex items-center justify-center rounded-[10px] border-2 border-dashed text-xs font-bold"
-                          style={(() => {
-                            const box = place(ghost.start, ghost.start + empty.durationMinutes, startHour, hourHeight);
-                            return { top: box.top + 1, height: box.height - 2 };
-                          })()}
-                        >
-                          <span dir="ltr">+ {toTime(ghost.start)}</span>
-                        </button>
-                      </Popover.Trigger>
-                      <Popover.Portal>
-                        <Popover.Content sideOffset={6} collisionPadding={12} className="bg-card border-border z-50 w-56 rounded-md border p-3 text-start shadow-lg">
-                          {empty.content({ dateKey, time: toTime(ghost.start), fits: ghost.fits, close: () => setPending(null) })}
-                        </Popover.Content>
-                      </Popover.Portal>
-                    </Popover.Root>
-                  )}
+                  {ghost && empty && (() => {
+                    const shown = live ?? ghost;
+                    const box = place(ghost.start, ghost.start + empty.durationMinutes, startHour, hourHeight);
+                    const dragging = live !== null;
+                    const content = empty.content({ dateKey, time: toTime(shown.start), fits: shown.fits, close: () => setPending(null), compact: touchUi });
+                    const frame = (
+                      <button
+                        ref={ghostRef}
+                        type="button"
+                        aria-label={`${toTime(shown.start)}–${toTime(shown.start + empty.durationMinutes)}. ${empty.dragHint}`}
+                        onPointerDown={onGhostDown}
+                        onPointerMove={onGhostMove}
+                        onPointerUp={onGhostUp}
+                        onPointerCancel={onGhostUp}
+                        onKeyDown={onGhostKey}
+                        // touch-action none: a finger on the frame drags it at once instead of waiting to see if it scrolls.
+                        className={cn(
+                          "absolute inset-x-1 z-20 flex touch-none items-center justify-center rounded-[10px] border-2 border-dashed text-xs font-bold select-none",
+                          dragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
+                          shown.fits ? "border-primary text-primary bg-card/90" : "border-muted-foreground/50 text-muted-foreground bg-muted"
+                        )}
+                        style={{ top: box.top + 1, height: box.height - 2 }}
+                      >
+                        <span aria-hidden className="bg-primary absolute -top-1 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full" />
+                        <span dir="ltr">
+                          {shown.fits ? `${toTime(shown.start)}–${toTime(shown.start + empty.durationMinutes)}` : toTime(shown.start)}
+                        </span>
+                        {!shown.fits && <span className="ms-1">· {empty.noRoomShort}</span>}
+                        <span aria-hidden className="bg-primary absolute -bottom-1 left-1/2 h-1.5 w-10 -translate-x-1/2 rounded-full" />
+                      </button>
+                    );
+                    const hint = !dragging && (
+                      <div
+                        aria-hidden
+                        className="bg-foreground text-background pointer-events-none absolute inset-x-1 z-20 rounded-lg px-2 py-1 text-center text-[11px] leading-tight"
+                        style={{ top: Math.max(0, box.top - 28) }}
+                      >
+                        {empty.dragHint}
+                      </div>
+                    );
+                    if (touchUi) {
+                      return (
+                        <>
+                          {hint}
+                          {frame}
+                          {typeof document !== "undefined" &&
+                            createPortal(
+                              <div
+                                role="dialog"
+                                aria-label={empty.label(dateKey)}
+                                // Slides away while the slot is dragged, so the whole day is free to drag over.
+                                className={cn(
+                                  "bg-card border-border fixed inset-x-0 bottom-0 z-50 rounded-t-3xl border-t px-4 pt-3 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-[0_-12px_30px_-14px_rgba(0,0,0,0.35)] transition-transform duration-200 motion-reduce:transition-none",
+                                  dragging && "translate-y-full"
+                                )}
+                              >
+                                <div className="mx-auto flex max-w-md flex-col gap-2 text-start">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <p className={cn("num text-xl font-extrabold", !shown.fits && "text-muted-foreground")} dir="ltr">
+                                      {toTime(shown.start)}–{toTime(shown.start + empty.durationMinutes)}
+                                    </p>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPending(null)}
+                                      aria-label={empty.closeLabel}
+                                      className="hover:bg-secondary -m-2 flex size-11 items-center justify-center rounded-full"
+                                    >
+                                      <X className="size-5" />
+                                    </button>
+                                  </div>
+                                  {content}
+                                </div>
+                              </div>,
+                              document.body
+                            )}
+                        </>
+                      );
+                    }
+                    return (
+                      <Popover.Root open={!dragging} onOpenChange={(open) => !open && setPending(null)}>
+                        {hint}
+                        <Popover.Anchor asChild>{frame}</Popover.Anchor>
+                        <Popover.Portal>
+                          <Popover.Content
+                            sideOffset={6}
+                            collisionPadding={12}
+                            // A press on the slot itself starts a drag; it is not a click outside.
+                            onInteractOutside={(e) => {
+                              if (ghostRef.current?.contains(e.target as Node)) e.preventDefault();
+                            }}
+                            className="bg-card border-border z-50 w-56 rounded-md border p-3 text-start shadow-lg"
+                          >
+                            {content}
+                          </Popover.Content>
+                        </Popover.Portal>
+                      </Popover.Root>
+                    );
+                  })()}
                 </div>
               );
             })}
