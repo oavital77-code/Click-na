@@ -432,6 +432,11 @@ export const he: Messages = {
     },
     filters: { today: "היום", tomorrow: "מחר", week: "השבוע", all: "הקרובים", recent: "אחרונים" },
     empty: "אין הזמנות בטווח הזה",
+    cleanaRooms: "חדרים מ-Cleana",
+    cleanaRoomsHint: "חדרים שקבעת ב-Cleana ונפתחו כאן כשעות פנויות. כשייקבע בהם תור, הוא יופיע למעלה.",
+    cleanaRoomOpen: "פנוי, עוד לא נקבע לקוח/ה",
+    cleanaRoomHeld: "לקוח/ה באמצע קביעה",
+    cleanaRoomLine: (room: string) => `חדר ${room} · Cleana`,
     whatsappReminder: "תזכורת בוואטסאפ",
     reminderSent: "תזכורת נשלחה ✓",
     reminderHint:

@@ -444,6 +444,11 @@ export const en = {
     },
     filters: { today: "Today", tomorrow: "Tomorrow", week: "This week", all: "Upcoming", recent: "Recent" },
     empty: "No bookings in this range",
+    cleanaRooms: "Rooms from Cleana",
+    cleanaRoomsHint: "Rooms you booked at Cleana, opened here as free time. Once a client books one, it shows above.",
+    cleanaRoomOpen: "Open, no client yet",
+    cleanaRoomHeld: "A client is booking it",
+    cleanaRoomLine: (room: string) => `Room ${room} · Cleana`,
     whatsappReminder: "WhatsApp reminder",
     reminderSent: "Reminder sent ✓",
     reminderHint:

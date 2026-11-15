@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { formatInTimeZone } from "date-fns-tz";
 import { useI18n } from "@/i18n/client";
 import { fmt } from "@/i18n/dates";
@@ -14,6 +14,7 @@ import { formatPriceIls } from "@/lib/plan";
 import { Check, Copy, MessageCircle } from "lucide-react";
 import type { Treatment } from "@/lib/treatments";
 import { LocationDot, LocationFilter, type PlaceOption } from "@/components/location-filter";
+import { CleanaMark } from "@/components/brand-mark";
 
 const CANCELABLE = new Set(["pending", "confirmed"]);
 
@@ -32,6 +33,8 @@ type Booking = {
   locationColor: string;
   /** Its room at Cleana was cancelled; the appointment itself stands. */
   noRoom?: boolean;
+  /** The room at Cleana it sits in, when it was opened from one. */
+  cleanaRoom?: string | null;
   manageToken: string;
   /** When a WhatsApp reminder went out — automatically or by the therapist's tap. */
   reminderSentAt: string | null;
@@ -46,6 +49,19 @@ type Booking = {
   paymentRequestedAt: string | null;
 };
 
+/** A room booked at Cleana, opened here as free time, with no client in it yet. */
+type CleanaRoom = {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  room: string;
+  /** A client is in the middle of booking it. */
+  held: boolean;
+  locationId: string;
+  locationName: string;
+  locationColor: string;
+};
+
 type Props = {
   timezone: string;
   slug: string;
@@ -53,11 +69,12 @@ type Props = {
   treatments: Treatment[];
   locations: PlaceOption[];
   initialBookings: Booking[];
+  cleanaRooms?: CleanaRoom[];
 };
 
 type Filter = "today" | "tomorrow" | "week" | "all" | "recent";
 
-export function BookingsView({ timezone, slug, therapistFullName, treatments, locations, initialBookings }: Props) {
+export function BookingsView({ timezone, slug, therapistFullName, treatments, locations, initialBookings, cleanaRooms = [] }: Props) {
   const { m, locale } = useI18n();
   const [bookings, setBookings] = useState(initialBookings);
   const [filter, setFilter] = useState<Filter>("today");
@@ -72,8 +89,8 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
     formatInTimeZone(new Date(Date.now() + 24 * 60 * 60 * 1000), timezone, "yyyy-MM-dd")
   );
 
-  const filtered = useMemo(() => {
-    return bookings.filter((b) => {
+  const inRange = useCallback(
+    (b: { startsAt: string; locationId: string }) => {
       if (placeFilter && b.locationId !== placeFilter) return false;
       const dateStr = formatInTimeZone(new Date(b.startsAt), timezone, "yyyy-MM-dd");
       // Sessions already behind us, newest first below — the ones to bill.
@@ -88,8 +105,13 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
         "yyyy-MM-dd"
       );
       return dateStr >= today && dateStr < weekEnd;
-    });
-  }, [bookings, filter, placeFilter, timezone, today, tomorrow]);
+    },
+    [filter, placeFilter, timezone, today, tomorrow]
+  );
+
+  const filtered = useMemo(() => bookings.filter(inRange), [bookings, inRange]);
+  // Rooms are ahead of us only: one that passed with nobody in it has nothing left to do.
+  const rooms = useMemo(() => (filter === "recent" ? [] : cleanaRooms.filter(inRange)), [cleanaRooms, filter, inRange]);
 
   /**
    * The therapist's own WhatsApp, not ours: the button opens wa.me with the
@@ -227,6 +249,12 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
                     />
                   )}
                   <p className="font-medium">{booking.clientName}</p>
+                  {booking.cleanaRoom && (
+                    <p className="text-muted-foreground flex items-center justify-center gap-1 text-xs md:justify-start">
+                      <CleanaMark />
+                      {m.bookings.cleanaRoomLine(booking.cleanaRoom)}
+                    </p>
+                  )}
                   {booking.clientPhone && (
                     <p className="text-muted-foreground text-sm">{booking.clientPhone}</p>
                   )}
@@ -305,6 +333,44 @@ export function BookingsView({ timezone, slug, therapistFullName, treatments, lo
             </li>
           ))}
         </ul>
+      )}
+
+      {rooms.length > 0 && (
+        <section className="flex flex-col gap-2">
+          <div>
+            <h2 className="flex items-center justify-center gap-1.5 text-sm font-bold md:justify-start">
+              <CleanaMark />
+              {m.bookings.cleanaRooms}
+            </h2>
+            <p className="text-muted-foreground text-xs">{m.bookings.cleanaRoomsHint}</p>
+          </div>
+          <ul className="flex flex-col gap-2">
+            {rooms.map((room) => (
+              <li key={room.id}>
+                <Card>
+                  <CardContent className="flex flex-col items-center gap-1.5 md:flex-row md:justify-between">
+                    <div className="flex flex-col items-center gap-0.5 md:items-start">
+                      <span className="text-sm whitespace-nowrap">
+                        {fmt(room.startsAt, timezone, locale, "weekdayDateShort")} ·{" "}
+                        <span dir="ltr" className="num">
+                          {fmt(room.startsAt, timezone, locale, "time")}–{fmt(room.endsAt, timezone, locale, "time")}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground flex items-center gap-1 text-xs">
+                        {manyPlaces && <LocationDot color={room.locationColor} />}
+                        {manyPlaces && <span>{room.locationName} ·</span>}
+                        <span className="whitespace-nowrap">{m.bookings.cleanaRoomLine(room.room)}</span>
+                      </span>
+                    </div>
+                    <span className={statusBadgeClass(room.held ? "held" : "open")}>
+                      {room.held ? m.bookings.cleanaRoomHeld : m.bookings.cleanaRoomOpen}
+                    </span>
+                  </CardContent>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
     </div>
   );

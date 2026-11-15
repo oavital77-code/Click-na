@@ -51,6 +51,19 @@ export default async function BookingsPage() {
       .filter((r) => r.channel === "whatsapp" && r.status === "sent")
       .map((r) => [r.bookingId, r.sentAt?.toISOString() ?? null])
   );
+  // Rooms booked at Cleana and opened here, that no client has taken yet:
+  // the therapist pays for them, so they belong on this page too.
+  const cleanaRooms = await prisma.session.findMany({
+    where: {
+      therapistId: therapist.id,
+      cleanaBookingId: { not: null },
+      cleanaRoomCanceledAt: null,
+      status: { in: ["open", "held"] },
+      startsAt: { gte: todayStart, lt: to },
+    },
+    include: { location: true },
+    orderBy: { startsAt: "asc" },
+  });
   const [treatments, locations] = await Promise.all([listTreatments(therapist.id), listLocations(therapist.id)]);
 
   const hasReminder = new Set(
@@ -70,6 +83,16 @@ export default async function BookingsPage() {
         therapistFullName={therapist.fullName}
         treatments={treatments}
         locations={locations.map((l) => ({ id: l.id, name: l.name, color: l.color }))}
+        cleanaRooms={cleanaRooms.map((r) => ({
+          id: r.id,
+          startsAt: r.startsAt.toISOString(),
+          endsAt: r.endsAt.toISOString(),
+          room: r.cleanaRoom ?? "",
+          held: r.status === "held",
+          locationId: r.location.id,
+          locationName: r.location.name,
+          locationColor: r.location.color,
+        }))}
         initialBookings={bookings.map((b) => ({
           id: b.id,
           startsAt: b.session.startsAt.toISOString(),
@@ -83,6 +106,7 @@ export default async function BookingsPage() {
           locationName: b.session.location.name,
           locationColor: b.session.location.color,
           noRoom: b.session.cleanaRoomCanceledAt !== null,
+          cleanaRoom: b.session.cleanaRoom,
           manageToken: b.manageToken,
           reminderSentAt: reminderSentAt.get(b.id) ?? null,
           hasScheduledReminder: hasReminder.has(b.id),
